@@ -1,0 +1,14 @@
+.track-orders-page {
+  padding: 2rem;
+}
+
+.track-orders-title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+
+.orders-table th, .orders-table td {
+  text-align: center;
+  vertical-align: middle;
+}
