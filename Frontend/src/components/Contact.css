@@ -1,0 +1,98 @@
+.contact {
+  background-color: #1e3a8a;
+  color: white;
+}
+
+.contact-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.contact-header h2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.contact-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4rem;
+}
+
+.map-container {
+  margin-bottom: 2rem;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.contact-details {
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 2rem;
+  border-radius: 10px;
+}
+
+.logo-section {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.contact-logo {
+  height: 60px;
+}
+
+.contact-item {
+  margin-bottom: 1.5rem;
+}
+
+.contact-item strong {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #fbbf24;
+}
+
+.contact-form {
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 2rem;
+  border-radius: 10px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.contact-form input,
+.contact-form textarea {
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-radius: 5px;
+  background-color: white;
+  color: #333;
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #fbbf24;
+}
+
+.contact-form button {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .contact-content {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
