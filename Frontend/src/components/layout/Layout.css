@@ -1,0 +1,17 @@
+.layout {
+  display: flex;
+  height: 100vh;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 20px;
+  background-color: #002bb9;
+  overflow-y: auto;
+}
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+    padding: 10px;
+  }
+}
