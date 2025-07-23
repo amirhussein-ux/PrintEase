@@ -1,23 +1,27 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 
-interface PenOrderModalProps {
+interface DocumentOrderModalProps {
   show: boolean;
   onHide: () => void;
   onPlaceOrder: (order: any) => void;
 }
 
-const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrder }) => {
-  const [quantity, setQuantity] = useState(1);
+const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, onPlaceOrder }) => {
+  const [paperSize, setPaperSize] = useState('A4');
+  const [colorMode, setColorMode] = useState<'Black & White' | 'Colored'>('Black & White');
+  const [doubleSided, setDoubleSided] = useState(false);
+  const [printType, setPrintType] = useState<'Text' | 'Photo'>('Text');
+  const [pageRange, setPageRange] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [paymentMethod, setPaymentMethod] = useState('Gcash');
-  const [designFile, setDesignFile] = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setDesignFile(e.target.files[0]);
+      setFile(e.target.files[0]);
     }
   };
 
@@ -25,9 +29,9 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
     const order = {
       orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
-      product: `Pen Printing`,
-      quantity,
-      total: (quantity * 5).toFixed(2), // sample pricing
+      product: `Document Printing (${paperSize}, ${colorMode}, ${printType}${doubleSided ? ', Double-Sided' : ''})`,
+      quantity: 1,
+      total: (5).toFixed(2), // sample static price
       status: 'Pending',
       deliveryMethod,
       deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
@@ -50,28 +54,76 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
   return (
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-        <Modal.Title><strong>Place Your Order</strong></Modal.Title>
+        <Modal.Title><strong>Place Your Document Print Order</strong></Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
           <Form.Group>
-            <Form.Label><strong>Selected Service:</strong></Form.Label>
-            <Form.Control type="text" value="Pen Printing" readOnly />
+            <Form.Label><strong>Upload Document:</strong></Form.Label>
+            <Form.Control type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
+            <Form.Text muted>Accepted: PDF, DOC, DOCX</Form.Text>
           </Form.Group>
 
           <Form.Group className="mt-3">
-            <Form.Label><strong>Upload Design File:</strong></Form.Label>
-            <Form.Control type="file" accept=".jpg,.png,.pdf" onChange={handleFileChange} />
-            <Form.Text muted>Accepted formats: JPG, PNG, PDF</Form.Text>
+            <Form.Label><strong>Paper Size:</strong></Form.Label>
+            <Form.Select value={paperSize} onChange={(e) => setPaperSize(e.target.value)}>
+              <option value="A4">A4</option>
+              <option value="Letter">Letter</option>
+              <option value="Legal">Legal</option>
+            </Form.Select>
           </Form.Group>
 
           <Form.Group className="mt-3">
-            <Form.Label><strong>Quantity:</strong></Form.Label>
+            <Form.Label><strong>Color Mode:</strong></Form.Label><br />
+            <Button
+              variant={colorMode === 'Black & White' ? 'secondary' : 'outline-secondary'}
+              onClick={() => setColorMode('Black & White')}
+              className="me-2"
+            >
+              Black & White
+            </Button>
+            <Button
+              variant={colorMode === 'Colored' ? 'secondary' : 'outline-secondary'}
+              onClick={() => setColorMode('Colored')}
+            >
+              Colored
+            </Button>
+          </Form.Group>
+
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Double-Sided Printing:</strong></Form.Label><br />
+            <Form.Check
+              type="checkbox"
+              label="Enable double-sided printing"
+              checked={doubleSided}
+              onChange={() => setDoubleSided(!doubleSided)}
+            />
+          </Form.Group>
+
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Print Type:</strong></Form.Label><br />
+            <Button
+              variant={printType === 'Text' ? 'primary' : 'outline-primary'}
+              onClick={() => setPrintType('Text')}
+              className="me-2"
+            >
+              Text
+            </Button>
+            <Button
+              variant={printType === 'Photo' ? 'primary' : 'outline-primary'}
+              onClick={() => setPrintType('Photo')}
+            >
+              Photo
+            </Button>
+          </Form.Group>
+
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Page Range (e.g. 1-5, 7, 9-10):</strong></Form.Label>
             <Form.Control
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
+              type="text"
+              placeholder="Optional"
+              value={pageRange}
+              onChange={(e) => setPageRange(e.target.value)}
             />
           </Form.Group>
 
@@ -134,4 +186,4 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
   );
 };
 
-export default PenOrderModal;
+export default DocumentOrderModal;

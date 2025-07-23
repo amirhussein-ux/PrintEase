@@ -28,7 +28,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
         <p><strong>Date:</strong> {order.date}</p>
         <p><strong>Product:</strong> {order.product}</p>
         <p><strong>Quantity:</strong> {order.quantity}</p>
-        <p><strong>Total:</strong> {order.total}</p>
+        <p><strong>Total:</strong> ₱{order.total.replace('₱', '')}</p>
         <p><strong>Delivery Method:</strong> {order.deliveryMethod}</p>
         {order.deliveryMethod === 'Delivery' && (
           <p><strong>Delivery Address:</strong> {order.deliveryAddress}</p>

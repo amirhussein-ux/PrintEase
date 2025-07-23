@@ -28,7 +28,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
       date: new Date().toISOString().split('T')[0],
       product: 'Mug Printing',
       quantity,
-      total: `$${(quantity * 10).toFixed(2)}`, // sample price
+      total: (quantity * 10).toFixed(2), // sample price
       status: 'Pending',
       deliveryMethod,
       deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',

@@ -4,8 +4,9 @@ import TShirtOrderModal from './modals/TShirtOrderModal';
 import EcoBagOrderModal from './modals/EcoBagOrderModal';
 import PenOrderModal from './modals/PenOrderModal';
 import TarpaulinOrderModal from './modals/TarpaulinOrderModal';
+import DocumentOrderModal from './modals/DocumentOrderModal'; // ✅ New modal
 import { Toast, ToastContainer } from 'react-bootstrap';
-import { useOrderContext } from "../contexts/OrdersContext"; // ✅ Import context
+import { useOrderContext } from '../contexts/OrdersContext';
 import './OrderPage.css';
 
 const services = [
@@ -34,18 +35,23 @@ const services = [
     description: 'Custom printed tarpaulins in various styles and sizes',
     image: '/src/assets/tarpaulin.png',
   },
+  {
+    title: 'Document Printing', // ✅ Added service
+    description: 'Print your documents with ease and quality',
+    image: '/src/assets/paper.png',
+  },
 ];
 
 const OrderPage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
-  const { addOrder } = useOrderContext(); // ✅ Use context
+  const { addOrder } = useOrderContext();
 
   const closeModal = () => setSelectedService(null);
 
   const handlePlaceOrder = (order: any) => {
-    addOrder(order); // ✅ Save to global order list
+    addOrder(order);
     setToastMessage(`${order.product} order has been placed successfully!`);
     setShowToast(true);
   };
@@ -85,8 +91,10 @@ const OrderPage: React.FC = () => {
       {selectedService === 'Tarpaulin Printing' && (
         <TarpaulinOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
       )}
+      {selectedService === 'Document Printing' && (
+        <DocumentOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
+      )}
 
-      {/* ✅ Toast Notification */}
       <ToastContainer position="bottom-end" className="p-3">
         <Toast
           onClose={() => setShowToast(false)}

@@ -28,7 +28,7 @@ const EcoBagOrderModal: React.FC<EcoBagOrderModalProps> = ({ show, onHide, onPla
       date: new Date().toISOString().split('T')[0],
       product: `Eco Bag Printing (${color})`,
       quantity,
-      total: `$${(quantity * 10).toFixed(2)}`, // sample pricing
+      total: (quantity * 10).toFixed(2), // sample pricing
       status: 'Pending',
       deliveryMethod,
       deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',

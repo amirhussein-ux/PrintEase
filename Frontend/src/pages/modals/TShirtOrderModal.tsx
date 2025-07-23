@@ -29,7 +29,7 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide, onPla
       date: new Date().toISOString().split('T')[0],
       product: `T-Shirt Printing (${size}, ${color})`,
       quantity,
-      total: `$${(quantity * 12).toFixed(2)}`, // sample pricing
+      total: `₱${(quantity * 12).toFixed(2)}`, // sample pricing
       status: 'Pending',
       deliveryMethod,
       deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',

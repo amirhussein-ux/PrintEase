@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Modal, Button, Form, InputGroup } from 'react-bootstrap';
 import { EyeFill, EyeSlashFill } from 'react-bootstrap-icons';
-import { useNavigate } from 'react-router-dom'; // ✅ for redirect
+import { useNavigate } from 'react-router-dom';
 
 const AuthPopup: React.FC = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
-  const [userType, setUserType] = useState<'admin' | 'customer'>('admin');
+  const [userType, setUserType] = useState<'customer'>('customer');
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -15,7 +15,7 @@ const AuthPopup: React.FC = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const navigate = useNavigate(); // ✅ for page redirect
+  const navigate = useNavigate();
   const passwordMatch = confirmPassword && password === confirmPassword;
 
   const handleLogin = () => {
@@ -24,7 +24,10 @@ const AuthPopup: React.FC = () => {
       return;
     }
 
-    // If login success, go to customer dashboard
+    // ✅ Save customer username
+    localStorage.setItem('loggedInUsername', username);
+
+    // ✅ Redirect to customer dashboard
     navigate('/customer/order');
   };
 
@@ -45,18 +48,16 @@ const AuthPopup: React.FC = () => {
 
   return (
     <>
-      {/* Log In for Admin */}
+      {/* ❌ Admin Log In Button — temporarily disabled */}
       <Button
         style={{ backgroundColor: '#1e3a8a', border: 'none', marginRight: '1rem' }}
-        onClick={() => {
-          setUserType('admin');
-          setShowLogin(true);
-        }}
+        disabled
+        title="Admin login is not available here"
       >
         Log In
       </Button>
 
-      {/* Continue as Customer */}
+      {/* ✅ Continue as Customer */}
       <Button
         variant="light"
         style={{
@@ -72,11 +73,11 @@ const AuthPopup: React.FC = () => {
         Continue as Customer
       </Button>
 
-      {/* Login Modal */}
+      {/* Log In Modal */}
       <Modal show={showLogin} onHide={() => setShowLogin(false)} centered>
         <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white', justifyContent: 'center' }}>
           <Modal.Title style={{ color: 'white', fontWeight: 'bold', fontSize: '1.5rem' }}>
-            {userType === 'customer' ? 'Log In as Customer' : 'Log In'}
+            Log In as Customer
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -133,7 +134,7 @@ const AuthPopup: React.FC = () => {
       <Modal show={showSignUp} onHide={() => setShowSignUp(false)} centered>
         <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white', justifyContent: 'center' }}>
           <Modal.Title style={{ color: 'white', fontWeight: 'bold', fontSize: '1.5rem' }}>
-            {userType === 'customer' ? 'Sign Up as Customer' : 'Sign Up'}
+            Sign Up as Customer
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>

@@ -28,7 +28,7 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
       date: new Date().toISOString().split('T')[0],
       product: `Tarpaulin Printing (${size})`,
       quantity,
-      total: `$${(quantity * 20).toFixed(2)}`, // sample pricing per tarp
+      total: (quantity * 20).toFixed(2), // sample pricing per tarp
       status: 'Pending',
       deliveryMethod,
       deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
