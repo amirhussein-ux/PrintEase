@@ -2,18 +2,18 @@ import React, { useRef, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Dropdown } from 'react-bootstrap';
 import { PersonCircle, BoxArrowRight } from 'react-bootstrap-icons';
-import { useOrderContext } from '../contexts/OrdersContext'; // 🟡 Make sure this path is correct
 import './CustomerHeader.css';
+import { useOrderContext } from '../contexts/OrdersContext'; // ✅ Import context
 
 const CustomerHeader: React.FC = () => {
   const underlineRef = useRef<HTMLDivElement | null>(null);
   const navRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const location = useLocation();
   const navigate = useNavigate();
-  const { clearOrders } = useOrderContext(); // ✅ Clear orders on logout
   const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
 
   const username = localStorage.getItem('loggedInUsername') || 'Guest';
+  const { clearOrders } = useOrderContext(); // ✅ Get clearOrders
 
   useEffect(() => {
     const activeIndex = ['/customer/order', '/customer/customize', '/customer/track'].indexOf(location.pathname);
@@ -26,14 +26,14 @@ const CustomerHeader: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('loggedInUsername');
-    clearOrders(); // ✅ Clear orders from context
+    clearOrders(); // ✅ Clear all track orders
     navigate('/');
   };
 
   return (
     <header className="customer-header">
       <div className="customer-header-container">
-        {/* Navigation Tabs */}
+        {/* Navigation */}
         <nav className="customer-nav-center">
           <NavLink
             to="/customer/order"
@@ -68,9 +68,7 @@ const CustomerHeader: React.FC = () => {
 
         {/* Welcome + Dropdown */}
         <div className="customer-profile d-flex align-items-center gap-2">
-          <span className="fw-bold" style={{ color: 'white' }}>
-            Welcome, {username}
-          </span>
+          <span className="fw-bold" style={{ color: 'white' }}>Welcome, {username}</span>
           <Dropdown align="end">
             <Dropdown.Toggle
               as="span"
@@ -80,10 +78,10 @@ const CustomerHeader: React.FC = () => {
               <PersonCircle size={24} />
             </Dropdown.Toggle>
             <Dropdown.Menu className="dropdown-animated">
-              <Dropdown.Item onClick={() => navigate('/customer/account')} className="text-dark">
+              <Dropdown.Item onClick={() => navigate('/customer/account')}>
                 <PersonCircle className="me-2" /> Profile
               </Dropdown.Item>
-              <Dropdown.Item onClick={handleLogout} className="text-dark">
+              <Dropdown.Item onClick={handleLogout}>
                 <BoxArrowRight className="me-2" /> Log Out
               </Dropdown.Item>
             </Dropdown.Menu>
