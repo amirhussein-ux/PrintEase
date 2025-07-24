@@ -48,9 +48,18 @@ const AccountPage: React.FC = () => {
   };
 
   const [formData, setFormData] = useState(() => {
-    const saved = localStorage.getItem('accountData');
-    return saved ? JSON.parse(saved) : initialForm;
-  });
+  const saved = localStorage.getItem('accountData');
+  const username = localStorage.getItem('loggedInUsername') || '';
+  const data = saved ? JSON.parse(saved) : { ...initialForm, username };
+
+  // Autofill username if accountData doesn't have it
+  if (!data.username && username) {
+    data.username = username;
+  }
+
+  return data;
+});
+
 
   const [profileImage, setProfileImage] = useState<string | null>(
     localStorage.getItem('profileImage') || null
@@ -470,12 +479,24 @@ const AccountPage: React.FC = () => {
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       className="custom-input pe-5"
+                      style={{
+                        ['--shadow-color' as any]:
+                          formData.confirmPassword && formData.password
+                            ? formData.confirmPassword === formData.password
+                              ? 'rgba(0, 128, 0, 0.5)' // green
+                              : 'rgba(255, 0, 0, 0.5)' // red
+                            : undefined
+                      }}
                     />
                     <span
                       className="position-absolute top-50 end-0 translate-middle-y me-5"
                       style={{ color: formData.confirmPassword === formData.password ? 'green' : 'red' }}
                     >
-                      {formData.confirmPassword === formData.password ? <CheckLg /> : <XLg />}
+                      {formData.password && formData.confirmPassword && formData.confirmPassword === formData.password ? (
+                      <CheckLg color="green" />
+                    ) : formData.confirmPassword ? (
+                      <XLg color="red" />
+                    ) : null}
                     </span>
                     <span
                       className="position-absolute top-50 end-0 translate-middle-y me-3"
@@ -579,7 +600,7 @@ const AccountPage: React.FC = () => {
         }
 
         .custom-white-btn:hover {
-          background-color: #f3f4f6;
+          background-color: #162e72;
           box-shadow: 0 0 8px 1px rgba(22, 46, 114, 0.3);
         }
 
@@ -596,6 +617,12 @@ const AccountPage: React.FC = () => {
           background-color: #0f245c;
           box-shadow: 0 0 8px 2px rgba(22, 46, 114, 0.5);
         }
+      
+        input[name="confirmPassword"]:hover {
+        box-shadow: 0 0 6px 2px
+        var(--shadow-color, rgba(22, 46, 114, 0.5)); /* default if no JS override */
+}
+
       `}</style>
     </div>
   );

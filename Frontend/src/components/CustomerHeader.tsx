@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Dropdown } from 'react-bootstrap';
 import { PersonCircle, BoxArrowRight } from 'react-bootstrap-icons';
 import './CustomerHeader.css';
-import { useOrderContext } from '../contexts/OrdersContext'; // ✅ Import context
+import { useOrderContext } from '../contexts/OrdersContext';
 
 const CustomerHeader: React.FC = () => {
   const underlineRef = useRef<HTMLDivElement | null>(null);
@@ -13,7 +13,7 @@ const CustomerHeader: React.FC = () => {
   const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
 
   const username = localStorage.getItem('loggedInUsername') || 'Guest';
-  const { clearOrders } = useOrderContext(); // ✅ Get clearOrders
+  const { clearOrders } = useOrderContext();
 
   useEffect(() => {
     const activeIndex = ['/customer/order', '/customer/customize', '/customer/track'].indexOf(location.pathname);
@@ -26,7 +26,9 @@ const CustomerHeader: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('loggedInUsername');
-    clearOrders(); // ✅ Clear all track orders
+    localStorage.removeItem('accountData');
+    localStorage.removeItem('profileImage'); // ✅ Clear uploaded profile picture
+    clearOrders(); // ✅ Clear all placed orders
     navigate('/');
   };
 

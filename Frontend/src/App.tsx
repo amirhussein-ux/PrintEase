@@ -14,13 +14,15 @@ import CustomizePage from './pages/CustomizePage';
 import TrackOrdersPage from './pages/TrackOrdersPage';
 import AccountPage from './pages/AccountPage';
 
-// 🔥 Add this import:
-import { OrdersProvider } from './contexts/OrdersContext'; // You'll create this next
+import { OrdersProvider } from './contexts/OrdersContext';
+
+// ✅ Add Toast imports
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 const App: React.FC = () => {
   return (
     <Router>
-      {/* 👇 Wrap everything with OrdersProvider */}
       <OrdersProvider>
         <Routes>
           {/* Public Homepage */}
@@ -76,6 +78,9 @@ const App: React.FC = () => {
             }
           />
         </Routes>
+
+        {/* ✅ Global Toast Container */}
+        <ToastContainer position="bottom-right" autoClose={3000} />
       </OrdersProvider>
     </Router>
   );

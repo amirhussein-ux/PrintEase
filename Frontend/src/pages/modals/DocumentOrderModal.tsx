@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Modal, Button, Form, Toast, ToastContainer } from 'react-bootstrap';
 
 interface DocumentOrderModalProps {
   show: boolean;
@@ -18,6 +18,28 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
   const [file, setFile] = useState<File | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [showError, setShowError] = useState(false);
+
+  useEffect(() => {
+    if (deliveryMethod === 'Delivery') {
+      const saved = localStorage.getItem('accountData');
+      if (saved) {
+        const data = JSON.parse(saved);
+        const fullAddress = `${data.houseNo || ''} ${data.street || ''}, ${data.barangay || ''}, ${data.city || ''}, ${data.region || ''}, ${data.zip || ''}`.trim();
+        if (fullAddress.replace(/[\s,]/g, '').length > 0) {
+          setDeliveryAddress(fullAddress);
+        } else {
+          setDeliveryAddress('');
+          setShowError(true);
+        }
+      } else {
+        setDeliveryAddress('');
+        setShowError(true);
+      }
+    } else {
+      setDeliveryAddress('');
+    }
+  }, [deliveryMethod]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -26,12 +48,17 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
   };
 
   const handleSubmit = () => {
+    if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
+      setShowError(true);
+      return;
+    }
+
     const order = {
       orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
       product: `Document Printing (${paperSize}, ${colorMode}, ${printType}${doubleSided ? ', Double-Sided' : ''})`,
       quantity: 1,
-      total: (5).toFixed(2), // sample static price
+      total: (5).toFixed(2),
       status: 'Pending',
       deliveryMethod,
       deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
@@ -52,137 +79,143 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg">
-      <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-        <Modal.Title><strong>Place Your Document Print Order</strong></Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Form>
-          <Form.Group>
-            <Form.Label><strong>Upload Document:</strong></Form.Label>
-            <Form.Control type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-            <Form.Text muted>Accepted: PDF, DOC, DOCX</Form.Text>
-          </Form.Group>
+    <>
+      <Modal show={show} onHide={onHide} centered size="lg">
+        <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
+          <Modal.Title><strong>Place Your Document Print Order</strong></Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group>
+              <Form.Label><strong>Upload Document:</strong></Form.Label>
+              <Form.Control type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
+              <Form.Text muted>Accepted: PDF, DOC, DOCX</Form.Text>
+            </Form.Group>
 
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Paper Size:</strong></Form.Label>
-            <Form.Select value={paperSize} onChange={(e) => setPaperSize(e.target.value)}>
-              <option value="A4">A4</option>
-              <option value="Letter">Letter</option>
-              <option value="Legal">Legal</option>
-            </Form.Select>
-          </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Color Mode:</strong></Form.Label><br />
-            <Button
-              variant={colorMode === 'Black & White' ? 'secondary' : 'outline-secondary'}
-              onClick={() => setColorMode('Black & White')}
-              className="me-2"
-            >
-              Black & White
-            </Button>
-            <Button
-              variant={colorMode === 'Colored' ? 'secondary' : 'outline-secondary'}
-              onClick={() => setColorMode('Colored')}
-            >
-              Colored
-            </Button>
-          </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Double-Sided Printing:</strong></Form.Label><br />
-            <Form.Check
-              type="checkbox"
-              label="Enable double-sided printing"
-              checked={doubleSided}
-              onChange={() => setDoubleSided(!doubleSided)}
-            />
-          </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Print Type:</strong></Form.Label><br />
-            <Button
-              variant={printType === 'Text' ? 'primary' : 'outline-primary'}
-              onClick={() => setPrintType('Text')}
-              className="me-2"
-            >
-              Text
-            </Button>
-            <Button
-              variant={printType === 'Photo' ? 'primary' : 'outline-primary'}
-              onClick={() => setPrintType('Photo')}
-            >
-              Photo
-            </Button>
-          </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Page Range (e.g. 1-5, 7, 9-10):</strong></Form.Label>
-            <Form.Control
-              type="text"
-              placeholder="Optional"
-              value={pageRange}
-              onChange={(e) => setPageRange(e.target.value)}
-            />
-          </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Delivery Method:</strong></Form.Label><br />
-            <Button
-              variant={deliveryMethod === 'Pickup' ? 'primary' : 'outline-primary'}
-              onClick={() => setDeliveryMethod('Pickup')}
-              className="me-2"
-            >
-              Pickup
-            </Button>
-            <Button
-              variant={deliveryMethod === 'Delivery' ? 'primary' : 'outline-primary'}
-              onClick={() => setDeliveryMethod('Delivery')}
-            >
-              Delivery
-            </Button>
-          </Form.Group>
-
-          {deliveryMethod === 'Delivery' && (
             <Form.Group className="mt-3">
-              <Form.Label><strong>Delivery Address:</strong></Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Enter your address"
-                value={deliveryAddress}
-                onChange={(e) => setDeliveryAddress(e.target.value)}
+              <Form.Label><strong>Paper Size:</strong></Form.Label>
+              <Form.Select value={paperSize} onChange={(e) => setPaperSize(e.target.value)}>
+                <option value="A4">A4</option>
+                <option value="Letter">Letter</option>
+                <option value="Legal">Legal</option>
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Color Mode:</strong></Form.Label><br />
+              <Button
+                variant={colorMode === 'Black & White' ? 'secondary' : 'outline-secondary'}
+                onClick={() => setColorMode('Black & White')}
+                className="me-2"
+              >
+                Black & White
+              </Button>
+              <Button
+                variant={colorMode === 'Colored' ? 'secondary' : 'outline-secondary'}
+                onClick={() => setColorMode('Colored')}
+              >
+                Colored
+              </Button>
+            </Form.Group>
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Double-Sided Printing:</strong></Form.Label><br />
+              <Form.Check
+                type="checkbox"
+                label="Enable double-sided printing"
+                checked={doubleSided}
+                onChange={() => setDoubleSided(!doubleSided)}
               />
             </Form.Group>
-          )}
 
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Payment Method:</strong></Form.Label>
-            <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option value="Cash">Cash</option>
-              <option value="Maya">Maya</option>
-              <option value="Paypal">Paypal</option>
-              <option value="Gcash">Gcash</option>
-            </Form.Select>
-          </Form.Group>
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Print Type:</strong></Form.Label><br />
+              <Button
+                variant={printType === 'Text' ? 'primary' : 'outline-primary'}
+                onClick={() => setPrintType('Text')}
+                className="me-2"
+              >
+                Text
+              </Button>
+              <Button
+                variant={printType === 'Photo' ? 'primary' : 'outline-primary'}
+                onClick={() => setPrintType('Photo')}
+              >
+                Photo
+              </Button>
+            </Form.Group>
 
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Additional Notes:</strong></Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              placeholder="Any extra instructions..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Form.Group>
-        </Form>
-      </Modal.Body>
-      <Modal.Footer style={{ justifyContent: 'space-between' }}>
-        <Button variant="secondary" onClick={onHide}>Cancel</Button>
-        <Button variant="success" onClick={handleSubmit}>Place Order</Button>
-      </Modal.Footer>
-    </Modal>
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Page Range:</strong></Form.Label>
+              <Form.Control
+                type="text"
+                placeholder="e.g. 1-5, 7, 9-10"
+                value={pageRange}
+                onChange={(e) => setPageRange(e.target.value)}
+              />
+            </Form.Group>
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Delivery Method:</strong></Form.Label><br />
+              <Button
+                variant={deliveryMethod === 'Pickup' ? 'primary' : 'outline-primary'}
+                onClick={() => setDeliveryMethod('Pickup')}
+                className="me-2"
+              >
+                Pickup
+              </Button>
+              <Button
+                variant={deliveryMethod === 'Delivery' ? 'primary' : 'outline-primary'}
+                onClick={() => setDeliveryMethod('Delivery')}
+              >
+                Delivery
+              </Button>
+            </Form.Group>
+
+            {deliveryMethod === 'Delivery' && (
+              <Form.Group className="mt-3">
+                <Form.Label><strong>Delivery Address:</strong></Form.Label>
+                <Form.Control type="text" value={deliveryAddress} readOnly />
+              </Form.Group>
+            )}
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Payment Method:</strong></Form.Label>
+              <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                <option value="Cash">Cash</option>
+                <option value="Maya">Maya</option>
+                <option value="Paypal">Paypal</option>
+                <option value="Gcash">Gcash</option>
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Additional Notes:</strong></Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Any extra instructions..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer style={{ justifyContent: 'space-between' }}>
+          <Button variant="secondary" onClick={onHide}>Cancel</Button>
+          <Button variant="success" onClick={handleSubmit}>Place Order</Button>
+        </Modal.Footer>
+      </Modal>
+
+      <ToastContainer position="bottom-end" className="p-3">
+        <Toast bg="danger" show={showError} onClose={() => setShowError(false)} delay={3000} autohide>
+          <Toast.Header>
+            <strong className="me-auto">Missing Address</strong>
+          </Toast.Header>
+          <Toast.Body className="text-white">Please complete your account address before selecting Delivery.</Toast.Body>
+        </Toast>
+      </ToastContainer>
+    </>
   );
 };
 
