@@ -18,6 +18,7 @@ const Header: React.FC = () => {
               <li><a href="#services">Services</a></li>
               <li><a href="#feedback">Feedback</a></li>
               <li><a href="#contact">Contact</a></li>
+              <li><a href="#signup" class="bold-link">Sign Up</a></li>
             </ul>
             <button 
               className="menu-toggle"
