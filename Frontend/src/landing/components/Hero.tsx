@@ -1,6 +1,5 @@
 import React from 'react';
 import './Hero.css';
-import AuthPopup from './AuthPopup';
 
 const Hero: React.FC = () => {
   return (
@@ -17,8 +16,9 @@ const Hero: React.FC = () => {
         <p className="hero-subtitle">
           Efficient solutions for modern print shop needs.
         </p>
-        <div className="hero-buttons" style={{ display: 'flex', gap: '1rem' }}>
-          <AuthPopup />
+        <div className="hero-buttons">
+          <a href="#login" className="btn btn-primary">LOGIN</a>
+          <a href="#about" className="btn btn-secondary">CONTINUE AS CUSTOMER</a>
         </div>
       </div>
     </section>
