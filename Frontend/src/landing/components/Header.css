@@ -3,8 +3,7 @@
   top: 0;
   left: 0;
   right: 0;
-  background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background-color: #1e3a8a; /* updated to dark blue */
   z-index: 1000;
 }
 
@@ -26,7 +25,7 @@
 }
 
 .nav-menu a {
-  color: rgb(0, 0, 0);
+  color: white; /* changed from black to white */
   text-decoration: none;
   font-weight: 500;
   transition: color 0.3s ease;
@@ -38,7 +37,8 @@
 
 .bold-link {
   font-weight: bold;
-  color: #fbbf24;}
+  color: #fbbf24;
+}
 
 .menu-toggle {
   display: none;
@@ -59,13 +59,17 @@
     top: 100%;
     left: 0;
     right: 0;
-    background-color:  #fffffffb;;
+    background-color: #1e3a8a; /* match mobile dropdown bg */
     flex-direction: column;
     padding: 1rem;
     transform: translateY(-100%);
     opacity: 0;
     visibility: hidden;
-    transition: all 0.3s ease;
+    transition: all 0.3s ease; 
+  }
+
+  .nav-menu a {
+    color: white;
   }
 
   .nav-menu-open {
