@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 // ✅ Define the Order interface
 interface Order {
@@ -32,9 +32,63 @@ export const useOrderContext = () => {
   return context;
 };
 
-// ✅ Provider component
+// Helper to get guestToken from localStorage
+const getGuestToken = () => localStorage.getItem('guestToken');
+
+// Helper to get customerEmail from localStorage (if you store it there)
+const getCustomerEmail = () => {
+  const accountData = localStorage.getItem('accountData');
+  if (accountData) {
+    try {
+      const data = JSON.parse(accountData);
+      return data.email || null;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 export const OrdersProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [orders, setOrders] = useState<Order[]>([]);
+
+  // Fetch orders on mount
+  useEffect(() => {
+    const fetchOrders = async () => {
+      let url = 'http://localhost:8000/api/orders';
+      const email = getCustomerEmail();
+      const guestToken = getGuestToken();
+      if (email) {
+        url += `?customerEmail=${encodeURIComponent(email)}`;
+      } else if (guestToken) {
+        url += `?guestToken=${encodeURIComponent(guestToken)}`;
+      } else {
+        setOrders([]);
+        return;
+      }
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch orders');
+        const data = await res.json();
+        setOrders(data.map((order: any) => ({
+          orderId: order._id,
+          date: new Date(order.createdAt).toLocaleDateString(),
+          product: order.productType,
+          quantity: order.quantity,
+          total: order.details?.total ? order.details.total : '₱0',
+          status: order.status,
+          deliveryMethod: order.details?.deliveryMethod || '',
+          deliveryAddress: order.details?.deliveryAddress || '',
+          paymentMethod: order.details?.paymentMethod || '',
+          notes: order.details?.notes || '',
+          timeline: order.details?.timeline || {},
+        })));
+      } catch (err) {
+        setOrders([]);
+      }
+    };
+    fetchOrders();
+  }, []);
 
   const addOrder = (order: Order) => {
     setOrders((prevOrders) => [...prevOrders, order]);

@@ -13,7 +13,9 @@ interface OrderDetailsModalProps {
     deliveryMethod: string;
     deliveryAddress: string;
     paymentMethod: string;
-    timeline: { [step: string]: string };
+    notes?: string;
+    status?: string;
+    timeline?: { [step: string]: string };
   };
 }
 
@@ -33,25 +35,33 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
         {order.deliveryMethod === 'Delivery' && (
           <p><strong>Delivery Address:</strong> {order.deliveryAddress}</p>
         )}
+
         <p><strong>Payment Method:</strong> {order.paymentMethod}</p>
+        {order.notes && (
+          <p><strong>Additional Notes:</strong> {order.notes}</p>
+        )}
 
         <h5 className="mt-4 mb-2"><strong>Order Status</strong></h5>
-        <Table bordered responsive>
-          <thead>
-            <tr>
-              {Object.keys(order.timeline).map((stage, idx) => (
-                <th key={idx}>{stage}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              {Object.values(order.timeline).map((date, idx) => (
-                <td key={idx}>{date}</td>
-              ))}
-            </tr>
-          </tbody>
-        </Table>
+        {order.timeline && Object.keys(order.timeline).length > 0 ? (
+          <Table bordered responsive>
+            <thead>
+              <tr>
+                {Object.keys(order.timeline).map((stage, idx) => (
+                  <th key={idx}>{stage}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                {Object.values(order.timeline).map((date, idx) => (
+                  <td key={idx}>{date}</td>
+                ))}
+              </tr>
+            </tbody>
+          </Table>
+        ) : (
+          <p><strong>Status:</strong> {order.status || 'N/A'}</p>
+        )}
       </Modal.Body>
     </Modal>
   );

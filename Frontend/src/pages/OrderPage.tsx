@@ -50,11 +50,11 @@ const OrderPage: React.FC = () => {
 
   const closeModal = () => setSelectedService(null);
 
-  const handlePlaceOrder = (order: any) => {
-    addOrder(order);
-    setToastMessage(`${order.product} order has been placed successfully!`);
-    setShowToast(true);
-  };
+const handlePlaceOrder = (order: any) => {
+  addOrder(order);
+  setToastMessage(`${order.product} order has been placed successfully!`);
+  setShowToast(true);
+};
 
   return (
     <div className="order-page">

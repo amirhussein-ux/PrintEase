@@ -19,21 +19,23 @@ const TrackOrdersPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('All');
 
   const filteredOrders =
-    activeTab === 'All' ? orders : orders.filter((order) => order.status === activeTab);
+    activeTab === 'All'
+      ? orders
+      : orders.filter((order) => order.status.toLowerCase() === activeTab.toLowerCase());
 
   const getBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'Pending':
+    switch (status.toLowerCase()) {
+      case 'pending':
         return 'warning';
-      case 'Processing':
+      case 'processing':
         return 'info';
-      case 'Printing':
+      case 'printing':
         return 'primary';
-      case 'Quality Check':
+      case 'quality check':
         return 'dark';
-      case 'Shipped':
+      case 'shipped':
         return 'secondary';
-      case 'Delivered':
+      case 'delivered':
         return 'success';
       default:
         return 'light';
@@ -41,7 +43,10 @@ const TrackOrdersPage: React.FC = () => {
   };
 
   const getProgressDots = (status: string) => {
-    const currentIndex = statusSteps.indexOf(status);
+    // Find index case-insensitively
+    const currentIndex = statusSteps.findIndex(
+      (step) => step.toLowerCase() === status.toLowerCase()
+    );
     return (
       <div className="timeline-container">
         {statusSteps.map((step, index) => (
@@ -86,7 +91,7 @@ const TrackOrdersPage: React.FC = () => {
                 <Card.Body>
                   <div className="d-flex justify-content-between align-items-center">
                     <h5 className="fw-bold mb-0">Order #{order.orderId}</h5>
-                    <Badge bg={getBadgeVariant(order.status)}>{order.status}</Badge>
+                    <Badge bg={getBadgeVariant(order.status)}>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</Badge>
                   </div>
 
                   <p className="mb-1 mt-2"><strong>🛒 Product:</strong> {order.product}</p>

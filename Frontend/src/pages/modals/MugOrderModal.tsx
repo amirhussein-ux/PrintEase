@@ -7,6 +7,16 @@ interface MugOrderModalProps {
   onPlaceOrder: (order: any) => void;
 }
 
+
+const getOrCreateGuestToken = () => {
+  let token = localStorage.getItem('guestToken');
+  if (!token) {
+    token = 'guest_' + Math.random().toString(36).substr(2, 16) + Date.now();
+    localStorage.setItem('guestToken', token);
+  }
+  return token;
+};
+
 const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrder }) => {
   const [color, setColor] = useState('Black');
   const [deliveryMethod, setDeliveryMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
@@ -16,6 +26,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [showError, setShowError] = useState(false);
+  const [guestToken] = useState(getOrCreateGuestToken());
 
   // 🧠 Handle design upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,6 +44,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
         const fullAddress = `${data.houseNo || ''} ${data.street || ''}, ${data.barangay || ''}, ${data.city || ''}, ${data.region || ''}, ${data.zip || ''}`.trim();
         if (fullAddress.replace(/[\s,]/g, '').length > 0) {
           setDeliveryAddress(fullAddress);
+          setShowError(false);
         } else {
           setDeliveryAddress('');
           setShowError(true);
@@ -43,40 +55,64 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
       }
     } else {
       setDeliveryAddress('');
+      setShowError(false); // Reset error when switching to Pickup
     }
   }, [deliveryMethod]);
 
   // 🧾 Place Order
-  const handleSubmit = () => {
-    if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
-      setShowError(true);
-      return;
-    }
+const handleSubmit = async () => {
+  if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
+    setShowError(true);
+    return;
+  }
 
-    const order = {
-      orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-      date: new Date().toISOString().split('T')[0],
-      product: 'Mug Printing',
-      quantity,
-      total: (quantity * 10).toFixed(2),
-      status: 'Pending',
+  // Debug: Log order data before sending
+  const orderData = {
+    productType: 'mug',
+    customerName: 'Guest',
+    guestToken,
+    quantity,
+    details: {
+      color,
       deliveryMethod,
-      deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
       paymentMethod,
+      deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
       notes,
-      timeline: {
-        'Order Placed': new Date().toLocaleDateString(),
-        'Processing': 'Pending',
-        'Printing': 'Pending',
-        'Quality Check': 'Pending',
-        'Shipped': 'Pending',
-        'Delivered': 'Pending',
-      },
-    };
-
-    onPlaceOrder(order);
-    onHide();
+    },
+    status: 'pending',
   };
+  console.log('[DEBUG] Submitting Mug order:', orderData);
+
+  const formData = new FormData();
+  Object.entries(orderData).forEach(([key, value]) => {
+    if (key === 'details') {
+      formData.append('details', JSON.stringify(value));
+    } else {
+      formData.append(key, value as any);
+    }
+  });
+  if (designFile) {
+    formData.append('designFile', designFile);
+  }
+
+  try {
+    const response = await fetch('http://localhost:8000/api/orders', {
+      method: 'POST',
+      body: formData,
+    });
+    const result = await response.json();
+    console.log('[DEBUG] API response:', result);
+    if (response.ok) {
+      onPlaceOrder(result);
+      onHide();
+    } else {
+      setShowError(true);
+    }
+  } catch (err) {
+    console.error('[DEBUG] Error submitting order:', err);
+    setShowError(true);
+  }
+};
 
   return (
     <>
@@ -187,7 +223,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
       <ToastContainer position="bottom-end" className="p-3">
         <Toast
           bg="danger"
-          show={showError}
+          show={showError && deliveryMethod === 'Delivery'}
           onClose={() => setShowError(false)}
           delay={3000}
           autohide
