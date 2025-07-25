@@ -49,20 +49,7 @@ const Notifications: React.FC = () => {
   }
 
   return (
-    <div className="notifications-page">
-      <aside className="notifications-sidebar">
-        <div className="sidebar-header">
-          <h2>📄 PrintEase Admin Dashboard</h2>
-        </div>
-        <nav className="sidebar-nav">
-          <a href="#" className="nav-item">📊 Dashboard</a>
-          <a href="#" className="nav-item">🔧 Services</a>
-          <a href="#" className="nav-item">📦 Orders</a>
-          <a href="#" className="nav-item active">🔔 Notifications</a>
-          <a href="#" className="nav-item">👤 User Profile</a>
-        </nav>
-      </aside>
-
+    <div className="notifications-page" style={{ marginLeft: -20, marginTop: -20, marginRight: -20, marginBottom: -20, padding: '2px 2px', minHeight: '100vh', background: '#000000ff' }}>
       <main className="notifications-main">
         <header className="notifications-header">
           <h1>Notifications</h1>
