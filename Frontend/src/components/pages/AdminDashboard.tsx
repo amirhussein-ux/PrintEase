@@ -1,36 +1,71 @@
-import React, { useState } from 'react'
-import './AdminDashboard.css'
+import React, { useState, useEffect } from 'react';
+import './AdminDashboard.css';
+
 
 interface OrderCard {
-  id: string
-  status: 'Completed' | 'In Progress' | 'Pending'
-  customer: string
-  details: string
+  id: string;
+  status: string;
+  customer: string;
+  details: string;
 }
 
-const AdminDashboard: React.FC = () => {
-  const [orders, setOrders] = useState<OrderCard[]>([
-    {
-      id: '#12345',
-      status: 'Completed',
-      customer: 'Customer: John Smith',
-      details: 'Color Print, 50 pages, A4 size'
-    },
-    {
-      id: '#12346',
-      status: 'In Progress',
-      customer: 'Customer: Emily Johnson',
-      details: 'Black & White Print, 25 pages'
-    },
-    {
-      id: '#12347',
-      status: 'Pending',
-      customer: 'Customer: Michael Brown',
-      details: 'Color Print, 100 pages, Letter size'
-    }
-  ])
 
+const AdminDashboard: React.FC = () => {
+  const [orders, setOrders] = useState<OrderCard[]>([]);
   const [modalOrder, setModalOrder] = useState<OrderCard | null>(null);
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const res = await fetch('http://localhost:8000/api/orders');
+        if (!res.ok) throw new Error('Failed to fetch orders');
+        const data = await res.json();
+        // Map backend data to dashboard format
+        setOrders(
+          data.map((order: any) => ({
+            id: order._id,
+            status:
+              order.status?.toLowerCase() === 'completed'
+                ? 'Completed'
+                : order.status?.toLowerCase() === 'in progress'
+                ? 'In Progress'
+                : order.status?.toLowerCase() === 'pending'
+                ? 'Pending'
+                : order.status || 'Pending',
+            customer: `Customer: ${order.customerName || order.customerEmail || 'Guest'}`,
+            details: getOrderDetailsString(order),
+          }))
+        );
+      } catch (err) {
+        setOrders([]);
+      }
+    };
+    fetchOrders();
+  }, []);
+
+  // Helper to format details string
+  function getOrderDetailsString(order: any): string {
+    if (!order.details) return '';
+    const details = order.details;
+    // Try to show relevant info for each product type
+    switch (order.productType) {
+      case 'mug':
+        return `Color: ${details.color || ''}, Delivery: ${details.deliveryMethod || ''}, Payment: ${details.paymentMethod || ''}`;
+      case 'tshirt':
+        return `Color: ${details.color || ''}, Size: ${details.size || ''}, Delivery: ${details.deliveryMethod || ''}, Payment: ${details.paymentMethod || ''}`;
+      case 'ecobag':
+        return `Color: ${details.color || ''}, Size: ${details.size || ''}, Delivery: ${details.deliveryMethod || ''}, Payment: ${details.paymentMethod || ''}`;
+      case 'pen':
+        return `Color: ${details.color || ''}, Ink: ${details.inkType || ''}, Delivery: ${details.deliveryMethod || ''}, Payment: ${details.paymentMethod || ''}`;
+      case 'tarpaulin':
+        return `Size: ${details.size || ''}, Delivery: ${details.deliveryMethod || ''}, Payment: ${details.paymentMethod || ''}`;
+      case 'document':
+        return `Paper: ${details.paperSize || ''}, Color: ${details.colorMode || ''}, Print: ${details.printType || ''}, Delivery: ${details.deliveryMethod || ''}, Payment: ${details.paymentMethod || ''}`;
+      default:
+        return JSON.stringify(details);
+    }
+  }
+
 
   const getStatusClass = (status: string) => {
     switch (status) {
@@ -45,8 +80,37 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
-  const handleStatusChange = (id: string, newStatus: 'Completed' | 'In Progress' | 'Pending') => {
-    setOrders(orders => orders.map(order => order.id === id ? { ...order, status: newStatus } : order));
+
+  // Update order status in backend and UI
+  const handleStatusChange = async (id: string, newStatus: 'Completed' | 'In Progress' | 'Pending') => {
+    try {
+      // Map UI status to backend status value
+      let backendStatus = newStatus.toLowerCase();
+      const res = await fetch(`http://localhost:8000/api/orders/${id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: backendStatus })
+      });
+      if (!res.ok) throw new Error('Failed to update status');
+      const result = await res.json();
+      // Update UI with new status from backend
+      setOrders(orders => orders.map(order => order.id === id ? {
+        ...order,
+        status:
+          result.order.status?.toLowerCase() === 'completed'
+            ? 'Completed'
+            : result.order.status?.toLowerCase() === 'in progress'
+            ? 'In Progress'
+            : result.order.status?.toLowerCase() === 'pending'
+            ? 'Pending'
+            : result.order.status || 'Pending'
+      } : order));
+    } catch (err) {
+      // Optionally show error to user
+      alert('Failed to update order status.');
+    }
   };
 
   return (

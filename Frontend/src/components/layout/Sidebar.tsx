@@ -7,10 +7,10 @@ const Sidebar: React.FC = () => {
   const location = useLocation();
 
   const menuItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { path: '/service-management', label: 'Service Management', icon: '🛠️' },
-    { path: '/admin', label: 'Order Management', icon: '⚙️' },
-    { path: '/notifications', label: 'Notifications', icon: '🔔' }
+    { path: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
+    { path: '/admin/service-management', label: 'Service Management', icon: '🛠️' },
+    { path: '/admin/admin-dashboard', label: 'Order Management', icon: '⚙️' },
+    { path: '/admin/notifications', label: 'Notifications', icon: '🔔' }
   ];
 
   return (

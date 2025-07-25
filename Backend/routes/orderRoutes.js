@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { createOrder, getOrdersForUserOrGuest } = require('../controllers/orderController');
+const { createOrder, getOrdersForUserOrGuest, updateOrderStatus } = require('../controllers/orderController');
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
@@ -21,5 +21,9 @@ router.post('/', upload.single('designFile'), createOrder);
 
 // GET /api/orders?customerEmail=... or ?guestToken=...
 router.get('/', getOrdersForUserOrGuest);
+
+
+// PUT /api/orders/:id/status
+router.put('/:id/status', updateOrderStatus);
 
 module.exports = router;

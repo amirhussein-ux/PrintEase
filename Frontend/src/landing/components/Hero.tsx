@@ -1,6 +1,6 @@
 import React from 'react';
 import './Hero.css';
-import AuthPopup from './AuthPopup';
+import AuthPopup from '../../components/AuthPopup';
 
 const Hero: React.FC = () => {
   return (

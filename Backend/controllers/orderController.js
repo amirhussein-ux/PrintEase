@@ -7,9 +7,8 @@ exports.getOrdersForUserOrGuest = async (req, res) => {
             filter.customerEmail = customerEmail;
         } else if (guestToken) {
             filter.guestToken = guestToken;
-        } else {
-            return res.status(400).json({ error: 'Missing customerEmail or guestToken in query.' });
         }
+        // If neither is provided, return all orders (admin)
         const orders = await Order.find(filter).sort({ createdAt: -1 });
         res.json(orders);
     } catch (err) {
@@ -19,7 +18,30 @@ exports.getOrdersForUserOrGuest = async (req, res) => {
 };
 const Order = require('../models/Order');
 
+
 const path = require('path');
+
+// Update order status
+exports.updateOrderStatus = async (req, res) => {
+    const orderId = req.params.id;
+    const { status } = req.body;
+    const allowedStatuses = ['pending', 'in progress', 'completed'];
+    if (!allowedStatuses.includes(status?.toLowerCase())) {
+        return res.status(400).json({ error: 'Invalid status value.' });
+    }
+    try {
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ error: 'Order not found.' });
+        }
+        order.status = status;
+        await order.save();
+        res.json({ success: true, order });
+    } catch (err) {
+        console.error('[DEBUG] Failed to update order status:', err);
+        res.status(500).json({ error: 'Failed to update order status', details: err.message });
+    }
+};
 
 exports.createOrder = async (req, res) => {
     console.log('[DEBUG] Incoming order request:', req.body, req.file);
