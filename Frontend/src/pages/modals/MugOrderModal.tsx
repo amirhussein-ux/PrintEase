@@ -16,15 +16,21 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // 🧠 Handle design upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files?.length) {
       setDesignFile(e.target.files[0]);
     }
   };
 
-  // 📌 Autofill address from localStorage when "Delivery" selected
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files?.length) {
+      setDesignFile(e.dataTransfer.files[0]);
+    }
+  };
+
   useEffect(() => {
     if (deliveryMethod === 'Delivery') {
       const saved = localStorage.getItem('accountData');
@@ -36,19 +42,27 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
         } else {
           setDeliveryAddress('');
           setShowError(true);
+          setErrorMessage('Please complete your account address before selecting Delivery.');
         }
       } else {
         setDeliveryAddress('');
         setShowError(true);
+        setErrorMessage('Please complete your account address before selecting Delivery.');
       }
     } else {
       setDeliveryAddress('');
     }
   }, [deliveryMethod]);
 
-  // 🧾 Place Order
   const handleSubmit = () => {
+    if (!designFile) {
+      setErrorMessage('Please upload your design file.');
+      setShowError(true);
+      return;
+    }
+
     if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
+      setErrorMessage('Please complete your account address before selecting Delivery.');
       setShowError(true);
       return;
     }
@@ -64,6 +78,8 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
       deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
       paymentMethod,
       notes,
+      designFile,
+      color,
       timeline: {
         'Order Placed': new Date().toLocaleDateString(),
         'Processing': 'Pending',
@@ -78,11 +94,17 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
     onHide();
   };
 
+  const activeButtonStyle = {
+    backgroundColor: '#1e3a8a',
+    borderColor: '#1e3a8a',
+    color: 'white',
+  };
+
   return (
     <>
       <Modal show={show} onHide={onHide} centered size="lg">
         <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-          <Modal.Title><strong>Place Your Order</strong></Modal.Title>
+          <Modal.Title><strong>Place Your Mug Order</strong></Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
@@ -93,8 +115,34 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
 
             <Form.Group className="mt-3">
               <Form.Label><strong>Upload Design File:</strong></Form.Label>
-              <Form.Control type="file" accept=".jpg,.png,.pdf" onChange={handleFileChange} />
-              <Form.Text muted>Accepted formats: JPG, PNG, PDF</Form.Text>
+              <div
+                onClick={() => document.getElementById('design-upload')?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                style={{
+                  border: '2px dashed #6c757d',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  backgroundColor: '#f8f9fa',
+                  color: '#6c757d',
+                }}
+              >
+                {designFile ? (
+                  <div className="text-success"><strong>File selected:</strong> {designFile.name}</div>
+                ) : (
+                  <div>Drag and drop files here or <u>Click to upload</u></div>
+                )}
+              </div>
+              <input
+                id="design-upload"
+                type="file"
+                accept=".jpg,.png,.pdf"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+              <Form.Text muted className="d-block mt-2">Accepted formats: JPG, PNG, PDF</Form.Text>
             </Form.Group>
 
             <Form.Group className="mt-3">
@@ -127,6 +175,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
             <Form.Group className="mt-3">
               <Form.Label><strong>Delivery Method:</strong></Form.Label><br />
               <Button
+                style={deliveryMethod === 'Pickup' ? activeButtonStyle : {}}
                 variant={deliveryMethod === 'Pickup' ? 'primary' : 'outline-primary'}
                 onClick={() => setDeliveryMethod('Pickup')}
                 className="me-2"
@@ -134,6 +183,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
                 Pickup
               </Button>
               <Button
+                style={deliveryMethod === 'Delivery' ? activeButtonStyle : {}}
                 variant={deliveryMethod === 'Delivery' ? 'primary' : 'outline-primary'}
                 onClick={() => setDeliveryMethod('Delivery')}
               >
@@ -144,20 +194,13 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
             {deliveryMethod === 'Delivery' && (
               <Form.Group className="mt-3">
                 <Form.Label><strong>Delivery Address:</strong></Form.Label>
-                <Form.Control
-                  type="text"
-                  value={deliveryAddress}
-                  readOnly
-                />
+                <Form.Control type="text" value={deliveryAddress} readOnly />
               </Form.Group>
             )}
 
             <Form.Group className="mt-3">
               <Form.Label><strong>Payment Method:</strong></Form.Label>
-              <Form.Select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
+              <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
                 <option value="Cash">Cash</option>
                 <option value="Maya">Maya</option>
                 <option value="Paypal">Paypal</option>
@@ -178,12 +221,15 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
           </Form>
         </Modal.Body>
         <Modal.Footer style={{ justifyContent: 'space-between' }}>
-          <Button variant="secondary" onClick={onHide}>Cancel</Button>
-          <Button variant="success" onClick={handleSubmit}>Place Order</Button>
+          <Button style={{ backgroundColor: 'red', borderColor: 'red' }} onClick={onHide}>
+            Cancel
+          </Button>
+          <Button style={activeButtonStyle} onClick={handleSubmit}>
+            Place Order
+          </Button>
         </Modal.Footer>
       </Modal>
 
-      {/* Error Toast Notification */}
       <ToastContainer position="bottom-end" className="p-3">
         <Toast
           bg="danger"
@@ -193,11 +239,9 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
           autohide
         >
           <Toast.Header>
-            <strong className="me-auto">Missing Address</strong>
+            <strong className="me-auto">Order Error</strong>
           </Toast.Header>
-          <Toast.Body className="text-white">
-            Please complete your account address before selecting Delivery.
-          </Toast.Body>
+          <Toast.Body className="text-white">{errorMessage}</Toast.Body>
         </Toast>
       </ToastContainer>
     </>

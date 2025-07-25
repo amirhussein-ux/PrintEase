@@ -18,7 +18,9 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
   const [file, setFile] = useState<File | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [quantity, setQuantity] = useState(1);
   const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (deliveryMethod === 'Delivery') {
@@ -30,10 +32,12 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
           setDeliveryAddress(fullAddress);
         } else {
           setDeliveryAddress('');
+          setErrorMessage('Please complete your account address before selecting Delivery.');
           setShowError(true);
         }
       } else {
         setDeliveryAddress('');
+        setErrorMessage('Please complete your account address before selecting Delivery.');
         setShowError(true);
       }
     } else {
@@ -42,13 +46,27 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
   }, [deliveryMethod]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files?.length) {
       setFile(e.target.files[0]);
     }
   };
 
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files?.length) {
+      setFile(e.dataTransfer.files[0]);
+    }
+  };
+
   const handleSubmit = () => {
+    if (!file) {
+      setErrorMessage('Please upload your document.');
+      setShowError(true);
+      return;
+    }
+
     if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
+      setErrorMessage('Please complete your account address before selecting Delivery.');
       setShowError(true);
       return;
     }
@@ -57,13 +75,15 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
       orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
       product: `Document Printing (${paperSize}, ${colorMode}, ${printType}${doubleSided ? ', Double-Sided' : ''})`,
-      quantity: 1,
-      total: (5).toFixed(2),
+      quantity,
+      total: (5 * quantity).toFixed(2),
       status: 'Pending',
       deliveryMethod,
       deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
       paymentMethod,
       notes,
+      file,
+      pageRange,
       timeline: {
         'Order Placed': new Date().toLocaleDateString(),
         'Processing': 'Pending',
@@ -78,6 +98,12 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
     onHide();
   };
 
+  const darkBlueStyle = {
+    backgroundColor: '#1e3a8a',
+    borderColor: '#1e3a8a',
+    color: 'white',
+  };
+
   return (
     <>
       <Modal show={show} onHide={onHide} centered size="lg">
@@ -88,8 +114,44 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
           <Form>
             <Form.Group>
               <Form.Label><strong>Upload Document:</strong></Form.Label>
-              <Form.Control type="file" accept=".pdf,.doc,.docx" onChange={handleFileChange} />
-              <Form.Text muted>Accepted: PDF, DOC, DOCX</Form.Text>
+              <div
+                onClick={() => document.getElementById('doc-upload')?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                style={{
+                  border: '2px dashed #6c757d',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  backgroundColor: '#f8f9fa',
+                  color: '#6c757d',
+                }}
+              >
+                {file ? (
+                  <div className="text-success"><strong>File selected:</strong> {file.name}</div>
+                ) : (
+                  <div>Drag and drop files here or <u>Click to upload</u></div>
+                )}
+              </div>
+              <input
+                id="doc-upload"
+                type="file"
+                accept=".pdf,.doc,.docx"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+              <Form.Text muted className="d-block mt-2">Accepted: PDF, DOC, DOCX</Form.Text>
+            </Form.Group>
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Number of Copies:</strong></Form.Label>
+              <Form.Control
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+              />
             </Form.Group>
 
             <Form.Group className="mt-3">
@@ -131,6 +193,7 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
             <Form.Group className="mt-3">
               <Form.Label><strong>Print Type:</strong></Form.Label><br />
               <Button
+                style={printType === 'Text' ? darkBlueStyle : {}}
                 variant={printType === 'Text' ? 'primary' : 'outline-primary'}
                 onClick={() => setPrintType('Text')}
                 className="me-2"
@@ -138,6 +201,7 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
                 Text
               </Button>
               <Button
+                style={printType === 'Photo' ? darkBlueStyle : {}}
                 variant={printType === 'Photo' ? 'primary' : 'outline-primary'}
                 onClick={() => setPrintType('Photo')}
               >
@@ -158,6 +222,7 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
             <Form.Group className="mt-3">
               <Form.Label><strong>Delivery Method:</strong></Form.Label><br />
               <Button
+                style={deliveryMethod === 'Pickup' ? darkBlueStyle : {}}
                 variant={deliveryMethod === 'Pickup' ? 'primary' : 'outline-primary'}
                 onClick={() => setDeliveryMethod('Pickup')}
                 className="me-2"
@@ -165,6 +230,7 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
                 Pickup
               </Button>
               <Button
+                style={deliveryMethod === 'Delivery' ? darkBlueStyle : {}}
                 variant={deliveryMethod === 'Delivery' ? 'primary' : 'outline-primary'}
                 onClick={() => setDeliveryMethod('Delivery')}
               >
@@ -202,17 +268,17 @@ const DocumentOrderModal: React.FC<DocumentOrderModalProps> = ({ show, onHide, o
           </Form>
         </Modal.Body>
         <Modal.Footer style={{ justifyContent: 'space-between' }}>
-          <Button variant="secondary" onClick={onHide}>Cancel</Button>
-          <Button variant="success" onClick={handleSubmit}>Place Order</Button>
+          <Button style={{ backgroundColor: 'red', borderColor: 'red' }} onClick={onHide}>Cancel</Button>
+          <Button style={darkBlueStyle} onClick={handleSubmit}>Place Order</Button>
         </Modal.Footer>
       </Modal>
 
       <ToastContainer position="bottom-end" className="p-3">
         <Toast bg="danger" show={showError} onClose={() => setShowError(false)} delay={3000} autohide>
           <Toast.Header>
-            <strong className="me-auto">Missing Address</strong>
+            <strong className="me-auto">Order Warning</strong>
           </Toast.Header>
-          <Toast.Body className="text-white">Please complete your account address before selecting Delivery.</Toast.Body>
+          <Toast.Body className="text-white">{errorMessage}</Toast.Body>
         </Toast>
       </ToastContainer>
     </>

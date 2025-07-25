@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Button, Badge, Row, Col, Nav } from 'react-bootstrap';
+import { Card, Button, Badge, Row, Col, Nav, Dropdown } from 'react-bootstrap';
 import { useOrderContext } from '../contexts/OrdersContext';
 import OrderDetailsModal from './modals/OrderDetailsModal';
 import './TrackOrdersPage.css';
@@ -17,9 +17,13 @@ const TrackOrdersPage: React.FC = () => {
   const { orders } = useOrderContext();
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('All');
+  const [selectedProduct, setSelectedProduct] = useState('All');
 
-  const filteredOrders =
-    activeTab === 'All' ? orders : orders.filter((order) => order.status === activeTab);
+  const filteredOrders = orders.filter((order) => {
+    const statusMatch = activeTab === 'All' || order.status === activeTab;
+    const productMatch = selectedProduct === 'All' || order.product.includes(selectedProduct);
+    return statusMatch && productMatch;
+  });
 
   const getBadgeVariant = (status: string) => {
     switch (status) {
@@ -57,23 +61,57 @@ const TrackOrdersPage: React.FC = () => {
 
   return (
     <div className="track-orders-page container py-4">
-      <h2 className="text-center fw-bold mb-4" style={{ color: '#1e3a8a' }}>Track Your Orders
-      </h2>
+      <h2 className="text-center fw-bold mb-4" style={{ color: '#1e3a8a' }}>Track Your Orders</h2>
 
+      <div className="d-flex justify-content-center align-items-center gap-3 flex-wrap mb-4">
+        {/* Dropdown Filter */}
+        <Dropdown className="custom-dropdown">
+          <Dropdown.Toggle
+            id="dropdown-custom"
+            style={{
+              backgroundColor: '#1e3a8a',
+              borderColor: '#1e3a8a',
+              color: 'white',
+              borderRadius: '30px',
+              padding: '8px 20px',
+            }}
+          >
+            Filter: {selectedProduct}
+          </Dropdown.Toggle>
 
-      {/* Tabs */}
-      <Nav
-        variant="pills"
-        className="justify-content-center mb-4 track-tabs"
-        activeKey={activeTab}
-        onSelect={(k) => setActiveTab(k || 'All')}
-      >
-        {['All', 'Pending', 'Processing', 'Printing', 'Quality Check', 'Shipped', 'Delivered'].map((status) => (
-          <Nav.Item key={status}>
-            <Nav.Link eventKey={status}>{status}</Nav.Link>
-          </Nav.Item>
-        ))}
-      </Nav>
+          <Dropdown.Menu style={{ borderRadius: '12px', padding: '8px 0' }}>
+            {['All', 'Mug', 'T-Shirt', 'Eco Bag', 'Pen', 'Tarpaulin', 'Document'].map((product) => (
+              <Dropdown.Item
+                key={product}
+                active={selectedProduct === product}
+                onClick={() => setSelectedProduct(product)}
+                style={{
+                  padding: '8px 20px',
+                  color: selectedProduct === product ? '#1e3a8a' : '#333',
+                  backgroundColor: selectedProduct === product ? '#e0e7ff' : 'transparent',
+                  fontWeight: selectedProduct === product ? 'bold' : 'normal',
+                }}
+              >
+                {product}
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown>
+
+        {/* Status Tabs */}
+        <Nav
+          variant="pills"
+          className="track-tabs"
+          activeKey={activeTab}
+          onSelect={(k) => setActiveTab(k || 'All')}
+        >
+          {['Pending', 'Processing', 'Printing', 'Quality Check', 'Shipped', 'Delivered'].map((status) => (
+            <Nav.Item key={status}>
+              <Nav.Link eventKey={status}>{status}</Nav.Link>
+            </Nav.Item>
+          ))}
+        </Nav>
+      </div>
 
       {/* Order Cards */}
       <Row xs={1} md={2} className="g-4">
@@ -100,7 +138,11 @@ const TrackOrdersPage: React.FC = () => {
                   </div>
 
                   <div className="text-end mt-3">
-                    <Button size="sm" variant="primary" onClick={() => setSelectedOrder(order)}>
+                    <Button
+                      size="sm"
+                      style={{ backgroundColor: '#1e3a8a', borderColor: '#1e3a8a' }}
+                      onClick={() => setSelectedOrder(order)}
+                    >
                       View Details
                     </Button>
                   </div>

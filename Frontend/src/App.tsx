@@ -16,16 +16,19 @@ import AccountPage from './pages/AccountPage';
 
 import { OrdersProvider } from './contexts/OrdersContext';
 
-// ✅ Add Toast imports
+// ✅ Toast imports
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+// ✅ ChatWidget import
+import ChatWidget from './components/ChatWidget';
 
 const App: React.FC = () => {
   return (
     <Router>
       <OrdersProvider>
         <Routes>
-          {/* Public Homepage */}
+          {/* ✅ Public Landing Page with Chat */}
           <Route
             path="/"
             element={
@@ -36,6 +39,7 @@ const App: React.FC = () => {
                 <Services />
                 <Feedback />
                 <Contact />
+                <ChatWidget /> {/* ✅ Chat added here */}
               </>
             }
           />
@@ -79,7 +83,7 @@ const App: React.FC = () => {
           />
         </Routes>
 
-        {/* ✅ Global Toast Container */}
+        {/* Global Toasts */}
         <ToastContainer position="bottom-right" autoClose={3000} />
       </OrdersProvider>
     </Router>

@@ -24,10 +24,7 @@ const AuthPopup: React.FC = () => {
       return;
     }
 
-    // ✅ Save customer username
     localStorage.setItem('loggedInUsername', username);
-
-    // ✅ Redirect to customer dashboard
     navigate('/customer/order');
   };
 
@@ -48,7 +45,6 @@ const AuthPopup: React.FC = () => {
 
   return (
     <>
-      {/* ❌ Admin Log In Button — temporarily disabled */}
       <Button
         style={{ backgroundColor: '#1e3a8a', border: 'none', marginRight: '1rem' }}
         disabled
@@ -57,7 +53,6 @@ const AuthPopup: React.FC = () => {
         Log In
       </Button>
 
-      {/* ✅ Continue as Customer */}
       <Button
         variant="light"
         style={{
@@ -81,7 +76,7 @@ const AuthPopup: React.FC = () => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form>
+          <Form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
             <Form.Group>
               <Form.Label>Username</Form.Label>
               <Form.Control
@@ -106,16 +101,16 @@ const AuthPopup: React.FC = () => {
                 </InputGroup.Text>
               </InputGroup>
             </Form.Group>
+
+            <Button
+              type="submit"
+              style={{ backgroundColor: '#1e3a8a', border: 'none', width: '100%' }}
+              className="mt-4"
+            >
+              Log In
+            </Button>
           </Form>
-        </Modal.Body>
-        <Modal.Footer className="d-flex flex-column">
-          <Button
-            style={{ backgroundColor: '#1e3a8a', border: 'none', width: '100%' }}
-            onClick={handleLogin}
-          >
-            Log In
-          </Button>
-          <div className="mt-2">
+          <div className="mt-3 text-center">
             Don't have an account?{' '}
             <span
               style={{ color: '#1e3a8a', cursor: 'pointer', fontWeight: 500 }}
@@ -127,7 +122,7 @@ const AuthPopup: React.FC = () => {
               Sign up
             </span>
           </div>
-        </Modal.Footer>
+        </Modal.Body>
       </Modal>
 
       {/* Sign Up Modal */}
@@ -138,7 +133,7 @@ const AuthPopup: React.FC = () => {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form>
+          <Form onSubmit={(e) => { e.preventDefault(); handleSignUp(); }}>
             <Form.Group>
               <Form.Label>Username</Form.Label>
               <Form.Control
@@ -180,16 +175,16 @@ const AuthPopup: React.FC = () => {
                 </InputGroup.Text>
               </InputGroup>
             </Form.Group>
+
+            <Button
+              type="submit"
+              style={{ backgroundColor: '#1e3a8a', border: 'none', width: '100%' }}
+              className="mt-4"
+            >
+              Sign Up
+            </Button>
           </Form>
         </Modal.Body>
-        <Modal.Footer>
-          <Button
-            style={{ backgroundColor: '#1e3a8a', border: 'none', width: '100%' }}
-            onClick={handleSignUp}
-          >
-            Sign Up
-          </Button>
-        </Modal.Footer>
       </Modal>
     </>
   );

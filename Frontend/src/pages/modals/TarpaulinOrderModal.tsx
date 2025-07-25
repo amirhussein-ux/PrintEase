@@ -16,6 +16,7 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const tarpSizes = {
     Small: ['5′ x 7′', '6′ x 8′', '8′ x 10′'],
@@ -34,10 +35,12 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
           setDeliveryAddress(fullAddress);
         } else {
           setDeliveryAddress('');
+          setErrorMessage('Please complete your account address before selecting Delivery.');
           setShowError(true);
         }
       } else {
         setDeliveryAddress('');
+        setErrorMessage('Please complete your account address before selecting Delivery.');
         setShowError(true);
       }
     } else {
@@ -46,13 +49,33 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
   }, [deliveryMethod]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
+    if (e.target.files?.length) {
       setDesignFile(e.target.files[0]);
     }
   };
 
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files?.length) {
+      setDesignFile(e.dataTransfer.files[0]);
+    }
+  };
+
   const handleSubmit = () => {
+    if (!designFile) {
+      setErrorMessage('Please upload your design file.');
+      setShowError(true);
+      return;
+    }
+
+    if (!size) {
+      setErrorMessage('Please select a tarpaulin size.');
+      setShowError(true);
+      return;
+    }
+
     if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
+      setErrorMessage('Please complete your account address before selecting Delivery.');
       setShowError(true);
       return;
     }
@@ -68,6 +91,7 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
       deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
       paymentMethod,
       notes,
+      designFile,
       timeline: {
         'Order Placed': new Date().toLocaleDateString(),
         'Processing': 'Pending',
@@ -82,11 +106,17 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
     onHide();
   };
 
+  const darkBlueStyle = {
+    backgroundColor: '#1e3a8a',
+    borderColor: '#1e3a8a',
+    color: 'white',
+  };
+
   return (
     <>
       <Modal show={show} onHide={onHide} centered size="lg">
         <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-          <Modal.Title><strong>Place Your Order</strong></Modal.Title>
+          <Modal.Title><strong>Place Your Tarpaulin Order</strong></Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form>
@@ -97,8 +127,34 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
 
             <Form.Group className="mt-3">
               <Form.Label><strong>Upload Design File:</strong></Form.Label>
-              <Form.Control type="file" accept=".jpg,.png,.pdf" onChange={handleFileChange} />
-              <Form.Text muted>Accepted formats: JPG, PNG, PDF</Form.Text>
+              <div
+                onClick={() => document.getElementById('tarp-upload')?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                style={{
+                  border: '2px dashed #6c757d',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  backgroundColor: '#f8f9fa',
+                  color: '#6c757d',
+                }}
+              >
+                {designFile ? (
+                  <div className="text-success"><strong>File selected:</strong> {designFile.name}</div>
+                ) : (
+                  <div>Drag and drop files here or <u>Click to upload</u></div>
+                )}
+              </div>
+              <input
+                id="tarp-upload"
+                type="file"
+                accept=".jpg,.png,.pdf"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+              <Form.Text muted className="d-block mt-2">Accepted formats: JPG, PNG, PDF</Form.Text>
             </Form.Group>
 
             <Form.Group className="mt-3">
@@ -109,6 +165,7 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
                   {sizes.map((s) => (
                     <Button
                       key={s}
+                      style={size === s ? darkBlueStyle : {}}
                       variant={size === s ? 'primary' : 'outline-primary'}
                       onClick={() => setSize(s)}
                       className="me-2 mb-2"
@@ -133,6 +190,7 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
             <Form.Group className="mt-3">
               <Form.Label><strong>Delivery Method:</strong></Form.Label><br />
               <Button
+                style={deliveryMethod === 'Pickup' ? darkBlueStyle : {}}
                 variant={deliveryMethod === 'Pickup' ? 'primary' : 'outline-primary'}
                 onClick={() => setDeliveryMethod('Pickup')}
                 className="me-2"
@@ -140,6 +198,7 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
                 Pickup
               </Button>
               <Button
+                style={deliveryMethod === 'Delivery' ? darkBlueStyle : {}}
                 variant={deliveryMethod === 'Delivery' ? 'primary' : 'outline-primary'}
                 onClick={() => setDeliveryMethod('Delivery')}
               >
@@ -177,17 +236,15 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
           </Form>
         </Modal.Body>
         <Modal.Footer style={{ justifyContent: 'space-between' }}>
-          <Button variant="secondary" onClick={onHide}>Cancel</Button>
-          <Button variant="success" onClick={handleSubmit}>Place Order</Button>
+          <Button style={{ backgroundColor: 'red', borderColor: 'red' }} onClick={onHide}>Cancel</Button>
+          <Button style={darkBlueStyle} onClick={handleSubmit}>Place Order</Button>
         </Modal.Footer>
       </Modal>
 
       <ToastContainer position="bottom-end" className="p-3">
         <Toast bg="danger" show={showError} onClose={() => setShowError(false)} delay={3000} autohide>
-          <Toast.Header>
-            <strong className="me-auto">Missing Address</strong>
-          </Toast.Header>
-          <Toast.Body className="text-white">Please complete your account address before selecting Delivery.</Toast.Body>
+          <Toast.Header><strong className="me-auto">Order Warning</strong></Toast.Header>
+          <Toast.Body className="text-white">{errorMessage}</Toast.Body>
         </Toast>
       </ToastContainer>
     </>

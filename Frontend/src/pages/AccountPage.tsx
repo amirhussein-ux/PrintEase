@@ -14,9 +14,6 @@ import {
   EyeSlashFill,
   CheckLg,
   XLg,
-  Facebook,
-  Github,
-  Linkedin
 } from 'react-bootstrap-icons';
 
 const AccountPage: React.FC = () => {
@@ -35,11 +32,6 @@ const AccountPage: React.FC = () => {
     city: '',
     region: '',
     zip: '',
-    gender: '',
-    birthday: '',
-    facebook: '',
-    github: '',
-    linkedin: '',
     password: '',
     confirmPassword: '',
     receiveUpdates: true,
@@ -130,8 +122,6 @@ const AccountPage: React.FC = () => {
       'city',
       'region',
       'zip',
-      'gender',
-      'birthday'
     ];
     const filled = fields.filter(f => formData[f as keyof typeof formData]);
     return Math.floor((filled.length / fields.length) * 100);
@@ -355,34 +345,7 @@ const AccountPage: React.FC = () => {
             </Col>
           </Row>
 
-          <Row className="mb-3">
-            <Col md={6}>
-              <Form.Label className="fw-bold">Birthday</Form.Label>
-              <Form.Control
-                type="date"
-                name="birthday"
-                value={formData.birthday}
-                onChange={handleChange}
-                className="custom-input"
-                disabled={!isEditing}
-              />
-            </Col>
-            <Col md={6}>
-              <Form.Label className="fw-bold">Gender</Form.Label>
-              <Form.Select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                className="custom-input"
-                disabled={!isEditing}
-              >
-                <option value="">Select Gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </Form.Select>
-            </Col>
-          </Row>
+
           {isEditing && (
             <Row className="mb-4">
               <Col md={12}>
@@ -403,49 +366,6 @@ const AccountPage: React.FC = () => {
               </Col>
             </Row>
           )}
-
-          <h5 className="mt-4 fw-bold">Social Media</h5>
-          <Row className="mb-3">
-            <Col md={4}>
-              <Form.Label className="fw-bold">
-                <Facebook className="me-2 text-primary" /> Facebook
-              </Form.Label>
-              <Form.Control
-                type="text"
-                name="facebook"
-                value={formData.facebook}
-                onChange={handleChange}
-                className="custom-input"
-                disabled={!isEditing}
-              />
-            </Col>
-            <Col md={4}>
-              <Form.Label className="fw-bold">
-                <Github className="me-2" /> GitHub
-              </Form.Label>
-              <Form.Control
-                type="text"
-                name="github"
-                value={formData.github}
-                onChange={handleChange}
-                className="custom-input"
-                disabled={!isEditing}
-              />
-            </Col>
-            <Col md={4}>
-              <Form.Label className="fw-bold">
-                <Linkedin className="me-2 text-primary" /> LinkedIn
-              </Form.Label>
-              <Form.Control
-                type="text"
-                name="linkedin"
-                value={formData.linkedin}
-                onChange={handleChange}
-                className="custom-input"
-                disabled={!isEditing}
-              />
-            </Col>
-          </Row>
 
           {isEditing && (
             <>
