@@ -5,12 +5,9 @@ import OrderDetailsModal from './modals/OrderDetailsModal';
 import './TrackOrdersPage.css';
 
 const statusSteps = [
-  'Order Placed',
-  'Processing',
-  'Printing',
-  'Quality Check',
-  'Shipped',
-  'Delivered',
+  'Pending',
+  'In Progress',
+  'Completed',
 ];
 
 const TrackOrdersPage: React.FC = () => {
@@ -27,15 +24,9 @@ const TrackOrdersPage: React.FC = () => {
     switch (status.toLowerCase()) {
       case 'pending':
         return 'warning';
-      case 'processing':
+      case 'in progress':
         return 'info';
-      case 'printing':
-        return 'primary';
-      case 'quality check':
-        return 'dark';
-      case 'shipped':
-        return 'secondary';
-      case 'delivered':
+      case 'completed':
         return 'success';
       default:
         return 'light';
@@ -73,7 +64,7 @@ const TrackOrdersPage: React.FC = () => {
         activeKey={activeTab}
         onSelect={(k) => setActiveTab(k || 'All')}
       >
-        {['All', 'Pending', 'Processing', 'Printing', 'Quality Check', 'Shipped', 'Delivered'].map((status) => (
+        {['All', 'Pending', 'In Progress', 'Completed'].map((status) => (
           <Nav.Item key={status}>
             <Nav.Link eventKey={status}>{status}</Nav.Link>
           </Nav.Item>
