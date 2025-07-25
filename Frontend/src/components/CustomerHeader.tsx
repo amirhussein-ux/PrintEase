@@ -68,26 +68,28 @@ const CustomerHeader: React.FC = () => {
           />
         </nav>
 
-        {/* Welcome + Dropdown */}
+        {/* Welcome + Dropdown (hide dropdown for guests) */}
         <div className="customer-profile d-flex align-items-center gap-2">
           <span className="fw-bold" style={{ color: 'white' }}>Welcome, {username}</span>
-          <Dropdown align="end">
-            <Dropdown.Toggle
-              as="span"
-              style={{ cursor: 'pointer', color: 'white' }}
-              className="d-flex align-items-center"
-            >
-              <PersonCircle size={24} />
-            </Dropdown.Toggle>
-            <Dropdown.Menu className="dropdown-animated">
-              <Dropdown.Item onClick={() => navigate('/customer/account')}>
-                <PersonCircle className="me-2" /> Profile
-              </Dropdown.Item>
-              <Dropdown.Item onClick={handleLogout}>
-                <BoxArrowRight className="me-2" /> Log Out
-              </Dropdown.Item>
-            </Dropdown.Menu>
-          </Dropdown>
+          {username !== 'Guest' && (
+            <Dropdown align="end">
+              <Dropdown.Toggle
+                as="span"
+                style={{ cursor: 'pointer', color: 'white' }}
+                className="d-flex align-items-center"
+              >
+                <PersonCircle size={24} />
+              </Dropdown.Toggle>
+              <Dropdown.Menu className="dropdown-animated">
+                <Dropdown.Item onClick={() => navigate('/customer/account')}>
+                  <PersonCircle className="me-2" /> Profile
+                </Dropdown.Item>
+                <Dropdown.Item onClick={handleLogout}>
+                  <BoxArrowRight className="me-2" /> Log Out
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown>
+          )}
         </div>
       </div>
     </header>

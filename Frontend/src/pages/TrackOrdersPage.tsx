@@ -85,7 +85,7 @@ const TrackOrdersPage: React.FC = () => {
                     <Badge bg={getBadgeVariant(order.status)}>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</Badge>
                   </div>
 
-                  <p className="mb-1 mt-2"><strong>🛒 Product:</strong> {order.product}</p>
+                  <p className="mb-1 mt-2"><strong>🛒 Product:</strong> {order.product ? order.product.charAt(0).toUpperCase() + order.product.slice(1) : ''}</p>
                   <p className="mb-1"><strong>📅 Date:</strong> {order.date}</p>
                   <p className="mb-1"><strong>🔢 Quantity:</strong> {order.quantity}</p>
                   <p className="mb-1"><strong>💵 Total:</strong> ₱{order.total.replace('₱', '')}</p>

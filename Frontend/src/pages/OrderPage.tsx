@@ -52,7 +52,7 @@ const OrderPage: React.FC = () => {
 
 const handlePlaceOrder = (order: any) => {
   addOrder(order);
-  setToastMessage(`${order.product} order has been placed successfully!`);
+  setToastMessage(`Order has been placed successfully!`);
   setShowToast(true);
 };
 
@@ -61,16 +61,20 @@ const handlePlaceOrder = (order: any) => {
       <h1 className="order-title">Order Printing Services</h1>
       <div className="service-grid">
         {services.map((service, index) => (
-          <div className="service-card" key={index}>
+          <div
+            className="service-card"
+            key={index}
+            onClick={() => setSelectedService(service.title)}
+            style={{ cursor: 'pointer' }}
+            tabIndex={0}
+            role="button"
+            onKeyPress={e => {
+              if (e.key === 'Enter' || e.key === ' ') setSelectedService(service.title);
+            }}
+          >
             <img src={service.image} alt={service.title} className="service-image" />
             <h3>{service.title}</h3>
             <p>{service.description}</p>
-            <button
-              className="select-button"
-              onClick={() => setSelectedService(service.title)}
-            >
-              Select
-            </button>
           </div>
         ))}
       </div>

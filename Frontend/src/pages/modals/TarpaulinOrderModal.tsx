@@ -16,6 +16,7 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [showError, setShowError] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   const tarpSizes = {
     Small: ['5′ x 7′', '6′ x 8′', '8′ x 10′'],
@@ -54,11 +55,10 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
   const handleSubmit = () => {
     if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
       setShowError(true);
+      setShowToast(true);
       return;
     }
-
     const order = {
-      orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
       product: `Tarpaulin Printing (${size})`,
       quantity,
@@ -77,7 +77,6 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
         'Delivered': 'Pending',
       },
     };
-
     onPlaceOrder(order);
     onHide();
   };
@@ -150,7 +149,7 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
             {deliveryMethod === 'Delivery' && (
               <Form.Group className="mt-3">
                 <Form.Label><strong>Delivery Address:</strong></Form.Label>
-                <Form.Control type="text" value={deliveryAddress} readOnly />
+                <Form.Control type="text" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} />
               </Form.Group>
             )}
 
@@ -183,11 +182,11 @@ const TarpaulinOrderModal: React.FC<TarpaulinOrderModalProps> = ({ show, onHide,
       </Modal>
 
       <ToastContainer position="bottom-end" className="p-3">
-        <Toast bg="danger" show={showError} onClose={() => setShowError(false)} delay={3000} autohide>
+        <Toast bg="danger" show={showToast} onClose={() => setShowToast(false)} delay={3500} autohide>
           <Toast.Header>
             <strong className="me-auto">Missing Address</strong>
           </Toast.Header>
-          <Toast.Body className="text-white">Please complete your account address before selecting Delivery.</Toast.Body>
+          <Toast.Body className="text-white">Please fill in your delivery address to proceed.</Toast.Body>
         </Toast>
       </ToastContainer>
     </>

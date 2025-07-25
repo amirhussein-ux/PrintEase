@@ -17,6 +17,7 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [showError, setShowError] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     if (deliveryMethod === 'Delivery') {
@@ -48,11 +49,10 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
   const handleSubmit = () => {
     if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
       setShowError(true);
+      setShowToast(true);
       return;
     }
-
     const order = {
-      orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
       product: `Pen Printing (${penColor} ${inkType})`,
       quantity,
@@ -71,7 +71,6 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
         'Delivered': 'Pending',
       },
     };
-
     onPlaceOrder(order);
     onHide();
   };
@@ -133,7 +132,7 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
             {deliveryMethod === 'Delivery' && (
               <Form.Group className="mt-3">
                 <Form.Label><strong>Delivery Address:</strong></Form.Label>
-                <Form.Control type="text" value={deliveryAddress} readOnly />
+                <Form.Control type="text" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} />
               </Form.Group>
             )}
 
@@ -160,11 +159,11 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
       </Modal>
 
       <ToastContainer position="bottom-end" className="p-3">
-        <Toast bg="danger" show={showError} onClose={() => setShowError(false)} delay={3000} autohide>
+        <Toast bg="danger" show={showToast} onClose={() => setShowToast(false)} delay={3500} autohide>
           <Toast.Header>
             <strong className="me-auto">Missing Address</strong>
           </Toast.Header>
-          <Toast.Body className="text-white">Please complete your account address before selecting Delivery.</Toast.Body>
+          <Toast.Body className="text-white">Please fill in your delivery address to proceed.</Toast.Body>
         </Toast>
       </ToastContainer>
     </>

@@ -26,6 +26,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [showError, setShowError] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const [guestToken] = useState(getOrCreateGuestToken());
 
   // 🧠 Handle design upload
@@ -63,6 +64,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
 const handleSubmit = async () => {
   if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
     setShowError(true);
+    setShowToast(true);
     return;
   }
 
@@ -183,7 +185,8 @@ const handleSubmit = async () => {
                 <Form.Control
                   type="text"
                   value={deliveryAddress}
-                  readOnly
+                  onChange={e => setDeliveryAddress(e.target.value)}
+                  placeholder="Enter delivery address"
                 />
               </Form.Group>
             )}
@@ -219,21 +222,12 @@ const handleSubmit = async () => {
         </Modal.Footer>
       </Modal>
 
-      {/* Error Toast Notification */}
       <ToastContainer position="bottom-end" className="p-3">
-        <Toast
-          bg="danger"
-          show={showError && deliveryMethod === 'Delivery'}
-          onClose={() => setShowError(false)}
-          delay={3000}
-          autohide
-        >
+        <Toast bg="danger" show={showToast} onClose={() => setShowToast(false)} delay={3500} autohide>
           <Toast.Header>
             <strong className="me-auto">Missing Address</strong>
           </Toast.Header>
-          <Toast.Body className="text-white">
-            Please complete your account address before selecting Delivery.
-          </Toast.Body>
+          <Toast.Body className="text-white">Please fill in your delivery address to proceed.</Toast.Body>
         </Toast>
       </ToastContainer>
     </>
