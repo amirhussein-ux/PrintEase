@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import MugOrderModal from './modals/MugOrderModal';
 import TShirtOrderModal from './modals/TShirtOrderModal';
 import EcoBagOrderModal from './modals/EcoBagOrderModal';
 import PenOrderModal from './modals/PenOrderModal';
 import TarpaulinOrderModal from './modals/TarpaulinOrderModal';
-import DocumentOrderModal from './modals/DocumentOrderModal'; // ✅ New modal
+import DocumentOrderModal from './modals/DocumentOrderModal';
 import { Toast, ToastContainer } from 'react-bootstrap';
 import { useOrderContext } from '../contexts/OrdersContext';
 import './OrderPage.css';
@@ -36,7 +36,7 @@ const services = [
     image: '/src/assets/tarpaulin.png',
   },
   {
-    title: 'Document Printing', // ✅ Added service
+    title: 'Document Printing',
     description: 'Print your documents with ease and quality',
     image: '/src/assets/paper.png',
   },
@@ -55,6 +55,17 @@ const OrderPage: React.FC = () => {
     setToastMessage(`${order.product} order has been placed successfully!`);
     setShowToast(true);
   };
+
+  // ✅ Show login success toast if redirected from login
+  useEffect(() => {
+    const justLoggedIn = localStorage.getItem('loginSuccess');
+    const username = localStorage.getItem('loggedInUsername');
+    if (justLoggedIn && username) {
+      setToastMessage(`Successfully logged in as, ${username}!`);
+      setShowToast(true);
+      localStorage.removeItem('loginSuccess'); // Prevent repeat
+    }
+  }, []);
 
   return (
     <div className="order-page">
@@ -75,7 +86,6 @@ const OrderPage: React.FC = () => {
         ))}
       </div>
 
-      {/* 🔄 Dynamic Modals with handlePlaceOrder passed in */}
       {selectedService === 'Mug Printing' && (
         <MugOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
       )}
@@ -99,12 +109,12 @@ const OrderPage: React.FC = () => {
         <Toast
           onClose={() => setShowToast(false)}
           show={showToast}
-          delay={5000}
+          delay={4000}
           autohide
           bg="success"
         >
           <Toast.Header>
-            <strong className="me-auto">Order Placed</strong>
+            <strong className="me-auto">Notification</strong>
           </Toast.Header>
           <Toast.Body className="text-white">{toastMessage}</Toast.Body>
         </Toast>

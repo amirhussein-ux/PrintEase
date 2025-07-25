@@ -25,17 +25,24 @@ const CustomerHeader: React.FC = () => {
   }, [location]);
 
   const handleLogout = () => {
+    // ✅ Save logout flag to show toast on homepage
+    localStorage.setItem('logoutToast', 'true');
+
+    // ✅ Clear session-related data
     localStorage.removeItem('loggedInUsername');
     localStorage.removeItem('accountData');
-    localStorage.removeItem('profileImage'); // ✅ Clear uploaded profile picture
-    clearOrders(); // ✅ Clear all placed orders
+    localStorage.removeItem('profileImage');
+
+    clearOrders();
+
+    // ✅ Navigate to homepage
     navigate('/');
   };
 
   return (
     <header className="customer-header">
       <div className="customer-header-container">
-        {/* Navigation */}
+        {/* Navigation Tabs */}
         <nav className="customer-nav-center">
           <NavLink
             to="/customer/order"
@@ -58,6 +65,7 @@ const CustomerHeader: React.FC = () => {
           >
             Track Orders
           </NavLink>
+
           <div
             className="nav-underline"
             ref={underlineRef}
@@ -68,9 +76,11 @@ const CustomerHeader: React.FC = () => {
           />
         </nav>
 
-        {/* Welcome + Dropdown */}
+        {/* User Dropdown */}
         <div className="customer-profile d-flex align-items-center gap-2">
-          <span className="fw-bold" style={{ color: 'white' }}>Welcome, {username}</span>
+          <span className="fw-bold" style={{ color: 'white' }}>
+            Welcome, {username}
+          </span>
           <Dropdown align="end">
             <Dropdown.Toggle
               as="span"

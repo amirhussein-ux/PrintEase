@@ -11,6 +11,7 @@ interface ChatMessage {
 
 const ChatWidget: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [hasAutoReplied, setHasAutoReplied] = useState(false);
@@ -18,11 +19,32 @@ const ChatWidget: React.FC = () => {
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const toggleChat = () => setIsOpen(!isOpen);
-
   const getCurrentTime = () => {
     const now = new Date();
     return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const openChat = () => {
+    setIsOpen(true);
+    if (!hasAutoReplied) {
+      setMessages(prevMsgs => [
+        ...prevMsgs,
+        {
+          sender: 'admin',
+          text: "PrintEase is happy to serve! What are your concerns?",
+          time: getCurrentTime()
+        }
+      ]);
+      setHasAutoReplied(true);
+    }
+  };
+
+  const closeChat = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsOpen(false);
+      setIsClosing(false);
+    }, 300); // Match fade-out duration
   };
 
   const handleSend = () => {
@@ -35,19 +57,16 @@ const ChatWidget: React.FC = () => {
       setMessages((prev) => [...prev, newMsg]);
       setInput('');
 
-      if (!hasAutoReplied) {
-        setHasAutoReplied(true);
-        setTimeout(() => {
-          setMessages(prev => [
-            ...prev,
-            {
-              sender: 'admin',
-              text: "Thank you! We'll get back to you shortly.",
-              time: getCurrentTime()
-            }
-          ]);
-        }, 1000);
-      }
+      setTimeout(() => {
+        setMessages(prev => [
+          ...prev,
+          {
+            sender: 'admin',
+            text: "Thank you for messaging us! We would like to connect with you shortly.",
+            time: getCurrentTime()
+          }
+        ]);
+      }, 1000);
     }
   };
 
@@ -92,17 +111,18 @@ const ChatWidget: React.FC = () => {
   return (
     <div className="chat-widget">
       {!isOpen && (
-        <button className="chat-button" onClick={toggleChat}>
+        <button className="chat-button" onClick={openChat}>
           💬 Message Us
         </button>
       )}
 
       {isOpen && (
-        <div className="chat-window">
+        <div className={`chat-window ${isClosing ? 'fade-out' : 'fade-in'}`}>
           <div className="chat-header">
-            Customer Support
-            <span className="close-chat" onClick={toggleChat}>×</span>
+            PrintEase – Customer Support
+            <span className="close-chat" onClick={closeChat}>×</span>
           </div>
+
           <div className="chat-body">
             {messages.map((msg, index) => (
               <div key={index} className={`message-row ${msg.sender}`}>
@@ -157,6 +177,7 @@ const ChatWidget: React.FC = () => {
             ))}
             <div ref={chatEndRef} />
           </div>
+
           <div className="chat-footer">
             <textarea
               ref={textareaRef}
