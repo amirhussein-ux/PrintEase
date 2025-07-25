@@ -135,11 +135,7 @@ exports.createOrder = async (req, res) => {
         try {
             await order.save();
             console.log('[DEBUG] Order saved:', order);
-            res.status(201).json({
-                success: true,
-                orderNumber: order.orderNumber,
-                order,
-            });
+            res.status(201).json(order);
         } catch (err) {
             console.error('[DEBUG] Error saving order:', err);
             res.status(500).json({ error: 'Failed to save order', details: err.message });
