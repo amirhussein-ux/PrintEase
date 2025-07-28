@@ -15,13 +15,11 @@ import TrackOrdersPage from './pages/TrackOrdersPage';
 import AccountPage from './pages/AccountPage';
 
 import { OrdersProvider } from './contexts/OrdersContext';
+import { ToastProvider } from './contexts/NotificationContext';
 
 import { Toast, ToastContainer as BootstrapToastContainer } from 'react-bootstrap';
 import ChatWidget from './components/ChatWidget';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
 
-// ✅ Wrapper to use location in main app
 const AppWrapper: React.FC = () => {
   const location = useLocation();
   const [showLogoutToast, setShowLogoutToast] = useState(false);
@@ -50,7 +48,6 @@ const AppWrapper: React.FC = () => {
               <Services />
               <Feedback />
               <Contact />
-              <ChatWidget />
             </>
           }
         />
@@ -94,7 +91,10 @@ const AppWrapper: React.FC = () => {
         />
       </Routes>
 
-      {/* ✅ Logout Toast */}
+      {/* ✅ Always-visible Chat Support */}
+      <ChatWidget />
+
+      {/* ✅ Logout Toast on bottom-left */}
       <BootstrapToastContainer position="bottom-start" className="p-3">
         <Toast
           bg="success"
@@ -111,9 +111,6 @@ const AppWrapper: React.FC = () => {
           </Toast.Body>
         </Toast>
       </BootstrapToastContainer>
-
-      {/* ✅ For other toasts like SignUp/OrderSuccess if you're using react-toastify */}
-      <ToastContainer position="bottom-right" autoClose={3000} />
     </>
   );
 };
@@ -121,9 +118,11 @@ const AppWrapper: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Router>
-      <OrdersProvider>
-        <AppWrapper />
-      </OrdersProvider>
+      <ToastProvider>
+        <OrdersProvider>
+          <AppWrapper />
+        </OrdersProvider>
+      </ToastProvider>
     </Router>
   );
 };

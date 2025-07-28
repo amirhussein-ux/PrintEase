@@ -53,6 +53,11 @@ const Services: React.FC = () => {
       icon: "/shirt.png",
       title: "Shirt Designs",
       description: "Create personalized shirts with your own designs, logos, or messages. Ideal for events, teams, or everyday wear, these high-quality shirts combine comfort, style, and self-expression."
+    },
+    {
+    icon: "/tarpaulin.png",
+    title: "Tarpaulin Designs",
+    description: "Design personalized tarpaulins for events, business promotions, or personal use. High-quality prints available in various sizes, perfect for impactful and durable visual displays."
     }
   ];
 

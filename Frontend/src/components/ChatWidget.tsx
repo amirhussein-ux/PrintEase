@@ -31,7 +31,7 @@ const ChatWidget: React.FC = () => {
         ...prevMsgs,
         {
           sender: 'admin',
-          text: "PrintEase is happy to serve! What are your concerns?",
+          text: "Hello! PrintEase here, how can we assist you today?",
           time: getCurrentTime()
         }
       ]);

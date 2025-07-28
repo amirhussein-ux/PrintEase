@@ -5,8 +5,8 @@ import EcoBagOrderModal from './modals/EcoBagOrderModal';
 import PenOrderModal from './modals/PenOrderModal';
 import TarpaulinOrderModal from './modals/TarpaulinOrderModal';
 import DocumentOrderModal from './modals/DocumentOrderModal';
-import { Toast, ToastContainer } from 'react-bootstrap';
 import { useOrderContext } from '../contexts/OrdersContext';
+import { useGlobalToast } from '../contexts/NotificationContext'; // ✅ Import global toast
 import './OrderPage.css';
 
 const services = [
@@ -44,28 +44,24 @@ const services = [
 
 const OrderPage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
   const { addOrder } = useOrderContext();
+  const { showToast } = useGlobalToast(); // ✅ Use global toast
 
   const closeModal = () => setSelectedService(null);
 
   const handlePlaceOrder = (order: any) => {
     addOrder(order);
-    setToastMessage(`${order.product} order has been placed successfully!`);
-    setShowToast(true);
+    showToast(`${order.product} order has been placed successfully!`, 'success'); // ✅ Global toast
   };
 
-  // ✅ Show login success toast if redirected from login
   useEffect(() => {
     const justLoggedIn = localStorage.getItem('loginSuccess');
     const username = localStorage.getItem('loggedInUsername');
     if (justLoggedIn && username) {
-      setToastMessage(`Successfully logged in as, ${username}!`);
-      setShowToast(true);
-      localStorage.removeItem('loginSuccess'); // Prevent repeat
+      showToast(`Successfully logged in as, ${username}!`, 'success'); // ✅ Global toast
+      localStorage.removeItem('loginSuccess');
     }
-  }, []);
+  }, [showToast]);
 
   return (
     <div className="order-page">
@@ -104,21 +100,6 @@ const OrderPage: React.FC = () => {
       {selectedService === 'Document Printing' && (
         <DocumentOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
       )}
-
-      <ToastContainer position="bottom-end" className="p-3">
-        <Toast
-          onClose={() => setShowToast(false)}
-          show={showToast}
-          delay={4000}
-          autohide
-          bg="success"
-        >
-          <Toast.Header>
-            <strong className="me-auto">Notification</strong>
-          </Toast.Header>
-          <Toast.Body className="text-white">{toastMessage}</Toast.Body>
-        </Toast>
-      </ToastContainer>
     </div>
   );
 };

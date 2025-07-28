@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Toast, ToastContainer } from 'react-bootstrap';
+import { Modal, Button, Form } from 'react-bootstrap';
+import { useGlobalToast } from '../../contexts/NotificationContext'; // ✅ Correct import
 
 interface MugOrderModalProps {
   show: boolean;
@@ -8,6 +9,8 @@ interface MugOrderModalProps {
 }
 
 const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrder }) => {
+  const { showToast } = useGlobalToast(); // ✅ Destructure from context
+
   const [color, setColor] = useState('Black');
   const [deliveryMethod, setDeliveryMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [paymentMethod, setPaymentMethod] = useState('Gcash');
@@ -15,8 +18,6 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
-  const [showError, setShowError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
@@ -41,29 +42,25 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
           setDeliveryAddress(fullAddress);
         } else {
           setDeliveryAddress('');
-          setShowError(true);
-          setErrorMessage('Please complete your account address before selecting Delivery.');
+          showToast('Please complete your account address before selecting Delivery.', 'danger');
         }
       } else {
         setDeliveryAddress('');
-        setShowError(true);
-        setErrorMessage('Please complete your account address before selecting Delivery.');
+        showToast('Please complete your account address before selecting Delivery.', 'danger');
       }
     } else {
       setDeliveryAddress('');
     }
-  }, [deliveryMethod]);
+  }, [deliveryMethod, showToast]);
 
   const handleSubmit = () => {
     if (!designFile) {
-      setErrorMessage('Please upload your design file.');
-      setShowError(true);
+      showToast('Please upload your design file.', 'danger');
       return;
     }
 
     if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
-      setErrorMessage('Please complete your account address before selecting Delivery.');
-      setShowError(true);
+      showToast('Please complete your account address before selecting Delivery.', 'danger');
       return;
     }
 
@@ -91,6 +88,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
     };
 
     onPlaceOrder(order);
+    showToast('Order placed successfully!', 'success');
     onHide();
   };
 
@@ -101,150 +99,133 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
   };
 
   return (
-    <>
-      <Modal show={show} onHide={onHide} centered size="lg">
-        <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-          <Modal.Title><strong>Place Your Mug Order</strong></Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form>
-            <Form.Group>
-              <Form.Label><strong>Selected Service:</strong></Form.Label>
-              <Form.Control type="text" value="Mug Printing" readOnly />
-            </Form.Group>
+    <Modal show={show} onHide={onHide} centered size="lg">
+      <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
+        <Modal.Title><strong>Place Your Mug Order</strong></Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Form>
+          <Form.Group>
+            <Form.Label><strong>Selected Service:</strong></Form.Label>
+            <Form.Control type="text" value="Mug Printing" readOnly />
+          </Form.Group>
 
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Upload Design File:</strong></Form.Label>
+            <div
+              onClick={() => document.getElementById('design-upload')?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+              style={{
+                border: '2px dashed #6c757d',
+                padding: '20px',
+                borderRadius: '8px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                backgroundColor: '#f8f9fa',
+                color: '#6c757d',
+              }}
+            >
+              {designFile ? (
+                <div className="text-success"><strong>File selected:</strong> {designFile.name}</div>
+              ) : (
+                <div>Drag and drop files here or <u>Click to upload</u></div>
+              )}
+            </div>
+            <input
+              id="design-upload"
+              type="file"
+              accept=".jpg,.png,.pdf"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+            <Form.Text muted className="d-block mt-2">Accepted formats: JPG, PNG, PDF</Form.Text>
+          </Form.Group>
+
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Color of the Mug:</strong></Form.Label><br />
+            <Button
+              variant={color === 'Black' ? 'dark' : 'outline-dark'}
+              onClick={() => setColor('Black')}
+              className="me-2"
+            >
+              Black
+            </Button>
+            <Button
+              variant={color === 'White' ? 'light' : 'outline-secondary'}
+              onClick={() => setColor('White')}
+            >
+              White
+            </Button>
+          </Form.Group>
+
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Quantity:</strong></Form.Label>
+            <Form.Control
+              type="number"
+              min={1}
+              value={quantity}
+              onChange={(e) => setQuantity(Number(e.target.value))}
+            />
+          </Form.Group>
+
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Delivery Method:</strong></Form.Label><br />
+            <Button
+              style={deliveryMethod === 'Pickup' ? activeButtonStyle : {}}
+              variant={deliveryMethod === 'Pickup' ? 'primary' : 'outline-primary'}
+              onClick={() => setDeliveryMethod('Pickup')}
+              className="me-2"
+            >
+              Pickup
+            </Button>
+            <Button
+              style={deliveryMethod === 'Delivery' ? activeButtonStyle : {}}
+              variant={deliveryMethod === 'Delivery' ? 'primary' : 'outline-primary'}
+              onClick={() => setDeliveryMethod('Delivery')}
+            >
+              Delivery
+            </Button>
+          </Form.Group>
+
+          {deliveryMethod === 'Delivery' && (
             <Form.Group className="mt-3">
-              <Form.Label><strong>Upload Design File:</strong></Form.Label>
-              <div
-                onClick={() => document.getElementById('design-upload')?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleDrop}
-                style={{
-                  border: '2px dashed #6c757d',
-                  padding: '20px',
-                  borderRadius: '8px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  backgroundColor: '#f8f9fa',
-                  color: '#6c757d',
-                }}
-              >
-                {designFile ? (
-                  <div className="text-success"><strong>File selected:</strong> {designFile.name}</div>
-                ) : (
-                  <div>Drag and drop files here or <u>Click to upload</u></div>
-                )}
-              </div>
-              <input
-                id="design-upload"
-                type="file"
-                accept=".jpg,.png,.pdf"
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-              />
-              <Form.Text muted className="d-block mt-2">Accepted formats: JPG, PNG, PDF</Form.Text>
+              <Form.Label><strong>Delivery Address:</strong></Form.Label>
+              <Form.Control type="text" value={deliveryAddress} readOnly />
             </Form.Group>
+          )}
 
-            <Form.Group className="mt-3">
-              <Form.Label><strong>Color of the Mug:</strong></Form.Label><br />
-              <Button
-                variant={color === 'Black' ? 'dark' : 'outline-dark'}
-                onClick={() => setColor('Black')}
-                className="me-2"
-              >
-                Black
-              </Button>
-              <Button
-                variant={color === 'White' ? 'light' : 'outline-secondary'}
-                onClick={() => setColor('White')}
-              >
-                White
-              </Button>
-            </Form.Group>
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Payment Method:</strong></Form.Label>
+            <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+              <option value="Cash">Cash</option>
+              <option value="Maya">Maya</option>
+              <option value="Paypal">Paypal</option>
+              <option value="Gcash">Gcash</option>
+            </Form.Select>
+          </Form.Group>
 
-            <Form.Group className="mt-3">
-              <Form.Label><strong>Quantity:</strong></Form.Label>
-              <Form.Control
-                type="number"
-                min={1}
-                value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
-              />
-            </Form.Group>
-
-            <Form.Group className="mt-3">
-              <Form.Label><strong>Delivery Method:</strong></Form.Label><br />
-              <Button
-                style={deliveryMethod === 'Pickup' ? activeButtonStyle : {}}
-                variant={deliveryMethod === 'Pickup' ? 'primary' : 'outline-primary'}
-                onClick={() => setDeliveryMethod('Pickup')}
-                className="me-2"
-              >
-                Pickup
-              </Button>
-              <Button
-                style={deliveryMethod === 'Delivery' ? activeButtonStyle : {}}
-                variant={deliveryMethod === 'Delivery' ? 'primary' : 'outline-primary'}
-                onClick={() => setDeliveryMethod('Delivery')}
-              >
-                Delivery
-              </Button>
-            </Form.Group>
-
-            {deliveryMethod === 'Delivery' && (
-              <Form.Group className="mt-3">
-                <Form.Label><strong>Delivery Address:</strong></Form.Label>
-                <Form.Control type="text" value={deliveryAddress} readOnly />
-              </Form.Group>
-            )}
-
-            <Form.Group className="mt-3">
-              <Form.Label><strong>Payment Method:</strong></Form.Label>
-              <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                <option value="Cash">Cash</option>
-                <option value="Maya">Maya</option>
-                <option value="Paypal">Paypal</option>
-                <option value="Gcash">Gcash</option>
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mt-3">
-              <Form.Label><strong>Additional Notes:</strong></Form.Label>
-              <Form.Control
-                as="textarea"
-                rows={3}
-                placeholder="Any extra instructions..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-              />
-            </Form.Group>
-          </Form>
-        </Modal.Body>
-        <Modal.Footer style={{ justifyContent: 'space-between' }}>
-          <Button style={{ backgroundColor: 'red', borderColor: 'red' }} onClick={onHide}>
-            Cancel
-          </Button>
-          <Button style={activeButtonStyle} onClick={handleSubmit}>
-            Place Order
-          </Button>
-        </Modal.Footer>
-      </Modal>
-
-      <ToastContainer position="bottom-end" className="p-3">
-        <Toast
-          bg="danger"
-          show={showError}
-          onClose={() => setShowError(false)}
-          delay={3000}
-          autohide
-        >
-          <Toast.Header>
-            <strong className="me-auto">Order Error</strong>
-          </Toast.Header>
-          <Toast.Body className="text-white">{errorMessage}</Toast.Body>
-        </Toast>
-      </ToastContainer>
-    </>
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Additional Notes:</strong></Form.Label>
+            <Form.Control
+              as="textarea"
+              rows={3}
+              placeholder="Any extra instructions..."
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Form.Group>
+        </Form>
+      </Modal.Body>
+      <Modal.Footer style={{ justifyContent: 'space-between' }}>
+        <Button style={{ backgroundColor: 'red', borderColor: 'red' }} onClick={onHide}>
+          Cancel
+        </Button>
+        <Button style={activeButtonStyle} onClick={handleSubmit}>
+          Place Order
+        </Button>
+      </Modal.Footer>
+    </Modal>
   );
 };
 

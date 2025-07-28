@@ -34,7 +34,7 @@ const Feedback: React.FC = () => {
     {
       name: "Maria Santos",
       role: "Small Business Owner",
-      image: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=80&h=80&fit=crop&crop=face",
+      image: "image: https://images.unsplash.com/photo-1494790108755-2616b612b786?ixlib=rb-4.0.3&auto=format&fit=crop&w=80&h=80&q=80",
       rating: 5,
       text: "PrintEase has revolutionized how we manage our print shop. It saves us much time!"
     },
