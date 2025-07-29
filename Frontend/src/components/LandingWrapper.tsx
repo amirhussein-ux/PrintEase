@@ -7,6 +7,7 @@ import Services from './Services';
 import Feedback from './Feedback';
 import Contact from './Contact';
 import ChatWidget from './ChatWidget';
+import AuthPopup from './AuthPopup';
 
 const LandingWrapper: React.FC = () => {
   const [showLogoutToast, setShowLogoutToast] = useState(false);
@@ -21,14 +22,21 @@ const LandingWrapper: React.FC = () => {
 
   return (
     <>
-      {/* Landing Page Components */}
-      <Header />
-      <Hero />
-      <About />
-      <Services />
-      <Feedback />
-      <Contact />
+      <div className="landing-sections">
+        <Header />
+        <Hero />
+        <About />
+        <Services />
+        <Feedback />
+        <Contact />
+      </div>
+
       <ChatWidget />
+
+      {/* ✅ Isolated Modal Layer */}
+      <div style={{ position: 'relative', zIndex: 1050 }}>
+        <AuthPopup />
+      </div>
 
       {/* Toast */}
       <ToastContainer position="bottom-start" className="p-3">

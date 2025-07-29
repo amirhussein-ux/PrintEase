@@ -54,3 +54,14 @@ html {
 .section-padding {
   padding: 80px 0;
 }
+
+.modal-dialog {
+  margin: auto !important;
+  max-width: 500px !important; /* Optional: set your preferred size */
+}
+
+.modal-content {
+  width: 100% !important;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}

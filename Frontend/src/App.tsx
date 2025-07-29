@@ -1,21 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 
-import Header from './components/Header';
-import Hero from './components/Hero';
-import About from './components/About';
-import Services from './components/Services';
-import Feedback from './components/Feedback';
-import Contact from './components/Contact';
-
+import LandingWrapper from './components/LandingWrapper';
 import CustomerHeader from './components/CustomerHeader';
 import OrderPage from './pages/OrderPage';
 import CustomizePage from './pages/CustomizePage';
 import TrackOrdersPage from './pages/TrackOrdersPage';
 import AccountPage from './pages/AccountPage';
 
+import Dashboard from './pages/Dashboard';
+import ServiceManagement from './pages/ServiceManagement';
+import Notifications from './pages/Notifications';
+import ChatSupport from './pages/ChatSupport';
+import AdminDashboard from './pages/AdminDashboard';
+import Layout from './components/admin/Layout';
+
 import { OrdersProvider } from './contexts/OrdersContext';
 import { ToastProvider } from './contexts/NotificationContext';
+import { AppProvider } from './contexts/AppContext';
 
 import { Toast, ToastContainer as BootstrapToastContainer } from 'react-bootstrap';
 import ChatWidget from './components/ChatWidget';
@@ -38,21 +40,18 @@ const AppWrapper: React.FC = () => {
     <>
       <Routes>
         {/* ✅ Landing Page */}
-        <Route
-          path="/"
-          element={
-            <>
-              <Header />
-              <Hero />
-              <About />
-              <Services />
-              <Feedback />
-              <Contact />
-            </>
-          }
-        />
+        <Route path="/" element={<LandingWrapper />} />
 
-        {/* ✅ Customer Dashboard Pages */}
+        {/* ✅ Admin Routes with Sidebar Layout */}
+        <Route element={<Layout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/service-management" element={<ServiceManagement />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/chat-support" element={<ChatSupport />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+        </Route>
+
+        {/* ✅ Customer Routes */}
         <Route
           path="/customer/order"
           element={
@@ -91,10 +90,10 @@ const AppWrapper: React.FC = () => {
         />
       </Routes>
 
-      {/* ✅ Always-visible Chat Support */}
+      {/* ✅ Always-visible Chat Widget */}
       <ChatWidget />
 
-      {/* ✅ Logout Toast on bottom-left */}
+      {/* ✅ Logout Toast Notification */}
       <BootstrapToastContainer position="bottom-start" className="p-3">
         <Toast
           bg="success"
@@ -120,7 +119,9 @@ const App: React.FC = () => {
     <Router>
       <ToastProvider>
         <OrdersProvider>
-          <AppWrapper />
+          <AppProvider>
+            <AppWrapper />
+          </AppProvider>
         </OrdersProvider>
       </ToastProvider>
     </Router>
