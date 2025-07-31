@@ -10,11 +10,11 @@ const ToastContext = createContext<ToastContextType>({ showToast: () => {} });
 export const useGlobalToast = () => useContext(ToastContext);
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState<string>('');
   const [variant, setVariant] = useState<'success' | 'danger' | 'info' | 'warning'>('success');
-  const [show, setShow] = useState(false);
+  const [show, setShow] = useState<boolean>(false);
 
-  const showToast = (msg: string, type = 'success') => {
+  const showToast = (msg: string, type: 'success' | 'danger' | 'info' | 'warning' = 'success') => {
     setMessage(msg);
     setVariant(type);
     setShow(true);

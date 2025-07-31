@@ -1,28 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import { useGlobalToast } from '../../contexts/NotificationContext'; // ✅ Correct import
+import { useGlobalToast } from '../../contexts/NotificationContext';
 
-interface MugOrderModalProps {
+interface CustomizedMousePadOrderModalProps {
   show: boolean;
   onHide: () => void;
   onPlaceOrder: (order: any) => void;
 }
 
-const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrder }) => {
-  const { showToast } = useGlobalToast(); // ✅ Destructure from context
+const CustomizedMousePadOrderModal: React.FC<CustomizedMousePadOrderModalProps> = ({
+  show,
+  onHide,
+  onPlaceOrder,
+}) => {
+  const { showToast } = useGlobalToast();
 
-  const [selectedMug, setSelectedMug] = useState('');
-  const [quantity, setQuantity] = useState(1);
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('Gcash');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
-
-  const mugOptions = {
-    'White Mug': 120.00,
-    'Inner Color Mug': 150.00,
-    'Magic Mug': 170.00,
-    'Silver/Gold Mug': 170.00,
-  };
+  const [total] = useState(80.00); // Fixed price for the mouse pad
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
@@ -43,21 +40,15 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
       return;
     }
 
-    if (!selectedMug) {
-      showToast('Please select a mug type.', 'danger');
-      return;
-    }
-
-    const total = (mugOptions[selectedMug] * quantity).toFixed(2);
-
     const order = {
       orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
-      product: 'Mug Printing',
-      quantity,
-      size: 'Standard',
-      total,
+      product: 'Mouse Pad',
+      quantity: 1,
+      size: '8.5" x 7"',
+      total: total.toFixed(2), // Use the fixed total
       status: 'Pending',
+      deliveryAddress: deliveryAddress || 'Pickup',
       paymentMethod,
       notes,
       designFile,
@@ -85,19 +76,19 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
   return (
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-        <Modal.Title><strong>Place Your Mug Order</strong></Modal.Title>
+        <Modal.Title><strong>Order: Customized Mouse Pad</strong></Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
           <Form.Group>
             <Form.Label><strong>Selected Service:</strong></Form.Label>
-            <Form.Control type="text" value="Mug Printing" readOnly />
+            <Form.Control type="text" value="Customized Mouse Pad" readOnly />
           </Form.Group>
 
           <Form.Group className="mt-3">
             <Form.Label><strong>Upload Design File:</strong></Form.Label>
             <div
-              onClick={() => document.getElementById('design-upload')?.click()}
+              onClick={() => document.getElementById('mousepad-upload')?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
               style={{
@@ -117,7 +108,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
               )}
             </div>
             <input
-              id="design-upload"
+              id="mousepad-upload"
               type="file"
               accept=".jpg,.png,.pdf"
               onChange={handleFileChange}
@@ -127,25 +118,8 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
           </Form.Group>
 
           <Form.Group className="mt-3">
-            <Form.Label><strong>Selection Type Mug:</strong></Form.Label>
-            <Form.Select value={selectedMug} onChange={(e) => setSelectedMug(e.target.value)}>
-              <option value="">Select Mug Type</option>
-              {Object.entries(mugOptions).map(([mugType, price]) => (
-                <option key={mugType} value={mugType}>
-                  {mugType} - ₱{price.toFixed(2)}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Quantity:</strong></Form.Label>
-            <Form.Control
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-            />
+            <Form.Label><strong>Size:</strong></Form.Label>
+            <Form.Control type="text" value='8.5" x 7"' readOnly />
           </Form.Group>
 
           <Form.Group className="mt-3">
@@ -170,7 +144,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
           </Form.Group>
 
           <div className="text-end fw-bold mt-3">
-            Total: ₱{(mugOptions[selectedMug] * quantity).toFixed(2)}
+            Total: ₱{total.toFixed(2)}
           </div>
         </Form>
       </Modal.Body>
@@ -186,4 +160,4 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
   );
 };
 
-export default MugOrderModal;
+export default CustomizedMousePadOrderModal;

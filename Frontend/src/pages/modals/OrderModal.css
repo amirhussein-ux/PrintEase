@@ -41,3 +41,19 @@
   background-color: #1e3a8a;
   color: white;
 }
+
+.upload-area {
+  display: block;
+  width: 100%;
+  padding: 20px;
+  border: 2px dashed #ced4da;
+  text-align: center;
+  color: #6c757d;
+  background-color: #f8f9fa;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.upload-area:hover {
+  background-color: #e9ecef;
+}

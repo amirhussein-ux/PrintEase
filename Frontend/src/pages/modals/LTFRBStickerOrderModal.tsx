@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import { useGlobalToast } from '../../contexts/NotificationContext'; // ✅ Global toast
+import { useGlobalToast } from '../../contexts/NotificationContext';
 
-interface PenOrderModalProps {
+interface LTFRBStickerOrderModalProps {
   show: boolean;
   onHide: () => void;
   onPlaceOrder: (order: any) => void;
 }
 
-const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrder }) => {
-  const { showToast } = useGlobalToast(); // ✅ use global toast
+const LTFRBStickerOrderModal: React.FC<LTFRBStickerOrderModalProps> = ({ show, onHide, onPlaceOrder }) => {
+  const { showToast } = useGlobalToast();
 
-  const [color, setColor] = useState('Black');
-  const [deliveryMethod, setDeliveryMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
-  const [paymentMethod, setPaymentMethod] = useState('Gcash');
+  const [vehicleType, setVehicleType] = useState('Van');
   const [quantity, setQuantity] = useState(1);
   const [designFile, setDesignFile] = useState<File | null>(null);
-  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('Gcash');
   const [notes, setNotes] = useState('');
+
+  const getPrice = () => {
+    return vehicleType === 'Van' ? 1300 : 1500;
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
@@ -32,51 +34,26 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
     }
   };
 
-  useEffect(() => {
-    if (deliveryMethod === 'Delivery') {
-      const saved = localStorage.getItem('accountData');
-      if (saved) {
-        const data = JSON.parse(saved);
-        const fullAddress = `${data.houseNo || ''} ${data.street || ''}, ${data.barangay || ''}, ${data.city || ''}, ${data.region || ''}, ${data.zip || ''}`.trim();
-        if (fullAddress.replace(/[\s,]/g, '').length > 0) {
-          setDeliveryAddress(fullAddress);
-        } else {
-          setDeliveryAddress('');
-          showToast('Please complete your account address before selecting Delivery.', 'danger');
-        }
-      } else {
-        setDeliveryAddress('');
-        showToast('Please complete your account address before selecting Delivery.', 'danger');
-      }
-    } else {
-      setDeliveryAddress('');
-    }
-  }, [deliveryMethod, showToast]);
-
   const handleSubmit = () => {
     if (!designFile) {
       showToast('Please upload your design file.', 'danger');
       return;
     }
 
-    if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
-      showToast('Please complete your account address before selecting Delivery.', 'danger');
-      return;
-    }
+    const price = getPrice();
+    const total = (quantity * price).toFixed(2);
 
     const order = {
       orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
-      product: 'Pen Printing',
+      product: 'LTFRB',
       quantity,
-      total: (quantity * 5).toFixed(2),
+      total,
       status: 'Pending',
-      deliveryMethod,
-      deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
       paymentMethod,
       notes,
       designFile,
-      color,
+      vehicleType,
       timeline: {
         'Order Placed': new Date().toLocaleDateString(),
         'Processing': 'Pending',
@@ -101,19 +78,19 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
   return (
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-        <Modal.Title><strong>Place Your Pen Order</strong></Modal.Title>
+        <Modal.Title><strong>Place Your LTFRB Sticker Order</strong></Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
           <Form.Group>
             <Form.Label><strong>Selected Service:</strong></Form.Label>
-            <Form.Control type="text" value="Pen Printing" readOnly />
+            <Form.Control type="text" value="LTFRB Sticker" readOnly />
           </Form.Group>
 
           <Form.Group className="mt-3">
             <Form.Label><strong>Upload Design File:</strong></Form.Label>
             <div
-              onClick={() => document.getElementById('pen-design-upload')?.click()}
+              onClick={() => document.getElementById('ltfrb-upload')?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleDrop}
               style={{
@@ -132,35 +109,29 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
                 <div>Drag and drop files here or <u>Click to upload</u></div>
               )}
             </div>
-
             <input
-              id="pen-design-upload"
+              id="ltfrb-upload"
               type="file"
               accept=".jpg,.png,.pdf"
               onChange={handleFileChange}
               style={{ display: 'none' }}
             />
-
-            <Form.Text muted className="d-block mt-2">
-              Accepted formats: JPG, PNG, PDF
-            </Form.Text>
+            <Form.Text muted className="d-block mt-2">Accepted formats: JPG, PNG, PDF</Form.Text>
           </Form.Group>
 
           <Form.Group className="mt-3">
-            <Form.Label><strong>Color of the Pen:</strong></Form.Label><br />
-            <Button
-              variant={color === 'Black' ? 'dark' : 'outline-dark'}
-              onClick={() => setColor('Black')}
-              className="me-2"
-            >
-              Black
-            </Button>
-            <Button
-              variant={color === 'White' ? 'light' : 'outline-secondary'}
-              onClick={() => setColor('White')}
-            >
-              White
-            </Button>
+            <Form.Label><strong>Vehicle Type:</strong></Form.Label>
+            <Form.Select value={vehicleType} onChange={(e) => setVehicleType(e.target.value)}>
+              <option value="Van">Close Van / 1300 Van – ₱1,300</option>
+              <option value="Truck">10-Wheelers Truck – ₱1,500</option>
+            </Form.Select>
+            <Form.Text className="mt-2">
+              {vehicleType === 'Van' ? (
+                <span>*2 Company Name, *3 LTFRB Hotline, *2 LTFRB Operator</span>
+              ) : (
+                <span>*2 Company Name, *3 LTFRB Hotline, *2 LTFRB Operator</span>
+              )}
+            </Form.Text>
           </Form.Group>
 
           <Form.Group className="mt-3">
@@ -172,32 +143,6 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
               onChange={(e) => setQuantity(Number(e.target.value))}
             />
           </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Delivery Method:</strong></Form.Label><br />
-            <Button
-              style={deliveryMethod === 'Pickup' ? activeButtonStyle : {}}
-              variant={deliveryMethod === 'Pickup' ? 'primary' : 'outline-primary'}
-              onClick={() => setDeliveryMethod('Pickup')}
-              className="me-2"
-            >
-              Pickup
-            </Button>
-            <Button
-              style={deliveryMethod === 'Delivery' ? activeButtonStyle : {}}
-              variant={deliveryMethod === 'Delivery' ? 'primary' : 'outline-primary'}
-              onClick={() => setDeliveryMethod('Delivery')}
-            >
-              Delivery
-            </Button>
-          </Form.Group>
-
-          {deliveryMethod === 'Delivery' && (
-            <Form.Group className="mt-3">
-              <Form.Label><strong>Delivery Address:</strong></Form.Label>
-              <Form.Control type="text" value={deliveryAddress} readOnly />
-            </Form.Group>
-          )}
 
           <Form.Group className="mt-3">
             <Form.Label><strong>Payment Method:</strong></Form.Label>
@@ -219,14 +164,22 @@ const PenOrderModal: React.FC<PenOrderModalProps> = ({ show, onHide, onPlaceOrde
               onChange={(e) => setNotes(e.target.value)}
             />
           </Form.Group>
+
+          <div className="text-end fw-bold mt-3">
+            Total: ₱{(getPrice() * quantity).toFixed(2)}
+          </div>
         </Form>
       </Modal.Body>
-      <Modal.Footer style={{ justifyContent: 'space-between' }}>
-        <Button style={{ backgroundColor: 'red', borderColor: 'red' }} onClick={onHide}>Cancel</Button>
-        <Button style={activeButtonStyle} onClick={handleSubmit}>Place Order</Button>
+      <Modal.Footer style={{ justifyContent: 'flex-end' }}>
+        <Button style={{ backgroundColor: 'red', borderColor: 'red', marginRight: '10px' }} onClick={onHide}>
+          Cancel
+        </Button>
+        <Button style={activeButtonStyle} onClick={handleSubmit}>
+          Place Order
+        </Button>
       </Modal.Footer>
     </Modal>
   );
 };
 
-export default PenOrderModal;
+export default LTFRBStickerOrderModal;

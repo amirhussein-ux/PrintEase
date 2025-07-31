@@ -9,12 +9,11 @@ import {
 } from 'react-bootstrap';
 import { EyeFill, EyeSlashFill } from 'react-bootstrap-icons';
 import { useNavigate } from 'react-router-dom';
-import './AuthPopup.css'; // ✅ Optional: for modal fix
 
 const AuthPopup: React.FC = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
-  const [userType, setUserType] = useState<'admin' | 'customer'>('customer');
+  const [userType, setUserType] = useState<'customer'>('customer');
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -39,12 +38,7 @@ const AuthPopup: React.FC = () => {
     localStorage.setItem('loginSuccess', 'true');
     setShowLogin(false);
     setShowLoginToast(true);
-
-    if (userType === 'admin') {
-      navigate('/dashboard');
-    } else {
-      navigate('/customer/order');
-    }
+    navigate('/customer/order');
   };
 
   const handleSignUp = () => {
@@ -64,9 +58,15 @@ const AuthPopup: React.FC = () => {
 
   return (
     <>
-      {/* ✅ Toast Notifications */}
+      {/* Toast Notifications */}
       <ToastContainer position="bottom-start" className="p-3">
-        <Toast bg="success" onClose={() => setShowLoginToast(false)} show={showLoginToast} delay={3000} autohide>
+        <Toast
+          bg="success"
+          onClose={() => setShowLoginToast(false)}
+          show={showLoginToast}
+          delay={3000}
+          autohide
+        >
           <Toast.Header closeButton={false}>
             <strong className="me-auto text-white">Logged In</strong>
           </Toast.Header>
@@ -75,7 +75,13 @@ const AuthPopup: React.FC = () => {
           </Toast.Body>
         </Toast>
 
-        <Toast bg="success" onClose={() => setShowSignupToast(false)} show={showSignupToast} delay={3000} autohide>
+        <Toast
+          bg="success"
+          onClose={() => setShowSignupToast(false)}
+          show={showSignupToast}
+          delay={3000}
+          autohide
+        >
           <Toast.Header closeButton={false}>
             <strong className="me-auto text-dark">Sign Up</strong>
           </Toast.Header>
@@ -85,35 +91,31 @@ const AuthPopup: React.FC = () => {
         </Toast>
       </ToastContainer>
 
-      {/* ✅ Buttons */}
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-        <Button
-          style={{ backgroundColor: '#1e3a8a', border: 'none', marginRight: '1rem' }}
-          onClick={() => {
-            setUserType('admin');
-            setShowLogin(true);
-          }}
-        >
-          Log In as Admin
-        </Button>
+      {/* Buttons */}
+      <Button
+        style={{ backgroundColor: '#1e3a8a', border: 'none', marginRight: '1rem' }}
+        disabled
+        title="Admin login is not available here"
+      >
+        Log In
+      </Button>
 
-        <Button
-          variant="light"
-          style={{
-            color: '#1e3a8a',
-            border: '2px solid #1e3a8a',
-            fontWeight: '600'
-          }}
-          onClick={() => {
-            setUserType('customer');
-            setShowLogin(true);
-          }}
-        >
-          Continue as Customer
-        </Button>
-      </div>
+      <Button
+        variant="light"
+        style={{
+          color: '#1e3a8a',
+          border: '2px solid #1e3a8a',
+          fontWeight: '600'
+        }}
+        onClick={() => {
+          setUserType('customer');
+          setShowLogin(true);
+        }}
+      >
+        Continue as Customer
+      </Button>
 
-      {/* ✅ Login Modal */}
+      {/* Login Modal */}
       <Modal show={showLogin} onHide={() => setShowLogin(false)} centered>
         <Modal.Header
           closeButton
@@ -123,12 +125,19 @@ const AuthPopup: React.FC = () => {
             justifyContent: 'center'
           }}
         >
-          <Modal.Title style={{ color: 'white', fontWeight: 'bold', fontSize: '1.5rem' }}>
-            Log In as {userType === 'admin' ? 'Admin' : 'Customer'}
+          <Modal.Title
+            style={{ color: 'white', fontWeight: 'bold', fontSize: '1.5rem' }}
+          >
+            Log In as Customer
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form onSubmit={(e) => { e.preventDefault(); handleLogin(); }}>
+          <Form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleLogin();
+            }}
+          >
             <Form.Group>
               <Form.Label>Username</Form.Label>
               <Form.Control
@@ -148,7 +157,10 @@ const AuthPopup: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <InputGroup.Text onClick={() => setShowPassword(!showPassword)} style={{ cursor: 'pointer' }}>
+                <InputGroup.Text
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ cursor: 'pointer' }}
+                >
                   {showPassword ? <EyeSlashFill /> : <EyeFill />}
                 </InputGroup.Text>
               </InputGroup>
@@ -156,31 +168,36 @@ const AuthPopup: React.FC = () => {
 
             <Button
               type="submit"
-              style={{ backgroundColor: '#1e3a8a', border: 'none', width: '100%' }}
+              style={{
+                backgroundColor: '#1e3a8a',
+                border: 'none',
+                width: '100%'
+              }}
               className="mt-4"
             >
               Log In
             </Button>
           </Form>
-
-          {userType === 'customer' && (
-            <div className="mt-3 text-center">
-              Don’t have an account?{' '}
-              <span
-                style={{ color: '#1e3a8a', cursor: 'pointer', fontWeight: 500 }}
-                onClick={() => {
-                  setShowLogin(false);
-                  setShowSignUp(true);
-                }}
-              >
-                Sign up
-              </span>
-            </div>
-          )}
+          <div className="mt-3 text-center">
+            Don't have an account?{' '}
+            <span
+              style={{
+                color: '#1e3a8a',
+                cursor: 'pointer',
+                fontWeight: 500
+              }}
+              onClick={() => {
+                setShowLogin(false);
+                setShowSignUp(true);
+              }}
+            >
+              Sign up
+            </span>
+          </div>
         </Modal.Body>
       </Modal>
 
-      {/* ✅ Sign Up Modal */}
+      {/* Sign Up Modal */}
       <Modal show={showSignUp} onHide={() => setShowSignUp(false)} centered>
         <Modal.Header
           closeButton
@@ -190,12 +207,19 @@ const AuthPopup: React.FC = () => {
             justifyContent: 'center'
           }}
         >
-          <Modal.Title style={{ color: 'white', fontWeight: 'bold', fontSize: '1.5rem' }}>
+          <Modal.Title
+            style={{ color: 'white', fontWeight: 'bold', fontSize: '1.5rem' }}
+          >
             Sign Up as Customer
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <Form onSubmit={(e) => { e.preventDefault(); handleSignUp(); }}>
+          <Form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSignUp();
+            }}
+          >
             <Form.Group>
               <Form.Label>Username</Form.Label>
               <Form.Control
@@ -215,7 +239,10 @@ const AuthPopup: React.FC = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-                <InputGroup.Text onClick={() => setShowPassword(!showPassword)} style={{ cursor: 'pointer' }}>
+                <InputGroup.Text
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{ cursor: 'pointer' }}
+                >
                   {showPassword ? <EyeSlashFill /> : <EyeFill />}
                 </InputGroup.Text>
               </InputGroup>
@@ -232,7 +259,10 @@ const AuthPopup: React.FC = () => {
                   isValid={confirmPassword && passwordMatch}
                   isInvalid={confirmPassword && !passwordMatch}
                 />
-                <InputGroup.Text onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={{ cursor: 'pointer' }}>
+                <InputGroup.Text
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={{ cursor: 'pointer' }}
+                >
                   {showConfirmPassword ? <EyeSlashFill /> : <EyeFill />}
                 </InputGroup.Text>
               </InputGroup>
@@ -240,7 +270,11 @@ const AuthPopup: React.FC = () => {
 
             <Button
               type="submit"
-              style={{ backgroundColor: '#1e3a8a', border: 'none', width: '100%' }}
+              style={{
+                backgroundColor: '#1e3a8a',
+                border: 'none',
+                width: '100%'
+              }}
               className="mt-4"
             >
               Sign Up

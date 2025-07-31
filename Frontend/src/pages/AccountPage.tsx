@@ -347,27 +347,6 @@ const AccountPage: React.FC = () => {
 
 
           {isEditing && (
-            <Row className="mb-4">
-              <Col md={12}>
-                <Form.Label className="fw-bold">Upload Resume / ID</Form.Label>
-                <div className="d-flex align-items-center gap-3">
-                  <input
-                    type="file"
-                    accept=".pdf,image/*"
-                    ref={resumeInputRef}
-                    onChange={handleResumeUpload}
-                  />
-                  {resumeFile && (
-                    <span className="text-success fw-bold">
-                      {resumeFile.name}
-                    </span>
-                  )}
-                </div>
-              </Col>
-            </Row>
-          )}
-
-          {isEditing && (
             <>
               <h5 className="mt-4 fw-bold">Change Password</h5>
               <Row className="mb-3">

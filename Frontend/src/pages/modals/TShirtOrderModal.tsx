@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
-import { useGlobalToast } from '../../contexts/NotificationContext'; // ✅ Global Toast
+import { useGlobalToast } from '../../contexts/NotificationContext';
+import { useOrderContext } from '../../contexts/OrdersContext'; // Import the context
 
 interface TShirtOrderModalProps {
   show: boolean;
   onHide: () => void;
-  onPlaceOrder: (order: any) => void;
 }
 
-const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide, onPlaceOrder }) => {
-  const { showToast } = useGlobalToast(); // ✅ Use global toast
+const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide }) => {
+  const { showToast } = useGlobalToast();
+  const { addOrder } = useOrderContext(); // Use the context
 
   const [size, setSize] = useState('Medium');
-  const [color, setColor] = useState('Black');
-  const [deliveryMethod, setDeliveryMethod] = useState<'Pickup' | 'Delivery'>('Pickup');
   const [paymentMethod, setPaymentMethod] = useState('Gcash');
   const [quantity, setQuantity] = useState(1);
   const [designFile, setDesignFile] = useState<File | null>(null);
-  const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
+  const [shirtType, setShirtType] = useState('Printable Vinyl Printing');
+  const [vinylColor, setVinylColor] = useState('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
@@ -33,63 +33,52 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide, onPla
     }
   };
 
-  useEffect(() => {
-    if (deliveryMethod === 'Delivery') {
-      const saved = localStorage.getItem('accountData');
-      if (saved) {
-        const data = JSON.parse(saved);
-        const fullAddress = `${data.houseNo || ''} ${data.street || ''}, ${data.barangay || ''}, ${data.city || ''}, ${data.region || ''}, ${data.zip || ''}`.trim();
-        if (fullAddress.replace(/[\s,]/g, '').length > 0) {
-          setDeliveryAddress(fullAddress);
-        } else {
-          setDeliveryAddress('');
-          showToast('Please complete your account address before selecting Delivery.', 'danger');
-        }
-      } else {
-        setDeliveryAddress('');
-        showToast('Please complete your account address before selecting Delivery.', 'danger');
-      }
-    } else {
-      setDeliveryAddress('');
-    }
-  }, [deliveryMethod, showToast]);
-
   const handleSubmit = () => {
     if (!designFile) {
       showToast('Please upload your design file.', 'danger');
       return;
     }
 
-    if (deliveryMethod === 'Delivery' && deliveryAddress.trim() === '') {
-      showToast('Please complete your account address before selecting Delivery.', 'danger');
+    if (shirtType === 'Printable Vinyl Printing' && !vinylColor) {
+      showToast('Please select a vinyl color.', 'danger');
       return;
     }
 
+    const now = new Date();
+    const formattedDate = now.toLocaleDateString();
+    const formattedTime = now.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
+
+    const pricePerShirt = shirtType === 'Printable Vinyl Printing' ? 130 : 100;
+    const total = (quantity * pricePerShirt).toFixed(2);
+
     const order = {
-      orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-      date: new Date().toISOString().split('T')[0],
-      product: 'T-Shirt Printing',
+      orderId: `TSHIRT-${Date.now()}`, // Add orderId
+      product: `T-Shirt (${shirtType})`,
       quantity,
-      total: (quantity * 15).toFixed(2),
+      total,
       status: 'Pending',
-      deliveryMethod,
-      deliveryAddress: deliveryMethod === 'Delivery' ? deliveryAddress : 'Pickup',
+      deliveryMethod: 'Pickup',
+      deliveryAddress: 'Pickup',
       paymentMethod,
       notes,
       designFile,
       size,
-      color,
+      color: shirtType === 'Printable Vinyl Printing' ? vinylColor : 'White',
       timeline: {
-        'Order Placed': new Date().toLocaleDateString(),
+        'Pending': `${formattedDate} - ${formattedTime}`,
         'Processing': 'Pending',
         'Printing': 'Pending',
         'Quality Check': 'Pending',
-        'Shipped': 'Pending',
-        'Delivered': 'Pending',
+        'Ready for Pick-up': 'Pending',
+        'Completed': 'Pending',
       },
     };
 
-    onPlaceOrder(order);
+    addOrder(order); // Use the context to add the order
     showToast('Order placed successfully!', 'success');
     onHide();
   };
@@ -103,7 +92,7 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide, onPla
   return (
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-        <Modal.Title><strong>Place Your T-Shirt Order</strong></Modal.Title>
+        <Modal.Title><strong>Order T-Shirt</strong></Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
@@ -111,6 +100,29 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide, onPla
             <Form.Label><strong>Selected Service:</strong></Form.Label>
             <Form.Control type="text" value="T-Shirt Printing" readOnly />
           </Form.Group>
+
+          <Form.Group className="mt-3">
+            <Form.Label><strong>Select Type of Shirt Printing:</strong></Form.Label>
+            <Form.Select value={shirtType} onChange={(e) => setShirtType(e.target.value)}>
+              <option value="Printable Vinyl Printing">Printable Vinyl Printing – ₱130.00 per A4 size</option>
+              <option value="Sublimation Printing">Sublimation Printing – ₱100.00 per A4 size (T-Shirt White Only)</option>
+            </Form.Select>
+            <div className="mt-2 text-muted" style={{ fontSize: '0.9rem' }}>
+              <em>- Price may vary depending on the size</em><br />
+              <em>- Max Size: 14x14 inch</em>
+            </div>
+          </Form.Group>
+
+          {shirtType === 'Printable Vinyl Printing' && (
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Vinyl Color:</strong></Form.Label>
+              <Form.Select value={vinylColor} onChange={(e) => setVinylColor(e.target.value)}>
+                <option value="">Select color</option>
+                <option value="Black">Black</option>
+                <option value="White">White</option>
+              </Form.Select>
+            </Form.Group>
+          )}
 
           <Form.Group className="mt-3">
             <Form.Label><strong>Upload Design File:</strong></Form.Label>
@@ -145,29 +157,15 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide, onPla
           </Form.Group>
 
           <Form.Group className="mt-3">
-            <Form.Label><strong>Color of the Shirt:</strong></Form.Label><br />
-            <Button
-              variant={color === 'Black' ? 'dark' : 'outline-dark'}
-              onClick={() => setColor('Black')}
-              className="me-2"
-            >
-              Black
-            </Button>
-            <Button
-              variant={color === 'White' ? 'light' : 'outline-secondary'}
-              onClick={() => setColor('White')}
-            >
-              White
-            </Button>
-          </Form.Group>
-
-          <Form.Group className="mt-3">
             <Form.Label><strong>Shirt Size:</strong></Form.Label>
             <Form.Select value={size} onChange={(e) => setSize(e.target.value)}>
+              <option>Extra Small</option>
               <option>Small</option>
               <option>Medium</option>
               <option>Large</option>
-              <option>XL</option>
+              <option>Extra Large</option>
+              <option>2X Large</option>
+              <option>3X Large</option>
             </Form.Select>
           </Form.Group>
 
@@ -180,32 +178,6 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide, onPla
               onChange={(e) => setQuantity(Number(e.target.value))}
             />
           </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Delivery Method:</strong></Form.Label><br />
-            <Button
-              style={deliveryMethod === 'Pickup' ? activeButtonStyle : {}}
-              variant={deliveryMethod === 'Pickup' ? 'primary' : 'outline-primary'}
-              onClick={() => setDeliveryMethod('Pickup')}
-              className="me-2"
-            >
-              Pickup
-            </Button>
-            <Button
-              style={deliveryMethod === 'Delivery' ? activeButtonStyle : {}}
-              variant={deliveryMethod === 'Delivery' ? 'primary' : 'outline-primary'}
-              onClick={() => setDeliveryMethod('Delivery')}
-            >
-              Delivery
-            </Button>
-          </Form.Group>
-
-          {deliveryMethod === 'Delivery' && (
-            <Form.Group className="mt-3">
-              <Form.Label><strong>Delivery Address:</strong></Form.Label>
-              <Form.Control type="text" value={deliveryAddress} readOnly />
-            </Form.Group>
-          )}
 
           <Form.Group className="mt-3">
             <Form.Label><strong>Payment Method:</strong></Form.Label>
@@ -227,10 +199,18 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide, onPla
               onChange={(e) => setNotes(e.target.value)}
             />
           </Form.Group>
+
+          <div className="text-end fw-bold mt-3">
+            Total: ₱{(quantity * (shirtType === 'Printable Vinyl Printing' ? 130 : 100)).toFixed(2)}
+          </div>
         </Form>
       </Modal.Body>
-      <Modal.Footer style={{ justifyContent: 'space-between' }}>
-        <Button style={{ backgroundColor: 'red', borderColor: 'red' }} onClick={onHide}>
+      <Modal.Footer style={{ justifyContent: 'flex-end' }}>
+        <Button
+          className="me-2"
+          style={{ backgroundColor: 'red', borderColor: 'white', color: 'white' }}
+          onClick={onHide}
+        >
           Cancel
         </Button>
         <Button style={activeButtonStyle} onClick={handleSubmit}>

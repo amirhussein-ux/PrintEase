@@ -1,106 +1,112 @@
-import React, { useState, useEffect } from 'react';
-import MugOrderModal from './modals/MugOrderModal';
+import React, { useState } from 'react';
+import { Container, Row, Col, Card, Button } from 'react-bootstrap';
+import { useOrderContext } from '../contexts/OrdersContext'; // Import your OrdersContext
+
+// Import your modals here
+import StickerOrderModal from './modals/StickerOrderModal';
 import TShirtOrderModal from './modals/TShirtOrderModal';
-import EcoBagOrderModal from './modals/EcoBagOrderModal';
-import PenOrderModal from './modals/PenOrderModal';
+import MotorplateOrderModal from './modals/MotorPlateOrderModal';
+import NotepadOrderModal from './modals/NotepadOrderModal';
+import PVCIDOrderModal from './modals/PVCIDModal';
+import RefMagnetOrderModal from './modals/RefMagnetOrderModal';
+import CardsOrderModal from './modals/CardsOrderModal';
 import TarpaulinOrderModal from './modals/TarpaulinOrderModal';
-import DocumentOrderModal from './modals/DocumentOrderModal';
-import { useOrderContext } from '../contexts/OrdersContext';
-import { useGlobalToast } from '../contexts/NotificationContext'; // ✅ Import global toast
+import MousepadOrderModal from './modals/CustomizedMousePadOrderModal';
+import MugOrderModal from './modals/MugOrderModal';
+import LTFRBStickerOrderModal from './modals/LTFRBStickerOrderModal';
+
 import './OrderPage.css';
 
 const services = [
-  {
-    title: 'Mug Printing',
-    description: 'Custom printed mugs for personal or business use',
-    image: '/src/assets/mug.png',
-  },
-  {
-    title: 'T-Shirt Printing',
-    description: 'High-quality prints on various shirt styles and sizes',
-    image: '/src/assets/shirt.png',
-  },
-  {
-    title: 'Eco Bag Printing',
-    description: 'Environmentally friendly custom printed bags',
-    image: '/src/assets/ecobag.png',
-  },
-  {
-    title: 'Pen Printing',
-    description: 'Customized pens with your logo or message',
-    image: '/src/assets/pen.png',
-  },
-  {
-    title: 'Tarpaulin Printing',
-    description: 'Custom printed tarpaulins in various styles and sizes',
-    image: '/src/assets/tarpaulin.png',
-  },
-  {
-    title: 'Document Printing',
-    description: 'Print your documents with ease and quality',
-    image: '/src/assets/paper.png',
-  },
+  { title: 'Stickers', description: 'Waterproof custom sticker printing', image: '/src/assets/sticker.png' },
+  { title: 'T-Shirt', description: 'Customized high-quality shirt printing', image: '/src/assets/shirt.png' },
+  { title: 'Motorplate', description: 'Custom designed motorplate for vehicles', image: '/src/assets/motorplate.png' },
+  { title: 'Customized Notepads', description: 'Custom printed notepads with your logo', image: '/src/assets/notepad.png' },
+  { title: 'PVC ID', description: 'High-quality ID cards for schools, offices, and more', image: '/src/assets/pvcid.png' },
+  { title: 'Customized Ref Magnet', description: 'Promotional ref magnets with your branding', image: '/src/assets/refmagnet.png' },
+  { title: 'Calling Cards / Loyalty / Membership Cards', description: 'Professional business and loyalty cards', image: '/src/assets/cards.png' },
+  { title: 'Tarpaulin', description: 'Large format tarpaulin printing for any event', image: '/src/assets/tarpaulin.png' },
+  { title: 'Customized Mousepad', description: 'Mousepads with personalized design', image: '/src/assets/mousepad.png' },
+  { title: 'Mugs', description: 'Custom printed mugs for personal or corporate use', image: '/src/assets/mug.png' },
+  { title: 'LTFRB Sticker', description: 'Authorized LTFRB-compliant sticker printing', image: '/src/assets/ltfrbsticker.png' },
 ];
 
 const OrderPage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<string | null>(null);
-  const { addOrder } = useOrderContext();
-  const { showToast } = useGlobalToast(); // ✅ Use global toast
+  const { addOrder } = useOrderContext(); // Get the addOrder function from context
 
-  const closeModal = () => setSelectedService(null);
-
-  const handlePlaceOrder = (order: any) => {
-    addOrder(order);
-    showToast(`${order.product} order has been placed successfully!`, 'success'); // ✅ Global toast
+  const handleCardClick = (title: string) => {
+    setSelectedService(title);
   };
 
-  useEffect(() => {
-    const justLoggedIn = localStorage.getItem('loginSuccess');
-    const username = localStorage.getItem('loggedInUsername');
-    if (justLoggedIn && username) {
-      showToast(`Successfully logged in as, ${username}!`, 'success'); // ✅ Global toast
-      localStorage.removeItem('loginSuccess');
-    }
-  }, [showToast]);
+  const closeModal = () => {
+    setSelectedService(null);
+  };
+
+  const handlePlaceOrder = (orderData: any) => {
+    console.log('Order placed:', orderData);
+    addOrder(orderData); // Add the order to the context
+    closeModal();
+  };
+
+  const renderRows = () => {
+    const rows = [
+      services.slice(0, 4),
+      services.slice(4, 8),
+      services.slice(8, 11),
+    ];
+
+    return rows.map((rowItems, rowIndex) => (
+      <Row
+        key={rowIndex}
+        className={`justify-content-${rowItems.length < 4 ? 'center' : 'start'} mb-4`}
+      >
+        {rowItems.map((service, index) => (
+          <Col key={index} xs={12} sm={6} md={3} className="mb-4">
+            <Card
+              className="h-100 d-flex flex-column service-card"
+              onClick={() => handleCardClick(service.title)}
+            >
+              <Card.Img
+                variant="top"
+                src={service.image}
+                alt={service.title}
+                className="service-image"
+              />
+              <Card.Body className="d-flex flex-column">
+                <Card.Title>{service.title}</Card.Title>
+                <Card.Text>{service.description}</Card.Text>
+                <div className="mt-auto">
+                  <Button className="order-now-button w-100" onClick={() => handleCardClick(service.title)}>
+                    <strong>Order Now</strong>
+                  </Button>
+                </div>
+              </Card.Body>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+    ));
+  };
 
   return (
-    <div className="order-page">
-      <h1 className="order-title">Order Printing Services</h1>
-      <div className="service-grid">
-        {services.map((service, index) => (
-          <div className="service-card" key={index}>
-            <img src={service.image} alt={service.title} className="service-image" />
-            <h3>{service.title}</h3>
-            <p>{service.description}</p>
-            <button
-              className="select-button"
-              onClick={() => setSelectedService(service.title)}
-            >
-              Select
-            </button>
-          </div>
-        ))}
-      </div>
+    <Container className="order-page-container my-5">
+      <h2 className="text-center mb-4">Place Your Order</h2>
+      {renderRows()}
 
-      {selectedService === 'Mug Printing' && (
-        <MugOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
-      )}
-      {selectedService === 'T-Shirt Printing' && (
-        <TShirtOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
-      )}
-      {selectedService === 'Eco Bag Printing' && (
-        <EcoBagOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
-      )}
-      {selectedService === 'Pen Printing' && (
-        <PenOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
-      )}
-      {selectedService === 'Tarpaulin Printing' && (
-        <TarpaulinOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
-      )}
-      {selectedService === 'Document Printing' && (
-        <DocumentOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
-      )}
-    </div>
+      {/* Conditional modals */}
+      {selectedService === 'Stickers' && <StickerOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+      {selectedService === 'T-Shirt' && <TShirtOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+      {selectedService === 'Motorplate' && <MotorplateOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+      {selectedService === 'Customized Notepads' && <NotepadOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+      {selectedService === 'PVC ID' && <PVCIDOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+      {selectedService === 'Customized Ref Magnet' && <RefMagnetOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+      {selectedService === 'Calling Cards / Loyalty / Membership Cards' && <CardsOrderModal show onHide={closeModal} onSubmit={handlePlaceOrder} />}
+      {selectedService === 'Tarpaulin' && <TarpaulinOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+      {selectedService === 'Customized Mousepad' && <MousepadOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+      {selectedService === 'Mugs' && <MugOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+      {selectedService === 'LTFRB Sticker' && <LTFRBStickerOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />}
+    </Container>
   );
 };
 

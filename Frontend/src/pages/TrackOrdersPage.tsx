@@ -5,66 +5,84 @@ import OrderDetailsModal from './modals/OrderDetailsModal';
 import './TrackOrdersPage.css';
 
 const statusSteps = [
-  'Order Placed',
+  'Pending',
   'Processing',
   'Printing',
   'Quality Check',
-  'Shipped',
-  'Delivered',
+  'Ready for Pick-up',
+  'Completed',
 ];
+
+const productFilters = [
+  'All',
+  'Sticker',
+  'T-Shirt',
+  'Motor Plate',
+  'Notepad',
+  'PVC ID',
+  'Refrigerator Magnet',
+  'Card',
+  'Tarpaulin',
+  'Mouse Pad',
+  'Mug Printing',
+  'LTFRB',
+];
+
+const getBadgeVariant = (status: string) => {
+  switch (status) {
+    case 'Pending':
+      return 'warning';
+    case 'Processing':
+      return 'info';
+    case 'Printing':
+      return 'primary';
+    case 'Quality Check':
+      return 'dark';
+    case 'Ready for Pick-up':
+      return 'secondary';
+    case 'Completed':
+      return 'success';
+    default:
+      return 'light';
+  }
+};
+
+const getProgressDots = (status: string) => {
+  const currentIndex = statusSteps.indexOf(status);
+  return (
+    <div className="timeline-container">
+      {statusSteps.map((step, index) => (
+        <div
+          key={step}
+          className={`timeline-dot ${index <= currentIndex ? 'active' : ''}`}
+          title={step}
+        />
+      ))}
+    </div>
+  );
+};
 
 const TrackOrdersPage: React.FC = () => {
   const { orders } = useOrderContext();
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState('Pending');
   const [selectedProduct, setSelectedProduct] = useState('All');
 
   const filteredOrders = orders.filter((order) => {
     const statusMatch = activeTab === 'All' || order.status === activeTab;
-    const productMatch = selectedProduct === 'All' || order.product.includes(selectedProduct);
+    const productMatch =
+      selectedProduct === 'All' || order.product?.toLowerCase().includes(selectedProduct.toLowerCase());
     return statusMatch && productMatch;
   });
 
-  const getBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'Pending':
-        return 'warning';
-      case 'Processing':
-        return 'info';
-      case 'Printing':
-        return 'primary';
-      case 'Quality Check':
-        return 'dark';
-      case 'Shipped':
-        return 'secondary';
-      case 'Delivered':
-        return 'success';
-      default:
-        return 'light';
-    }
-  };
-
-  const getProgressDots = (status: string) => {
-    const currentIndex = statusSteps.indexOf(status);
-    return (
-      <div className="timeline-container">
-        {statusSteps.map((step, index) => (
-          <div
-            key={step}
-            className={`timeline-dot ${index <= currentIndex ? 'active' : ''}`}
-            title={step}
-          />
-        ))}
-      </div>
-    );
-  };
-
   return (
     <div className="track-orders-page container py-4">
-      <h2 className="text-center fw-bold mb-4" style={{ color: '#1e3a8a' }}>Track Your Orders</h2>
+      <h2 className="text-center fw-bold mb-4" style={{ color: '#1e3a8a' }}>
+        Track Your Orders
+      </h2>
 
       <div className="d-flex justify-content-center align-items-center gap-3 flex-wrap mb-4">
-        {/* Dropdown Filter */}
+        {/* Product Filter Dropdown */}
         <Dropdown className="custom-dropdown">
           <Dropdown.Toggle
             id="dropdown-custom"
@@ -80,7 +98,7 @@ const TrackOrdersPage: React.FC = () => {
           </Dropdown.Toggle>
 
           <Dropdown.Menu style={{ borderRadius: '12px', padding: '8px 0' }}>
-            {['All', 'Mug', 'T-Shirt', 'Eco Bag', 'Pen', 'Tarpaulin', 'Document'].map((product) => (
+            {productFilters.map((product) => (
               <Dropdown.Item
                 key={product}
                 active={selectedProduct === product}
@@ -103,9 +121,9 @@ const TrackOrdersPage: React.FC = () => {
           variant="pills"
           className="track-tabs"
           activeKey={activeTab}
-          onSelect={(k) => setActiveTab(k || 'All')}
+          onSelect={(k) => setActiveTab(k || 'Pending')}
         >
-          {['Pending', 'Processing', 'Printing', 'Quality Check', 'Shipped', 'Delivered'].map((status) => (
+          {statusSteps.map((status) => (
             <Nav.Item key={status}>
               <Nav.Link eventKey={status}>{status}</Nav.Link>
             </Nav.Item>
@@ -113,7 +131,7 @@ const TrackOrdersPage: React.FC = () => {
         </Nav>
       </div>
 
-      {/* Order Cards */}
+      {/* Orders List */}
       <Row xs={1} md={2} className="g-4">
         {filteredOrders.length === 0 ? (
           <p className="text-center">No orders found.</p>
@@ -124,7 +142,9 @@ const TrackOrdersPage: React.FC = () => {
                 <Card.Body>
                   <div className="d-flex justify-content-between align-items-center">
                     <h5 className="fw-bold mb-0">Order #{order.orderId}</h5>
-                    <Badge bg={getBadgeVariant(order.status)}>{order.status}</Badge>
+                    <Badge bg={getBadgeVariant(order.status || 'Pending')}>
+                      {order.status || 'Pending'}
+                    </Badge>
                   </div>
 
                   <p className="mb-1 mt-2"><strong>🛒 Product:</strong> {order.product}</p>
@@ -132,9 +152,8 @@ const TrackOrdersPage: React.FC = () => {
                   <p className="mb-1"><strong>🔢 Quantity:</strong> {order.quantity}</p>
                   <p className="mb-1"><strong>💵 Total:</strong> ₱{order.total.replace('₱', '')}</p>
 
-                  {/* Timeline Dots */}
                   <div className="mt-3 d-flex justify-content-center">
-                    {getProgressDots(order.status)}
+                    {getProgressDots(order.status || 'Pending')}
                   </div>
 
                   <div className="text-end mt-3">
@@ -153,12 +172,13 @@ const TrackOrdersPage: React.FC = () => {
         )}
       </Row>
 
-      {/* Modal */}
+      {/* Details Modal */}
       {selectedOrder && (
         <OrderDetailsModal
           show={!!selectedOrder}
           onHide={() => setSelectedOrder(null)}
           order={selectedOrder}
+          statusSteps={statusSteps}
         />
       )}
     </div>
