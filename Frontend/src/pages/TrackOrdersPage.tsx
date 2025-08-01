@@ -7,7 +7,9 @@ import './TrackOrdersPage.css';
 const statusSteps = [
   'Pending',
   'In Progress',
+  'Quality Check',
   'Completed',
+  'For Pick-Up',
 ];
 
 const TrackOrdersPage: React.FC = () => {
@@ -26,8 +28,12 @@ const TrackOrdersPage: React.FC = () => {
         return 'warning';
       case 'in progress':
         return 'info';
+      case 'quality check':
+        return 'primary';
       case 'completed':
         return 'success';
+      case 'for pick-up':
+        return 'secondary';
       default:
         return 'light';
     }
@@ -64,7 +70,7 @@ const TrackOrdersPage: React.FC = () => {
         activeKey={activeTab}
         onSelect={(k) => setActiveTab(k || 'All')}
       >
-        {['All', 'Pending', 'In Progress', 'Completed'].map((status) => (
+        {['All', 'Pending', 'In Progress', 'Quality Check', 'Completed', 'For Pick-Up'].map((status) => (
           <Nav.Item key={status}>
             <Nav.Link eventKey={status}>{status}</Nav.Link>
           </Nav.Item>
@@ -81,7 +87,7 @@ const TrackOrdersPage: React.FC = () => {
               <Card className="shadow-sm order-card">
                 <Card.Body>
                   <div className="d-flex justify-content-between align-items-center">
-                    <h5 className="fw-bold mb-0">Order #{order.orderId}</h5>
+                    <h5 className="fw-bold mb-0">{order.orderId}</h5>
                     <Badge bg={getBadgeVariant(order.status)}>{order.status.charAt(0).toUpperCase() + order.status.slice(1)}</Badge>
                   </div>
 

@@ -5,7 +5,7 @@ import EcoBagOrderModal from './modals/EcoBagOrderModal';
 import PenOrderModal from './modals/PenOrderModal';
 import TarpaulinOrderModal from './modals/TarpaulinOrderModal';
 import DocumentOrderModal from './modals/DocumentOrderModal'; // ✅ New modal
-import { Toast, ToastContainer } from 'react-bootstrap';
+
 import { useOrderContext } from '../contexts/OrdersContext';
 import './OrderPage.css';
 
@@ -44,16 +44,16 @@ const services = [
 
 const OrderPage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
+  // const [showToast, setShowToast] = useState(false);
+  // const [toastMessage, setToastMessage] = useState('');
   const { addOrder } = useOrderContext();
 
   const closeModal = () => setSelectedService(null);
 
 const handlePlaceOrder = (order: any) => {
   addOrder(order);
-  setToastMessage(`Order has been placed successfully!`);
-  setShowToast(true);
+  // setToastMessage(`Order has been placed successfully!`);
+  // setShowToast(true);
 };
 
   return (
@@ -99,20 +99,7 @@ const handlePlaceOrder = (order: any) => {
         <DocumentOrderModal show onHide={closeModal} onPlaceOrder={handlePlaceOrder} />
       )}
 
-      <ToastContainer position="bottom-end" className="p-3">
-        <Toast
-          onClose={() => setShowToast(false)}
-          show={showToast}
-          delay={5000}
-          autohide
-          bg="success"
-        >
-          <Toast.Header>
-            <strong className="me-auto">Order Placed</strong>
-          </Toast.Header>
-          <Toast.Body className="text-white">{toastMessage}</Toast.Body>
-        </Toast>
-      </ToastContainer>
+      {/* ToastContainer removed: no toast for order updates */}
     </div>
   );
 };

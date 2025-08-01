@@ -46,6 +46,12 @@ const AuthPopup: React.FC = () => {
     }
   };
 
+  // Guest login handler
+  const handleGuestLogin = () => {
+    localStorage.setItem('loggedInUsername', 'Guest');
+    navigate('/customer/order');
+  };
+
   return (
     <>
       {/* ❌ Admin Log In Button — temporarily disabled */}
@@ -115,17 +121,26 @@ const AuthPopup: React.FC = () => {
           >
             Log In
           </Button>
-          <div className="mt-2">
-            Don't have an account?{' '}
-            <span
-              style={{ color: '#1e3a8a', cursor: 'pointer', fontWeight: 500 }}
-              onClick={() => {
-                setShowLogin(false);
-                setShowSignUp(true);
-              }}
-            >
-              Sign up
+          <div className="mt-2" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <span>
+              Don't have an account?{' '}
+              <span
+                style={{ color: '#1e3a8a', cursor: 'pointer', fontWeight: 500 }}
+                onClick={() => {
+                  setShowLogin(false);
+                  setShowSignUp(true);
+                }}
+              >
+                Sign up
+              </span>
             </span>
+            <Button
+              variant="secondary"
+              style={{ marginTop: '10px', width: '100%' }}
+              onClick={handleGuestLogin}
+            >
+              Continue as Guest
+            </Button>
           </div>
         </Modal.Footer>
       </Modal>
@@ -172,8 +187,8 @@ const AuthPopup: React.FC = () => {
                   placeholder="Confirm password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  isValid={confirmPassword && passwordMatch}
-                  isInvalid={confirmPassword && !passwordMatch}
+                  isValid={!!confirmPassword && passwordMatch}
+                  isInvalid={!!confirmPassword && !passwordMatch}
                 />
                 <InputGroup.Text onClick={() => setShowConfirmPassword(!showConfirmPassword)} style={{ cursor: 'pointer' }}>
                   {showConfirmPassword ? <EyeSlashFill /> : <EyeFill />}

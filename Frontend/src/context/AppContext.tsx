@@ -97,40 +97,59 @@ const initialOrders: Order[] = [
   }
 ];
 
-const initialNotifications: Notification[] = [
-  {
-    id: '1',
-    title: 'New Order Received',
-    message: 'Order #12348 has been received from customer Jane Smith. Color print, 75 pages.',
-    time: '2 minutes ago',
-    type: 'info',
-    read: false
-  },
-  {
-    id: '2',
-    title: 'System Update Available',
-    message: 'A new system update is available for PrintEase. Update now to get the latest features.',
-    time: '1 hour ago',
-    type: 'warning',
-    read: false
-  },
-  {
-    id: '3',
-    title: 'Security Alert',
-    message: 'Unusual login attempt detected from IP 192.168.1.100. Please verify if this was you.',
-    time: '3 hours ago',
-    type: 'error',
-    read: false
-  },
-  {
-    id: '4',
-    title: 'Order Shipped',
-    message: 'Order #12345 has been shipped to customer John Smith. Tracking number: TR123456789.',
-    time: '5 hours ago',
-    type: 'success',
-    read: false
-  }
-];
+const initialNotifications: Notification[] = [];
+// --- Admin notification polling ---
+
+import { useEffect, useCallback } from 'react';
+import { toast } from 'react-toastify';
+
+export const useAdminNotificationPolling = (setNotifications: any) => {
+  // Only run for admin users
+  const isAdmin = (() => {
+    // Check localStorage for admin flag or username
+    const accountData = localStorage.getItem('accountData');
+    if (accountData) {
+      try {
+        const data = JSON.parse(accountData);
+        return data.role === 'admin' || data.email === 'admin';
+      } catch {
+        return false;
+      }
+    }
+    // Fallback: check username
+    const username = localStorage.getItem('loggedInUsername');
+    return username === 'admin';
+  })();
+
+  const fetchAdminNotifications = useCallback(async () => {
+    let url = 'http://localhost:8000/api/notifications?recipient=admin';
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setNotifications((prev: any[]) => {
+          const prevIds = new Set(prev.map((n) => n.id));
+          const newNotifs = data.filter((n) => !prevIds.has(n.id));
+          newNotifs.forEach((notif) => {
+            toast.info(notif.message, { position: 'top-right', autoClose: 5000 });
+          });
+          const formattedNewNotifs = newNotifs.map((n) => ({ ...n, read: false }));
+          return [...formattedNewNotifs, ...prev].slice(0, 20);
+        });
+      }
+    } catch (err) {
+      // Optionally log error
+    }
+  }, [setNotifications]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    const interval = setInterval(fetchAdminNotifications, 5000); // Poll every 5s
+    fetchAdminNotifications();
+    return () => clearInterval(interval);
+  }, [fetchAdminNotifications, isAdmin]);
+};
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -138,6 +157,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [services, setServices] = useState<Service[]>(initialServices);
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+
+  // Enable admin notification polling (for admin users only)
+  useAdminNotificationPolling(setNotifications);
 
   const addService = (service: Service) => {
     setServices(prev => [...prev, service]);

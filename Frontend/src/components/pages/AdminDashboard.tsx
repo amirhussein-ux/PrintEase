@@ -23,12 +23,16 @@ const AdminDashboard: React.FC = () => {
         // Map backend data to dashboard format
         setOrders(
           data.map((order: any) => ({
-            id: order._id,
+            id: order.orderId || order._id,
             status:
               order.status?.toLowerCase() === 'completed'
                 ? 'Completed'
                 : order.status?.toLowerCase() === 'in progress'
                 ? 'In Progress'
+                : order.status?.toLowerCase() === 'quality check'
+                ? 'Quality Check'
+                : order.status?.toLowerCase() === 'for pick-up'
+                ? 'For Pick-Up'
                 : order.status?.toLowerCase() === 'pending'
                 ? 'Pending'
                 : order.status || 'Pending',
@@ -73,6 +77,10 @@ const AdminDashboard: React.FC = () => {
         return 'status-completed';
       case 'In Progress':
         return 'status-progress';
+      case 'Quality Check':
+        return 'status-quality';
+      case 'For Pick-Up':
+        return 'status-pickup';
       case 'Pending':
         return 'status-pending';
       default:
@@ -82,7 +90,7 @@ const AdminDashboard: React.FC = () => {
 
 
   // Update order status in backend and UI
-  const handleStatusChange = async (id: string, newStatus: 'Completed' | 'In Progress' | 'Pending') => {
+  const handleStatusChange = async (id: string, newStatus: 'For Pick-Up' | 'Completed' | 'Quality Check' | 'In Progress' | 'Pending') => {
     try {
       // Map UI status to backend status value
       let backendStatus = newStatus.toLowerCase();
@@ -99,8 +107,12 @@ const AdminDashboard: React.FC = () => {
       setOrders(orders => orders.map(order => order.id === id ? {
         ...order,
         status:
-          result.order.status?.toLowerCase() === 'completed'
+            result.order.status?.toLowerCase() === 'for pick-up'
+            ? 'For Pick-Up'
+            : result.order.status?.toLowerCase() === 'completed'
             ? 'Completed'
+            : result.order.status?.toLowerCase() === 'quality check'
+            ? 'Quality Check'
             : result.order.status?.toLowerCase() === 'in progress'
             ? 'In Progress'
             : result.order.status?.toLowerCase() === 'pending'
@@ -143,14 +155,16 @@ const AdminDashboard: React.FC = () => {
           {orders.map((order) => (
             <div key={order.id} className="order-card">
               <div className="order-header">
-                <h3>Order {order.id}</h3>
+                <h3>{order.id}</h3>
                 <select
                   className={`status ${getStatusClass(order.status)}`}
                   value={order.status}
-                  onChange={e => handleStatusChange(order.id, e.target.value as 'Completed' | 'In Progress' | 'Pending')}
+                  onChange={e => handleStatusChange(order.id, e.target.value as 'For Pick-Up' | 'Completed' | 'Quality Check' |'In Progress' | 'Pending')}
                   style={{ fontWeight: 600, textTransform: 'uppercase' }}
                 >
+                  <option value="For Pick-Up">FOR PICK-UP</option>
                   <option value="Completed">COMPLETED</option>
+                  <option value="Quality Check">QUALITY CHECK</option>
                   <option value="In Progress">IN PROGRESS</option>
                   <option value="Pending">PENDING</option>
                 </select>
@@ -193,7 +207,7 @@ const AdminDashboard: React.FC = () => {
               onClick={e => e.stopPropagation()}
             >
               <h2 style={{ marginTop: 0 }}>Order Details</h2>
-              <p><strong>ID:</strong> {modalOrder.id}</p>
+              <p><strong>Order ID:</strong> {modalOrder.id}</p>
               <p><strong>Status:</strong> {modalOrder.status}</p>
               <p><strong>{modalOrder.customer}</strong></p>
               <p><strong>Details:</strong> {modalOrder.details}</p>

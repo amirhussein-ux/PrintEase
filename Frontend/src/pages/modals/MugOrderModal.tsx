@@ -83,7 +83,7 @@ const handleSubmit = async () => {
     },
     status: 'pending',
   };
-  console.log('[DEBUG] Submitting Mug order:', orderData);
+  // Submitting Mug order
 
   const formData = new FormData();
   Object.entries(orderData).forEach(([key, value]) => {
@@ -103,7 +103,7 @@ const handleSubmit = async () => {
       body: formData,
     });
     const result = await response.json();
-    console.log('[DEBUG] API response:', result);
+    // API response
     if (response.ok) {
       onPlaceOrder(result);
       onHide();
@@ -111,7 +111,7 @@ const handleSubmit = async () => {
       setShowError(true);
     }
   } catch (err) {
-    console.error('[DEBUG] Error submitting order:', err);
+    // Error submitting order
     setShowError(true);
   }
 };

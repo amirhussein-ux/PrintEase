@@ -1,12 +1,33 @@
-import React, { useState } from 'react'
+
+import React, { useState, useEffect } from 'react';
 import { useAppContext } from '../../context/AppContext';
-import './Notifications.css'
+import { useOrders } from '../../hooks/useOrders';
+import './Notifications.css';
+
 
 
 
 const Notifications: React.FC = () => {
   const { notifications, setNotifications } = useAppContext();
   const [filter, setFilter] = useState<'all' | 'unread' | 'alerts'>('all');
+  const { orders } = useOrders();
+  const [filteredByOrder, setFilteredByOrder] = useState(notifications);
+
+  // Filter notifications to only those with existing orders (if notification has orderId)
+  useEffect(() => {
+    if (!orders || orders.length === 0) {
+      setFilteredByOrder(notifications);
+      return;
+    }
+    const orderIds = new Set(orders.map((o: any) => o.orderId || o._id));
+    const filtered = notifications.filter((n: any) => {
+      // If notification is not tied to an order, keep it
+      if (!n.orderId) return true;
+      // Some notifications may use _id instead of orderId
+      return orderIds.has(n.orderId) || orderIds.has(n._id);
+    });
+    setFilteredByOrder(filtered);
+  }, [notifications, orders]);
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -41,11 +62,12 @@ const Notifications: React.FC = () => {
     setFilter(f);
   };
 
-  let filteredNotifications = notifications;
+
+  let filteredNotifications = filteredByOrder;
   if (filter === 'unread') {
-    filteredNotifications = notifications.filter(n => !n.read);
+    filteredNotifications = filteredByOrder.filter(n => !n.read);
   } else if (filter === 'alerts') {
-    filteredNotifications = notifications.filter(n => n.type === 'warning' || n.type === 'error');
+    filteredNotifications = filteredByOrder.filter(n => n.type === 'warning' || n.type === 'error');
   }
 
   return (

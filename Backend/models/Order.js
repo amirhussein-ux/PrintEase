@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 
 const OrderSchema = new mongoose.Schema({
+    orderId: { type: String, unique: true }, // Custom order number
     customerName: { type: String, required: true },
     customerEmail: { type: String }, // Optional for guests
     guestToken: { type: String }, // For guest session tracking

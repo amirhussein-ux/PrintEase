@@ -71,7 +71,7 @@ export const OrdersProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (!res.ok) throw new Error('Failed to fetch orders');
         const data = await res.json();
         setOrders(data.map((order: any) => ({
-          orderId: order._id,
+          orderId: order.orderId || order._id,
           date: new Date(order.createdAt).toLocaleDateString(),
           product: order.productType,
           quantity: order.quantity,

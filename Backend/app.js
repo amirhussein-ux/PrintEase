@@ -36,6 +36,12 @@ app.get("/", (req, res) => {
     res.json({message : "Server is running"});
 });
 
+
+
+// Mount notification routes
+const notificationRoutes = require('./routes/notificationRoutes');
+app.use('/api/notifications', notificationRoutes);
+
 // Mount order routes
 app.use('/api/orders', orderRoutes);
 
