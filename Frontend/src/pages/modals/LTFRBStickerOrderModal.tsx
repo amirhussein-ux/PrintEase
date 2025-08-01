@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import { useGlobalToast } from '../../contexts/NotificationContext';
 
@@ -16,6 +16,7 @@ const LTFRBStickerOrderModal: React.FC<LTFRBStickerOrderModalProps> = ({ show, o
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('Cash on Pickup');
   const [notes, setNotes] = useState('');
+  const [status, setStatus] = useState('Completed'); // Set initial status
 
   const getPrice = () => {
     return vehicleType === 'Van' ? 1300 : 1500;
@@ -46,21 +47,21 @@ const LTFRBStickerOrderModal: React.FC<LTFRBStickerOrderModalProps> = ({ show, o
     const order = {
       orderId: `LTFRB-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
-      product: 'LTFRB',
+      product: 'LTFRB Sticker',
       quantity,
       total,
-      status: 'Pending',
+      status: status, // Use the status state directly
       paymentMethod,
       notes,
-      designFile,
+      designFile: designFile.name,
       vehicleType,
       timeline: {
         'Order Placed': new Date().toLocaleDateString(),
         'Processing': 'Pending',
         'Printing': 'Pending',
         'Quality Check': 'Pending',
-        'Shipped': 'Pending',
-        'Delivered': 'Pending',
+        'For Pick-up': 'Pending',
+        'Completed': 'Pending',
       },
     };
 
@@ -78,7 +79,7 @@ const LTFRBStickerOrderModal: React.FC<LTFRBStickerOrderModalProps> = ({ show, o
   return (
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-        <Modal.Title><strong>Place Your LTFRB Sticker Order</strong></Modal.Title>
+        <Modal.Title><strong>ORDER: LTFRB Sticker</strong></Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>

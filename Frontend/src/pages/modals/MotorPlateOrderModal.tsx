@@ -20,9 +20,23 @@ const MotorPlateOrderModal: React.FC<MotorPlateOrderModalProps> = ({
   const [quantity, setQuantity] = useState<number>(1);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash on Pickup');
   const [notes, setNotes] = useState<string>(''); // State for additional notes
+  const [status, setStatus] = useState<string>('Pending'); // Set initial status
 
   const getPrice = () => {
     return plateType === 'LTO Standard' ? 150 : 200;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) {
+      setDesignFile(e.target.files[0]);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer.files?.length) {
+      setDesignFile(e.dataTransfer.files[0]);
+    }
   };
 
   const handleSubmit = () => {
@@ -40,11 +54,11 @@ const MotorPlateOrderModal: React.FC<MotorPlateOrderModalProps> = ({
       quantity,
       total: `₱${totalPrice.toFixed(2)}`, // Format total price
       paymentMethod,
-      designFile,
+      designFile: designFile.name,
       notes, // Include notes in order details
-      status: 'Pending', // Add status
+      status: status, // Add status
       timeline: {
-        'Pending': new Date().toLocaleString(),
+        'Order Placed': new Date().toLocaleString(),
         'Processing': 'Pending',
         'Printing': 'Pending',
         'Quality Check': 'Pending',
@@ -65,17 +79,27 @@ const MotorPlateOrderModal: React.FC<MotorPlateOrderModalProps> = ({
     setNotes(''); // Reset notes
   };
 
+  // Calculate total price
+  const totalPrice = getPrice() * quantity;
+
   return (
     <Modal show={show} onHide={onHide} centered size="lg">
       <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-        <Modal.Title><strong>Order Motor Plate</strong></Modal.Title>
+        <Modal.Title><strong>ORDER: Motor Plate</strong></Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Form>
-          <Form.Group controlId="designFile">
+          <Form.Group>
+            <Form.Label><strong>Selected Service:</strong></Form.Label>
+            <Form.Control type="text" value="Motor Plate" readOnly />
+          </Form.Group>
+
+          <Form.Group controlId="designFile" className="mt-3">
             <Form.Label><strong>Upload Design File</strong></Form.Label>
             <div
               onClick={() => document.getElementById('motorplate-design-upload')?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
               style={{
                 border: '2px dashed #6c757d',
                 padding: '20px',
@@ -96,7 +120,7 @@ const MotorPlateOrderModal: React.FC<MotorPlateOrderModalProps> = ({
               id="motorplate-design-upload"
               type="file"
               accept="image/*,application/pdf"
-              onChange={(e) => setDesignFile(e.target.files?.[0] || null)}
+              onChange={handleFileChange}
               style={{ display: 'none' }}
             />
             <Form.Text muted className="d-block mt-2">Accepted formats: JPG, PNG, PDF</Form.Text>
@@ -107,14 +131,14 @@ const MotorPlateOrderModal: React.FC<MotorPlateOrderModalProps> = ({
             <div>
               <Form.Check
                 type="radio"
-                label="LTO Standard (₱150.00)"
+                label="LTO Standard"
                 name="plateType"
                 checked={plateType === 'LTO Standard'}
                 onChange={() => setPlateType('LTO Standard')}
               />
               <Form.Check
                 type="radio"
-                label="Customized (₱200.00)"
+                label="Customized"
                 name="plateType"
                 checked={plateType === 'Customized'}
                 onChange={() => setPlateType('Customized')}
@@ -157,6 +181,11 @@ const MotorPlateOrderModal: React.FC<MotorPlateOrderModalProps> = ({
               maxLength={300}
             />
           </Form.Group>
+
+          {/* Total Display */}
+          <div className="text-end fw-bold mt-3">
+            Total: ₱{totalPrice.toFixed(2)}
+          </div>
         </Form>
       </Modal.Body>
       <Modal.Footer style={{ justifyContent: 'flex-end' }}>

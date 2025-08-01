@@ -5,6 +5,7 @@ import OrderDetailsModal from './modals/OrderDetailsModal';
 import './TrackOrdersPage.css';
 
 const statusSteps = [
+  'All', // Moved 'All' to the beginning
   'Pending',
   'Processing',
   'Printing',
@@ -65,7 +66,7 @@ const getProgressDots = (status: string) => {
 const TrackOrdersPage: React.FC = () => {
   const { orders } = useOrderContext();
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('Pending');
+  const [activeTab, setActiveTab] = useState('All'); // Set default to 'All'
   const [selectedProduct, setSelectedProduct] = useState('All');
 
   const filteredOrders = orders.filter((order) => {
@@ -121,7 +122,7 @@ const TrackOrdersPage: React.FC = () => {
           variant="pills"
           className="track-tabs"
           activeKey={activeTab}
-          onSelect={(k) => setActiveTab(k || 'Pending')}
+          onSelect={(k) => setActiveTab(k || 'All')} // Set default to 'All'
         >
           {statusSteps.map((status) => (
             <Nav.Item key={status}>

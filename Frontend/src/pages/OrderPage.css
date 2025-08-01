@@ -8,7 +8,8 @@
   font-size: 2rem;
   font-weight: bold;
   margin-bottom: 2rem;
-  color: #1e3a8a;
+  color: #1e3a8a; /* Dark blue color */
+  text-align: center; /* Center the title */
 }
 
 /* Groups for 4-4-3 layout */
@@ -58,46 +59,15 @@
   margin-bottom: 1rem;
 }
 
-.select-button {
-  margin-top: 10px;
-  padding: 8px 16px;
-  background-color: #1e3a8a;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-weight: 600;
-  transition: background-color 0.3s ease, transform 0.2s ease;
-  cursor: pointer;
-}
-
-.select-button:hover {
-  background-color: #1e3a8a;
-  transform: scale(1.05);
-}
-
-/* Center the bottom row with 3 cards */
-.service-section.bottom {
-  justify-content: center;
-}
-
-.btn-dark-blue {
-  background-color: #1e3a8a;
-  border-color: #1e3a8a;
-  color: #fff;
-}
-
-.btn-dark-blue:hover {
-  background-color: #1e3a8a;
-  border-color: #1e3a8a;
-}
-
 .order-now-button {
-  background-color: #1e3a8a !important; /* dark blue */
+  background-color: #1e3a8a !important; /* Dark blue */
   color: white !important;
   font-weight: bold;
   border: none;
+  transition: background-color 0.3s ease, transform 0.2s ease; /* Add transition for hover effect */
 }
 
 .order-now-button:hover {
-  background-color: #1e3a8a !important;
+  background-color: #1a2e6a !important; /* Slightly darker shade for hover effect */
+  transform: scale(1.05); /* Scale effect on hover */
 }

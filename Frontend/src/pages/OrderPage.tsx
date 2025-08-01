@@ -35,10 +35,6 @@ const OrderPage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const { addOrder } = useOrderContext(); // Get the addOrder function from context
 
-  const handleCardClick = (title: string) => {
-    setSelectedService(title);
-  };
-
   const closeModal = () => {
     setSelectedService(null);
   };
@@ -65,7 +61,6 @@ const OrderPage: React.FC = () => {
           <Col key={index} xs={12} sm={6} md={3} className="mb-4">
             <Card
               className="h-100 d-flex flex-column service-card"
-              onClick={() => handleCardClick(service.title)}
             >
               <Card.Img
                 variant="top"
@@ -77,7 +72,10 @@ const OrderPage: React.FC = () => {
                 <Card.Title>{service.title}</Card.Title>
                 <Card.Text>{service.description}</Card.Text>
                 <div className="mt-auto">
-                  <Button className="order-now-button w-100" onClick={() => handleCardClick(service.title)}>
+                  <Button 
+                    className="order-now-button w-100" 
+                    onClick={() => setSelectedService(service.title)} // Set selected service on button click
+                  >
                     <strong>Order Now</strong>
                   </Button>
                 </div>
@@ -91,7 +89,7 @@ const OrderPage: React.FC = () => {
 
   return (
     <Container className="order-page-container my-5">
-      <h2 className="text-center mb-4">Place Your Order</h2>
+      <h2 className="text-center mb-4 order-title">Place Your Order</h2>
       {renderRows()}
 
       {/* Conditional modals */}

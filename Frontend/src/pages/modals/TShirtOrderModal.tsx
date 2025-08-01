@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Modal, Button, Form } from 'react-bootstrap';
 import { useGlobalToast } from '../../contexts/NotificationContext';
 import { useOrderContext } from '../../contexts/OrdersContext'; // Import the context
+import FeedbackModal from './FeedbackModal'; // Import the FeedbackModal component
+import { QRCode } from 'react-qr-code'; // Import QRCode for displaying QR codes
 
 interface TShirtOrderModalProps {
   show: boolean;
@@ -19,6 +21,10 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide }) => 
   const [notes, setNotes] = useState('');
   const [shirtType, setShirtType] = useState('Printable Vinyl Printing');
   const [vinylColor, setVinylColor] = useState('');
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [status, setStatus] = useState('For Pick-up'); // Set initial status
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false); // Track if feedback is submitted
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) {
@@ -60,7 +66,7 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide }) => 
       product: `T-Shirt (${shirtType})`,
       quantity,
       total,
-      status: 'Pending',
+      status, // Add status
       deliveryMethod: 'Pickup',
       deliveryAddress: 'Pickup',
       paymentMethod,
@@ -69,7 +75,7 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide }) => 
       size,
       color: shirtType === 'Printable Vinyl Printing' ? vinylColor : 'White',
       timeline: {
-        'Pending': `${formattedDate} - ${formattedTime}`,
+        'Order Placed': `${formattedDate} - ${formattedTime}`,
         'Processing': 'Pending',
         'Printing': 'Pending',
         'Quality Check': 'Pending',
@@ -80,6 +86,7 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide }) => 
 
     addOrder(order); // Use the context to add the order
     showToast('Order placed successfully!', 'success');
+    setCurrentOrderId(order.orderId); // Set the current order ID for QR code
     onHide();
   };
 
@@ -90,135 +97,182 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide }) => 
   };
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg">
-      <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
-        <Modal.Title><strong>Order T-Shirt</strong></Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Form>
-          <Form.Group>
-            <Form.Label><strong>Selected Service:</strong></Form.Label>
-            <Form.Control type="text" value="T-Shirt Printing" readOnly />
-          </Form.Group>
+    <>
+      <Modal show={show} onHide={onHide} centered size="lg">
+        <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
+          <Modal.Title><strong>ORDER: T-Shirt</strong></Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group>
+              <Form.Label><strong>Selected Service:</strong></Form.Label>
+              <Form.Control type="text" value="T-Shirt Printing" readOnly />
+            </Form.Group>
 
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Select Type of Shirt Printing:</strong></Form.Label>
-            <Form.Select value={shirtType} onChange={(e) => setShirtType(e.target.value)}>
-              <option value="Printable Vinyl Printing">Printable Vinyl Printing – ₱130.00 per A4 size</option>
-              <option value="Sublimation Printing">Sublimation Printing – ₱100.00 per A4 size (T-Shirt White Only)</option>
-            </Form.Select>
-            <div className="mt-2 text-muted" style={{ fontSize: '0.9rem' }}>
-              <em>- Price may vary depending on the size</em><br />
-              <em>- Max Size: 14x14 inch</em>
-            </div>
-          </Form.Group>
-
-          {shirtType === 'Printable Vinyl Printing' && (
             <Form.Group className="mt-3">
-              <Form.Label><strong>Vinyl Color:</strong></Form.Label>
-              <Form.Select value={vinylColor} onChange={(e) => setVinylColor(e.target.value)}>
-                <option value="">Select color</option>
-                <option value="Black">Black</option>
-                <option value="White">White</option>
+              <Form.Label><strong>Select Type of Shirt Printing:</strong></Form.Label>
+              <Form.Select value={shirtType} onChange={(e) => setShirtType(e.target.value)}>
+                <option value="Printable Vinyl Printing">Printable Vinyl Printing – ₱130.00 per A4 size</option>
+                <option value="Sublimation Printing">Sublimation Printing – ₱100.00 per A4 size (T-Shirt White Only)</option>
+              </Form.Select>
+              <div className="mt-2 text-muted" style={{ fontSize: '0.9rem' }}>
+                <em>- Price may vary depending on the size</em><br />
+                <em>- Max Size: 14x14 inch</em>
+              </div>
+            </Form.Group>
+
+            {shirtType === 'Printable Vinyl Printing' && (
+              <Form.Group className="mt-3">
+                <Form.Label><strong>Vinyl Color:</strong></Form.Label>
+                <Form.Select value={vinylColor} onChange={(e) => setVinylColor(e.target.value)}>
+                  <option value="">Select color</option>
+                  <option value="Black">Black</option>
+                  <option value="White">White</option>
+                </Form.Select>
+              </Form.Group>
+            )}
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Upload Design File:</strong></Form.Label>
+              <div
+                onClick={() => document.getElementById('tshirt-design-upload')?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
+                style={{
+                  border: '2px dashed #6c757d',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  backgroundColor: '#f8f9fa',
+                  color: '#6c757d',
+                }}
+              >
+                {designFile ? (
+                  <div className="text-success"><strong>File selected:</strong> {designFile.name}</div>
+                ) : (
+                  <div>Drag and drop files here or <u>Click to upload</u></div>
+                )}
+              </div>
+              <input
+                id="tshirt-design-upload"
+                type="file"
+                accept=".jpg,.png,.pdf"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+              />
+              <Form.Text muted className="d-block mt-2">Accepted formats: JPG, PNG, PDF</Form.Text>
+            </Form.Group>
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Shirt Size:</strong></Form.Label>
+              <Form.Select value={size} onChange={(e) => setSize(e.target.value)}>
+                <option>Extra Small</option>
+                <option>Small</option>
+                <option>Medium</option>
+                <option>Large</option>
+                <option>Extra Large</option>
+                <option>2X Large</option>
+                <option>3X Large</option>
               </Form.Select>
             </Form.Group>
-          )}
 
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Upload Design File:</strong></Form.Label>
-            <div
-              onClick={() => document.getElementById('tshirt-design-upload')?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-              style={{
-                border: '2px dashed #6c757d',
-                padding: '20px',
-                borderRadius: '8px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                backgroundColor: '#f8f9fa',
-                color: '#6c757d',
-              }}
-            >
-              {designFile ? (
-                <div className="text-success"><strong>File selected:</strong> {designFile.name}</div>
-              ) : (
-                <div>Drag and drop files here or <u>Click to upload</u></div>
-              )}
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Quantity:</strong></Form.Label>
+              <Form.Control
+                type="number"
+                min={1}
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+              />
+            </Form.Group>
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Payment Method:</strong></Form.Label>
+              <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                <option value="Cash on Pickup">Cash on Pickup</option>
+                <option value="GCash">GCash</option>
+                <option value="Maya">Maya</option>
+                <option value="Paypal">Paypal</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mt-3">
+              <Form.Label><strong>Additional Notes:</strong></Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                placeholder="Any extra instructions..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </Form.Group>
+
+            <div className="text-end fw-bold mt-3">
+              Total: ₱{(quantity * (shirtType === 'Printable Vinyl Printing' ? 130 : 100)).toFixed(2)}
             </div>
-            <input
-              id="tshirt-design-upload"
-              type="file"
-              accept=".jpg,.png,.pdf"
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-            />
-            <Form.Text muted className="d-block mt-2">Accepted formats: JPG, PNG, PDF</Form.Text>
-          </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer style={{ justifyContent: 'flex-end' }}>
+          <Button
+            className="me-2"
+            style={{ backgroundColor: 'red', borderColor: 'white', color: 'white' }}
+            onClick={onHide}
+          >
+            Cancel
+          </Button>
+          <Button style={activeButtonStyle} onClick={handleSubmit}>
+            Place Order
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Shirt Size:</strong></Form.Label>
-            <Form.Select value={size} onChange={(e) => setSize(e.target.value)}>
-              <option>Extra Small</option>
-              <option>Small</option>
-              <option>Medium</option>
-              <option>Large</option>
-              <option>Extra Large</option>
-              <option>2X Large</option>
-              <option>3X Large</option>
-            </Form.Select>
-          </Form.Group>
+      {/* QR Code and Feedback Section */}
+      {currentOrderId && (
+        <div className="mt-4 text-center">
+          <h5>Order Details</h5>
+          <QRCode
+            value={JSON.stringify({
+              orderId: currentOrderId,
+              product: `T-Shirt (${shirtType})`,
+              quantity,
+              paymentMethod,
+              total: (quantity * (shirtType === 'Printable Vinyl Printing' ? 130 : 100)).toFixed(2),
+              notes,
+              status,
+            })}
+            size={128}
+            level="H"
+            bgColor="#ffffff"
+            fgColor="#000000"
+          />
+          <p className="mt-2 text-muted">
+            Present this QR code when picking up your order
+          </p>
+          {!feedbackSubmitted && (
+            <Button 
+              variant="success" 
+              onClick={() => setShowFeedbackModal(true)}
+              style={{ backgroundColor: '#28a745', borderColor: '#28a745' }}
+            >
+              Feedback
+            </Button>
+          )}
+        </div>
+      )}
 
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Quantity:</strong></Form.Label>
-            <Form.Control
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-            />
-          </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Payment Method:</strong></Form.Label>
-            <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option value="Cash on Pickup">Cash on Pickup</option>
-              <option value="GCash">GCash</option>
-              <option value="Maya">Maya</option>
-              <option value="Paypal">Paypal</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-            </Form.Select>
-          </Form.Group>
-
-          <Form.Group className="mt-3">
-            <Form.Label><strong>Additional Notes:</strong></Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              placeholder="Any extra instructions..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Form.Group>
-
-          <div className="text-end fw-bold mt-3">
-            Total: ₱{(quantity * (shirtType === 'Printable Vinyl Printing' ? 130 : 100)).toFixed(2)}
-          </div>
-        </Form>
-      </Modal.Body>
-      <Modal.Footer style={{ justifyContent: 'flex-end' }}>
-        <Button
-          className="me-2"
-          style={{ backgroundColor: 'red', borderColor: 'white', color: 'white' }}
-          onClick={onHide}
-        >
-          Cancel
-        </Button>
-        <Button style={activeButtonStyle} onClick={handleSubmit}>
-          Place Order
-        </Button>
-      </Modal.Footer>
-    </Modal>
+      {/* Feedback Modal */}
+      <FeedbackModal 
+        show={showFeedbackModal} 
+        onHide={() => setShowFeedbackModal(false)} 
+        onSubmit={() => {
+          showToast('Thank you for your feedback!', 'success');
+          setFeedbackSubmitted(true);
+          setShowFeedbackModal(false);
+        }} 
+      />
+    </>
   );
 };
 
