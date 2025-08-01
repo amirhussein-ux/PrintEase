@@ -14,7 +14,7 @@ const CardsOrderModal: React.FC<CardsOrderModalProps> = ({ show, onHide, onSubmi
   const [file, setFile] = useState<File | null>(null);
   const [type, setType] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState('GCash');
+  const [paymentMethod, setPaymentMethod] = useState('Cash on Pickup');
   const [additionalNotes, setAdditionalNotes] = useState(''); // State for additional notes
 
   const pricePerPiece = {
@@ -167,8 +167,11 @@ const CardsOrderModal: React.FC<CardsOrderModalProps> = ({ show, onHide, onSubmi
           <Form.Group className="mb-3">
             <Form.Label><strong>Payment Method</strong></Form.Label>
             <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option value="GCash">GCash</option>
               <option value="Cash on Pickup">Cash on Pickup</option>
+              <option value="GCash">GCash</option>
+              <option value="Maya">Maya</option>
+              <option value="Paypal">Paypal</option>
+              <option value="Bank Transfer">Bank Transfer</option>
             </Form.Select>
           </Form.Group>
 

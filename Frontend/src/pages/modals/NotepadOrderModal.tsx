@@ -15,7 +15,7 @@ const NotepadOrderModal: React.FC<NotepadOrderModalProps> = ({ show, onHide }) =
   const [size, setSize] = useState('3x3"');
   const [quantity, setQuantity] = useState(1);
   const [remarks, setRemarks] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('GCash');
+  const [paymentMethod, setPaymentMethod] = useState('Cash on Pickup');
   const [file, setFile] = useState<File | null>(null);
 
   const priceMap: Record<string, number> = {
@@ -63,7 +63,7 @@ const NotepadOrderModal: React.FC<NotepadOrderModalProps> = ({ show, onHide }) =
     setSize('3x3"');
     setQuantity(1);
     setFile(null);
-    setPaymentMethod('GCash');
+    setPaymentMethod('Cash on Pickup');
     setRemarks('');
   };
 
@@ -126,8 +126,11 @@ const NotepadOrderModal: React.FC<NotepadOrderModalProps> = ({ show, onHide }) =
           <Form.Group className="mb-3">
             <Form.Label><strong>Payment Method</strong></Form.Label>
             <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option>GCash</option>
-              <option>Cash on Delivery</option>
+              <option value="Cash on Pickup">Cash on Pickup</option>
+              <option value="GCash">GCash</option>
+              <option value="Maya">Maya</option>
+              <option value="Paypal">Paypal</option>
+              <option value="Bank Transfer">Bank Transfer</option>
             </Form.Select>
           </Form.Group>
 

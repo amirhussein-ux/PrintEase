@@ -9,7 +9,7 @@ const statusSteps = [
   'Processing',
   'Printing',
   'Quality Check',
-  'Ready for Pick-up',
+  'For Pick-up',
   'Completed',
 ];
 
@@ -38,7 +38,7 @@ const getBadgeVariant = (status: string) => {
       return 'primary';
     case 'Quality Check':
       return 'dark';
-    case 'Ready for Pick-up':
+    case 'For Pick-up':
       return 'secondary';
     case 'Completed':
       return 'success';

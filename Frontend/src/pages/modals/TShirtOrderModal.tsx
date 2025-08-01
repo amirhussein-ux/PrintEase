@@ -13,7 +13,7 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide }) => 
   const { addOrder } = useOrderContext(); // Use the context
 
   const [size, setSize] = useState('Medium');
-  const [paymentMethod, setPaymentMethod] = useState('Gcash');
+  const [paymentMethod, setPaymentMethod] = useState('Cash on Pickup');
   const [quantity, setQuantity] = useState(1);
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [notes, setNotes] = useState('');
@@ -182,10 +182,11 @@ const TShirtOrderModal: React.FC<TShirtOrderModalProps> = ({ show, onHide }) => 
           <Form.Group className="mt-3">
             <Form.Label><strong>Payment Method:</strong></Form.Label>
             <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option value="Cash">Cash</option>
+              <option value="Cash on Pickup">Cash on Pickup</option>
+              <option value="GCash">GCash</option>
               <option value="Maya">Maya</option>
               <option value="Paypal">Paypal</option>
-              <option value="Gcash">Gcash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
             </Form.Select>
           </Form.Group>
 

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { Dropdown } from 'react-bootstrap';
-import { PersonCircle, BoxArrowRight } from 'react-bootstrap-icons';
+import { PersonCircle, BoxArrowRight, Bell } from 'react-bootstrap-icons';
 import './CustomerHeader.css';
 import { useOrderContext } from '../contexts/OrdersContext';
 
@@ -11,6 +11,8 @@ const CustomerHeader: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [underlineStyle, setUnderlineStyle] = useState({ left: 0, width: 0 });
+  const [notifications, setNotifications] = useState<string[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const username = localStorage.getItem('loggedInUsername') || 'Guest';
   const { clearOrders } = useOrderContext();
@@ -25,18 +27,20 @@ const CustomerHeader: React.FC = () => {
   }, [location]);
 
   const handleLogout = () => {
-    // ✅ Save logout flag to show toast on homepage
     localStorage.setItem('logoutToast', 'true');
-
-    // ✅ Clear session-related data
     localStorage.removeItem('loggedInUsername');
     localStorage.removeItem('accountData');
     localStorage.removeItem('profileImage');
-
     clearOrders();
-
-    // ✅ Navigate to homepage
     navigate('/');
+  };
+
+  const handleNotificationClick = () => {
+    setShowNotifications(!showNotifications);
+  };
+
+  const addNotification = (message: string) => {
+    setNotifications((prev) => [...prev, message]);
   };
 
   return (
@@ -76,11 +80,20 @@ const CustomerHeader: React.FC = () => {
           />
         </nav>
 
-        {/* User Dropdown */}
-        <div className="customer-profile d-flex align-items-center gap-2">
+        {/* User Dropdown and Notification Icon */}
+        <div className="customer-profile d-flex align-items-center gap-2 position-relative">
+          {/* Notification Icon */}
+          <div className="notification-icon" onClick={handleNotificationClick}>
+            <Bell size={24} color="white" />
+            {notifications.length > 0 && (
+              <span className="notification-count">{notifications.length}</span>
+            )}
+          </div>
+
           <span className="fw-bold" style={{ color: 'white' }}>
             Welcome, {username}
           </span>
+
           <Dropdown align="end">
             <Dropdown.Toggle
               as="span"
@@ -98,6 +111,25 @@ const CustomerHeader: React.FC = () => {
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
+
+          {/* Notification Dropdown */}
+          {showNotifications && (
+            <div className="notification-dropdown">
+              <div className="notification-content">
+                {notifications.length > 0 ? (
+                  notifications.map((notification, index) => (
+                    <div key={index} className="notification-item">
+                      {notification}
+                    </div>
+                  ))
+                ) : (
+                  <div className="notification-empty">
+                    No New Notifications
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </header>

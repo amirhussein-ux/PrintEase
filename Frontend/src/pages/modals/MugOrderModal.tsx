@@ -14,7 +14,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
   const [selectedMug, setSelectedMug] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [designFile, setDesignFile] = useState<File | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState('Gcash');
+  const [paymentMethod, setPaymentMethod] = useState('Cash on Pickup');
   const [notes, setNotes] = useState('');
 
   const mugOptions = {
@@ -51,7 +51,7 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
     const total = (mugOptions[selectedMug] * quantity).toFixed(2);
 
     const order = {
-      orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+      orderId: `MUG-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
       product: 'Mug Printing',
       quantity,
@@ -151,10 +151,11 @@ const MugOrderModal: React.FC<MugOrderModalProps> = ({ show, onHide, onPlaceOrde
           <Form.Group className="mt-3">
             <Form.Label><strong>Payment Method:</strong></Form.Label>
             <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option value="Cash">Cash</option>
+              <option value="Cash on Pickup">Cash on Pickup</option>
+              <option value="GCash">GCash</option>
               <option value="Maya">Maya</option>
               <option value="Paypal">Paypal</option>
-              <option value="Gcash">Gcash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
             </Form.Select>
           </Form.Group>
 

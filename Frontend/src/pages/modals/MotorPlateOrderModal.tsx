@@ -18,7 +18,7 @@ const MotorPlateOrderModal: React.FC<MotorPlateOrderModalProps> = ({
   const [designFile, setDesignFile] = useState<File | null>(null);
   const [plateType, setPlateType] = useState<string>('LTO Standard');
   const [quantity, setQuantity] = useState<number>(1);
-  const [paymentMethod, setPaymentMethod] = useState<string>('GCash');
+  const [paymentMethod, setPaymentMethod] = useState<string>('Cash on Pickup');
   const [notes, setNotes] = useState<string>(''); // State for additional notes
 
   const getPrice = () => {
@@ -61,7 +61,7 @@ const MotorPlateOrderModal: React.FC<MotorPlateOrderModalProps> = ({
     setDesignFile(null);
     setPlateType('LTO Standard');
     setQuantity(1);
-    setPaymentMethod('GCash');
+    setPaymentMethod('Cash on Pickup');
     setNotes(''); // Reset notes
   };
 
@@ -138,8 +138,11 @@ const MotorPlateOrderModal: React.FC<MotorPlateOrderModalProps> = ({
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
             >
-              <option value="GCash">GCash</option>
               <option value="Cash on Pickup">Cash on Pickup</option>
+              <option value="GCash">GCash</option>
+              <option value="Maya">Maya</option>
+              <option value="Paypal">Paypal</option>
+              <option value="Bank Transfer">Bank Transfer</option>
             </Form.Select>
           </Form.Group>
 

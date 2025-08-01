@@ -15,7 +15,7 @@ const PVCIDModal: React.FC<PVCIDModalProps> = ({ show, onHide }) => {
   const [idType, setIdType] = useState('Company ID');
   const [quantity, setQuantity] = useState<number>(1);
   const [file, setFile] = useState<File | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState('GCash');
+  const [paymentMethod, setPaymentMethod] = useState('Cash on Pickup');
   const [notes, setNotes] = useState('');
 
   const priceList: Record<string, number> = {
@@ -57,7 +57,7 @@ const PVCIDModal: React.FC<PVCIDModalProps> = ({ show, onHide }) => {
     setIdType('Company ID');
     setQuantity(1);
     setFile(null);
-    setPaymentMethod('GCash');
+    setPaymentMethod('Cash on Pickup');
     setNotes('');
   };
 
@@ -120,10 +120,11 @@ const PVCIDModal: React.FC<PVCIDModalProps> = ({ show, onHide }) => {
           <Form.Group className="mb-3">
             <Form.Label><strong>Payment Method</strong></Form.Label>
             <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option>GCash</option>
-              <option>PayMaya</option>
-              <option>Bank Transfer</option>
-              <option>Cash on Delivery</option>
+              <option value="Cash on Pickup">Cash on Pickup</option>
+              <option value="GCash">GCash</option>
+              <option value="Maya">Maya</option>
+              <option value="Paypal">Paypal</option>
+              <option value="Bank Transfer">Bank Transfer</option>
             </Form.Select>
           </Form.Group>
 

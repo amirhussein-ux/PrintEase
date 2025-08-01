@@ -16,7 +16,7 @@ const RefMagnetOrderModal: React.FC<RefMagnetOrderModalProps> = ({ show, onHide 
   const [quantity, setQuantity] = useState(30);
   const [file, setFile] = useState<File | null>(null);
   const [notes, setNotes] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('GCash');
+  const [paymentMethod, setPaymentMethod] = useState('Cash on Pickup');
 
   const priceList: Record<string, number> = {
     '2x3.5': 28,
@@ -137,9 +137,11 @@ const RefMagnetOrderModal: React.FC<RefMagnetOrderModalProps> = ({ show, onHide 
           <Form.Group className="mb-3">
             <Form.Label><strong>Payment Method</strong></Form.Label>
             <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option>GCash</option>
-              <option>Cash on Delivery</option>
-              <option>Bank Transfer</option>
+              <option value="Cash on Pickup">Cash on Pickup</option>
+              <option value="GCash">GCash</option>
+              <option value="Maya">Maya</option>
+              <option value="Paypal">Paypal</option>
+              <option value="Bank Transfer">Bank Transfer</option>
             </Form.Select>
           </Form.Group>
 

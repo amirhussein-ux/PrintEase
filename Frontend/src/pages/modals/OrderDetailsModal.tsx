@@ -1,5 +1,6 @@
 import React from 'react';
-import { Modal, Table } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
+import './OrderDetailsModal.css'; // Import your CSS file
 
 interface OrderTimeline {
   [step: string]: string;
@@ -29,7 +30,7 @@ const TRACKING_STAGES = [
   'Processing',
   'Printing',
   'Quality Check',
-  'Ready for Pick-up',
+  'For Pick-up',
   'Completed',
 ];
 
@@ -64,29 +65,21 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
         <p><strong>Product:</strong> {order.product}</p>
         <p><strong>Quantity:</strong> {order.quantity}</p>
         <p><strong>Total:</strong> ₱{order.total.replace('₱', '')}</p>
-        <p><strong>Delivery Method:</strong> {order.deliveryMethod}</p>
         {order.deliveryMethod === 'Delivery' && (
           <p><strong>Delivery Address:</strong> {order.deliveryAddress || 'N/A'}</p>
         )}
         <p><strong>Payment Method:</strong> {order.paymentMethod}</p>
 
         <h5 className="mt-4 mb-2"><strong>Order Status</strong></h5>
-        <Table bordered responsive>
-          <thead>
-            <tr>
-              {TRACKING_STAGES.map((stage) => (
-                <th key={stage}>{stage}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              {TRACKING_STAGES.map((stage) => (
-                <td key={stage}>{timelineData[stage]}</td>
-              ))}
-            </tr>
-          </tbody>
-        </Table>
+        <div className="step-indicator">
+          {TRACKING_STAGES.map((stage, index) => (
+            <div key={stage} className={`step ${timelineData[stage] !== 'Pending' ? 'completed' : ''}`}>
+              <div className="step-number">{index + 1}</div>
+              <div className="step-label">{stage}</div>
+              {index < TRACKING_STAGES.length - 1 && <div className="step-line" />}
+            </div>
+          ))}
+        </div>
       </Modal.Body>
     </Modal>
   );

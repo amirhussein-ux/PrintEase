@@ -30,6 +30,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         className="p-3"
         style={{
           zIndex: 9999,
+          position: 'fixed', // Set position to fixed
+          bottom: '20px',    // Adjust bottom spacing as needed
+          left: '20px',      // Adjust left spacing as needed
         }}
       >
         <Toast

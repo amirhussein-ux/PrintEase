@@ -25,29 +25,9 @@ const Services: React.FC = () => {
       description: "Streamline business transactions with our QR code system. Customers can easily track and pick up their orders by scanning QR codes, ensuring a smooth and efficient pickup process."
     },
     {
-      icon: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=100&h=100&fit=crop",
-      title: "Advanced Queue Management",
-      description: "Optimize your workflow with our intelligent queue management system. Prioritize jobs, track progress, and ensure timely delivery with our advanced scheduling algorithms."
-    },
-    {
-      icon: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=100&h=100&fit=crop",
-      title: "Document Cloud Integration",
-      description: "Seamlessly integrate with popular cloud services like Google Drive, Dropbox, and OneDrive. Access, print, and manage documents directly from your preferred cloud storage platform."
-    },
-    {
       icon: "/pmug.png",
       title: "Mug Designs",
       description: "Design personalized mugs with your own photos, names, or messages. Create unique, memorable gifts or branded merchandise with high-quality, full-color prints on durable ceramic mugs."
-    },
-    {
-      icon: "/pen.png",
-      title: "Pen Designs",
-      description: "Design personalized pens with your own names, logos, or messages. Ideal for promotional giveaways or professional branding, these high-quality pens combine functionality with a personal touch."
-    },
-    {
-      icon: "/ecobag.png",
-      title: "Ecobag Designs",
-      description: "Design personalized eco bags with custom text, logos, or artwork. Perfect for gifts, promotions, or everyday use, these reusable bags offer an eco-friendly way to showcase your brand or personal style."
     },
     {
       icon: "/shirt.png",
@@ -58,7 +38,48 @@ const Services: React.FC = () => {
     icon: "/tarpaulin.png",
     title: "Tarpaulin Designs",
     description: "Design personalized tarpaulins for events, business promotions, or personal use. High-quality prints available in various sizes, perfect for impactful and durable visual displays."
+    },
+    {
+      icon: "/cards.png",
+      title: "Business Cards",
+      description: "Create sleek and professional business cards tailored to your brand. Choose from premium finishes and customizable layouts to make a lasting first impression."
+    },
+    {
+      icon: "/ltfrbsticker.png",
+      title: "LTFRB Stickers",
+      description: "Order LTFRB-compliant stickers for transport vehicles. Designed for durability and visibility, perfect for legal and official transport use."
+    },
+    {
+      icon: "/motorplate.png",
+      title: "Motorcycle Plate",
+      description: "Customize motorcycle plates with clear, durable prints. Ideal for display or replacement purposes with designs that follow local standards."
+    },
+    {
+      icon: "/mousepad.png",
+      title: "Custom Mousepads",
+      description: "Personalize mousepads with your chosen design or logo. Smooth surface and anti-slip backing make them great for workspaces and gaming setups."
+    },
+    {
+      icon: "/notepad.png",
+      title: "Custom Notepads",
+      description: "Design branded or personalized notepads for everyday use. Great for offices, schools, or promotional giveaways with your own custom design."
+    },
+    {
+      icon: "/pvcid.png",
+      title: "PVC ID Cards",
+      description: "Print high-quality PVC ID cards for schools, offices, or events. Durable and waterproof with clear photo and text visibility."
+    },
+    {
+      icon: "/refmagnet.png",
+      title: "Refrigerator Magnets",
+      description: "Create fun or branded ref magnets that stick and stay. Perfect for promotions, reminders, or decorative home use."
+    },
+    {
+      icon: "/sticker.png",
+      title: "Custom Stickers",
+      description: "Design and print stickers in any shape or size. Great for branding, packaging, or just for fun—water-resistant and long-lasting."
     }
+
   ];
 
   return (

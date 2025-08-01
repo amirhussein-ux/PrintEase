@@ -32,7 +32,7 @@ const Contact: React.FC = () => {
           <div className="contact-info">
             <div className="map-container">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3861.1849!2d121.0244!3d14.5547!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTTCsDMzJzE3LjAiTiAxMjHCsDAyJzE2LjAiRQ!5e0!3m2!1sen!2sph!4v1234567890"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2295.79836472106!2d121.11117763653667!3d14.595814768810376!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3397b9c064b02175%3A0x350013eb95669063!2sJCJ%20Designs%20and%20Printing%20Services!5e0!3m2!1sen!2sph!4v1754009012677!5m2!1sen!2sph"
                 width="100%"
                 height="300"
                 style={{ border: 0 }}
@@ -46,16 +46,17 @@ const Contact: React.FC = () => {
                 <img src="/src/assets/logo.png" alt="PrintEase" className="contact-logo" />
               </div>
               <div className="contact-item">
-                <strong>Email:</strong>
+                <strong>Email and Facebook:</strong>
                 <p>contact@printease.com</p>
+                <p>@jcjdesignsandprints</p>
               </div>
               <div className="contact-item">
                 <strong>Phone:</strong>
-                <p>+63 (2) 123-4567</p>
+                <p>0997-992-0038 / 0905-249-5867</p>
               </div>
               <div className="contact-item">
                 <strong>Address:</strong>
-                <p>Makakiling, New York, NY United States</p>
+                <p>BLOCK 30 LOT 4A, VILLAGE EAST EXECUTIVE HOMES, STO. DOMINGO, CAINTA, RIZAL</p>
               </div>
             </div>
           </div>

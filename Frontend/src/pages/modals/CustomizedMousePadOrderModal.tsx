@@ -16,7 +16,7 @@ const CustomizedMousePadOrderModal: React.FC<CustomizedMousePadOrderModalProps> 
   const { showToast } = useGlobalToast();
 
   const [designFile, setDesignFile] = useState<File | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState('Gcash');
+  const [paymentMethod, setPaymentMethod] = useState('Cash on Pickup');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [total] = useState(80.00); // Fixed price for the mouse pad
@@ -41,7 +41,7 @@ const CustomizedMousePadOrderModal: React.FC<CustomizedMousePadOrderModalProps> 
     }
 
     const order = {
-      orderId: `ORD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+      orderId: `MPAD-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
       date: new Date().toISOString().split('T')[0],
       product: 'Mouse Pad',
       quantity: 1,
@@ -125,10 +125,11 @@ const CustomizedMousePadOrderModal: React.FC<CustomizedMousePadOrderModalProps> 
           <Form.Group className="mt-3">
             <Form.Label><strong>Payment Method:</strong></Form.Label>
             <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option value="Cash">Cash</option>
+              <option value="Cash on Pickup">Cash on Pickup</option>
+              <option value="GCash">GCash</option>
               <option value="Maya">Maya</option>
               <option value="Paypal">Paypal</option>
-              <option value="Gcash">Gcash</option>
+              <option value="Bank Transfer">Bank Transfer</option>
             </Form.Select>
           </Form.Group>
 

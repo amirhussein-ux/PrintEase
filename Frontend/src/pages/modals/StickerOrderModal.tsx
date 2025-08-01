@@ -16,7 +16,7 @@ const StickerOrderModal: React.FC<StickerOrderModalProps> = ({ show, onHide }) =
   const [type, setType] = useState<string>('Ordinary Matte');
   const [size, setSize] = useState<string>('1x1"');
   const [quantity, setQuantity] = useState<number>(5);
-  const [paymentMethod, setPaymentMethod] = useState<string>('Gcash');
+  const [paymentMethod, setPaymentMethod] = useState<string>('Cash on Pickup');
   const [notes, setNotes] = useState<string>('');
 
   const pcsPerSheet: Record<string, number> = {
@@ -174,8 +174,11 @@ const StickerOrderModal: React.FC<StickerOrderModalProps> = ({ show, onHide }) =
           <Form.Group className="mb-3">
             <Form.Label><strong>Payment Method</strong></Form.Label>
             <Form.Select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-              <option value="Gcash">Gcash</option>
-              <option value="Cash">Cash</option>
+              <option value="Cash on Pickup">Cash on Pickup</option>
+              <option value="GCash">GCash</option>
+              <option value="Maya">Maya</option>
+              <option value="Paypal">Paypal</option>
+              <option value="Bank Transfer">Bank Transfer</option>
             </Form.Select>
           </Form.Group>
 

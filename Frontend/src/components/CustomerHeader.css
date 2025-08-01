@@ -51,7 +51,7 @@
 }
 
 .customer-profile a {
-  color: white !important;
+  color: black !important; /* Changed to black */
   text-decoration: none;
   font-weight: 700 !important; /* bold */
 }
@@ -63,22 +63,75 @@
 
 @keyframes fadeIn {
   from {
-    transform: translateY(-10px);
-    opacity: 0;
+    opacity: 0; /* Start fully transparent */
   }
   to {
-    transform: translateY(0);
-    opacity: 1;
+    opacity: 1; /* End fully opaque */
   }
 }
 
-/* Style dropdown items */
-.dropdown-menu .dropdown-item {
-  color: black !important;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
+/* Notification Icon */
+.notification-icon {
+  position: relative;
+  cursor: pointer;
+  color: white;
+  margin-right: 30px; /* Space between icon and welcome text */
 }
 
-.dropdown-menu .dropdown-item:hover {
-  background-color: #f1f1f1;
-  border
+/* Notification Count */
+.notification-count {
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  background-color: red;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+/* Notification Dropdown */
+/* Notification Dropdown */
+.notification-dropdown {
+  position: absolute;
+  top: 40px; /* Position directly below the icon */
+  left: -165px; /* Adjusted to move left */
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  width: 200px; /* Adjust width as needed */
+  min-height: 60px; /* Minimum height for better appearance */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0; /* Start hidden */
+  animation: fadeIn 0.2s ease-out forwards; /* Use forwards to maintain final state */
+}
+
+.notification-content {
+  width: 100%;
+  text-align: center;
+}
+
+.notification-empty {
+  padding: 16px;
+  color: #666;
+  font-size: 14px;
+  text-align: center;
+}
+
+.notification-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  color: #333;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background-color: #f0f0f0;
+}
