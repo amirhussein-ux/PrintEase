@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Button } from 'react-bootstrap';
 import { QRCodeSVG } from 'qrcode.react';
 import { useGlobalToast } from '../../contexts/NotificationContext';
-import FeedbackModal from './FeedbackModal'; // Import the FeedbackModal component
+import FeedbackModal from './FeedbackModal';
 import './OrderDetailsModal.css';
 
 interface OrderTimeline {
@@ -19,7 +19,7 @@ interface OrderDetails {
   deliveryAddress?: string;
   paymentMethod: string;
   timeline?: OrderTimeline;
-  status?: string; // Added status to interface
+  status?: string;
 }
 
 interface OrderDetailsModalProps {
@@ -37,10 +37,13 @@ const TRACKING_STAGES = [
   'Completed',
 ];
 
+// Your working Replit app URL
+const QR_LANDING_PAGE_URL = 'https://dfab6539-9150-4ff4-8a33-6e1c45fd5e3f-00-2zkubkqmc8ggl.picard.replit.dev';
+
 const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, order }) => {
   const { showToast } = useGlobalToast();
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false); // Track if feedback is submitted
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   const timelineData = TRACKING_STAGES.reduce((acc: OrderTimeline, stage) => {
     acc[stage] = order.timeline?.[stage] || 'Pending';
@@ -51,17 +54,33 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
     showToast('Thank you for your feedback!', 'success');
     setFeedbackSubmitted(true);
     setShowFeedbackModal(false);
-    onHide(); // Close the main modal as well
+    onHide();
   };
 
-  // Determine the highest completed stage based on the order status
   const getCompletedStages = (status: string) => {
     const completedStages = [];
     for (const stage of TRACKING_STAGES) {
       completedStages.push(stage);
-      if (stage === status) break; // Stop when we reach the current status
+      if (stage === status) break;
     }
     return completedStages;
+  };
+
+  // Generate QR code URL that redirects to your landing page
+  const generateQRCodeURL = () => {
+    const orderData = {
+      orderId: order.orderId,
+      product: order.product,
+      status: order.status,
+      quantity: order.quantity,
+      total: order.total,
+      deliveryMethod: order.deliveryMethod,
+      deliveryAddress: order.deliveryAddress,
+      paymentMethod: order.paymentMethod,
+      date: order.date
+    };
+    
+    return `${QR_LANDING_PAGE_URL}/?qr=${encodeURIComponent(JSON.stringify(orderData))}`;
   };
 
   const completedStages = getCompletedStages(order.status || 'Pending');
@@ -70,7 +89,13 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
     <>
       {/* Main Order Details Modal */}
       <Modal show={show} onHide={onHide} centered size="lg">
-        <Modal.Header closeButton style={{ backgroundColor: '#1e3a8a', color: 'white' }}>
+        <Modal.Header 
+          closeButton 
+          style={{ 
+            background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', 
+            color: 'white' 
+          }}
+        >
           <Modal.Title><strong>Order Details</strong></Modal.Title>
         </Modal.Header>
         <Modal.Body>
@@ -78,7 +103,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
           <p><strong>Date:</strong> {order.date || 'N/A'}</p>
           <p><strong>Product:</strong> {order.product}</p>
           <p><strong>Quantity:</strong> {order.quantity}</p>
-          <p><strong>Total:</strong>  ₱{order.total.replace('₱', '')}</p>
+          <p><strong>Total:</strong> ₱{order.total.replace('₱', '')}</p>
           
           {order.deliveryMethod === 'Delivery' && (
             <p><strong>Delivery Address:</strong> {order.deliveryAddress || 'N/A'}</p>
@@ -103,7 +128,7 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
               <h5>Pickup QR Code</h5>
               <div className="d-inline-block p-3 bg-white border rounded">
                 <QRCodeSVG
-                  value={`Order ID: ${order.orderId}`}
+                  value={generateQRCodeURL()}
                   size={128}
                   level="H"
                   bgColor="#ffffff"
@@ -111,8 +136,15 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
                 />
               </div>
               <p className="mt-2 text-muted">
-                Present this code when picking up your order
+                Scan this code to view your receipt details
               </p>
+              <div className="mt-2">
+                <small className="text-muted d-block">
+                  Or visit: <a href={generateQRCodeURL()} target="_blank" rel="noopener noreferrer">
+                    View Receipt Online
+                  </a>
+                </small>
+              </div>
             </div>
           )}
 
@@ -130,7 +162,15 @@ const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({ show, onHide, ord
           )}
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={onHide}>
+          <Button 
+            variant="outline-secondary" 
+            onClick={onHide}
+            style={{
+              borderRadius: '10px',
+              padding: '10px 20px',
+              fontWeight: '500'
+            }}
+          >
             Close
           </Button>
         </Modal.Footer>
