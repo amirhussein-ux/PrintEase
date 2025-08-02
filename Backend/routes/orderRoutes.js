@@ -2,7 +2,10 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const { createOrder, getOrdersForUserOrGuest, updateOrderStatus } = require('../controllers/orderController');
+const { createOrder, getOrdersForUserOrGuest, updateOrderStatus, getPrintOrdersSummary } = require('../controllers/orderController');
+
+// GET /api/orders/summary/print-orders (for admin dashboard chart)
+router.get('/summary/print-orders', getPrintOrdersSummary);
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({

@@ -1,3 +1,49 @@
+// GET /api/orders/summary/print-orders
+// Returns: [{ day: 'Mon', orders: 10 }, ...]
+exports.getPrintOrdersSummary = async (req, res) => {
+  try {
+    // Get orders from the last 7 days
+    const today = new Date();
+    const start = new Date();
+    start.setDate(today.getDate() - 6); // 7 days including today
+    start.setHours(0,0,0,0);
+
+    // Aggregate orders by day
+    const orders = await Order.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: start, $lte: today }
+        }
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
+    // Map to days of week
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const result = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      const key = d.toISOString().split('T')[0];
+      const found = orders.find(o => o._id === key);
+      result.push({
+        day: dayNames[d.getDay()],
+        orders: found ? found.count : 0
+      });
+    }
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get print orders summary' });
+  }
+};
 // Fetch orders for a user or guest
 exports.getOrdersForUserOrGuest = async (req, res) => {
     try {

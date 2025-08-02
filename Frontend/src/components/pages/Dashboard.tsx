@@ -1,17 +1,46 @@
-import React from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter } from 'recharts'
-import './Dashboard.css'
+
+import React, { useEffect, useState } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, ScatterChart, Scatter } from 'recharts';
+import './Dashboard.css';
 
 const Dashboard: React.FC = () => {
-  const printOrdersData = [
-    { name: 'Mon', orders: 45 },
-    { name: 'Tue', orders: 65 },
-    { name: 'Wed', orders: 35 },
-    { name: 'Thu', orders: 80 },
-    { name: 'Fri', orders: 55 },
-    { name: 'Sat', orders: 90 },
-    { name: 'Sun', orders: 40 }
-  ]
+  // State for print orders data
+  const [printOrdersData, setPrintOrdersData] = useState<{ name: string; orders: number }[]>([
+    { name: 'Mon', orders: 0 },
+    { name: 'Tue', orders: 0 },
+    { name: 'Wed', orders: 0 },
+    { name: 'Thu', orders: 0 },
+    { name: 'Fri', orders: 0 },
+    { name: 'Sat', orders: 0 },
+    { name: 'Sun', orders: 0 }
+  ]);
+  const [loadingOrders, setLoadingOrders] = useState(true);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchPrintOrders = async () => {
+      setLoadingOrders(true);
+      setOrdersError(null);
+      try {
+        const res = await fetch('http://localhost:8000/api/orders/summary/print-orders');
+        if (!res.ok) throw new Error('Failed to fetch print orders summary');
+        const data = await res.json();
+        // API returns [{ day: 'Mon', orders: 10 }, ...]
+        // Map to recharts format: { name: 'Mon', orders: 10 }
+        setPrintOrdersData(
+          ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day => {
+            const found = data.find((d: any) => d.day === day);
+            return { name: day, orders: found ? found.orders : 0 };
+          })
+        );
+      } catch (err: any) {
+        setOrdersError(err.message || 'Unknown error');
+      } finally {
+        setLoadingOrders(false);
+      }
+    };
+    fetchPrintOrders();
+  }, []);
 
   const systemPerformanceData = [
     { time: '00:00', cpu: 45, memory: 60 },
@@ -21,7 +50,7 @@ const Dashboard: React.FC = () => {
     { time: '16:00', cpu: 70, memory: 75 },
     { time: '20:00', cpu: 55, memory: 65 },
     { time: '24:00', cpu: 40, memory: 50 }
-  ]
+  ];
 
   const userActivityData = [
     { name: 'Active Users', value: 75, color: '#4a9eff' },
@@ -47,14 +76,20 @@ const Dashboard: React.FC = () => {
       <div className="dashboard-grid">
         <div className="dashboard-card">
           <h3>Print Orders</h3>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={printOrdersData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#3a3a3a" />
-              <XAxis dataKey="name" stroke="#ccc" />
-              <YAxis stroke="#ccc" />
-              <Bar dataKey="orders" fill="#4a9eff" />
-            </BarChart>
-          </ResponsiveContainer>
+          {loadingOrders ? (
+            <div style={{ textAlign: 'center', padding: '2em' }}>Loading...</div>
+          ) : ordersError ? (
+            <div style={{ color: 'red', textAlign: 'center', padding: '2em' }}>{ordersError}</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={printOrdersData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#3a3a3a" />
+                <XAxis dataKey="name" stroke="#ccc" />
+                <YAxis stroke="#ccc" />
+                <Bar dataKey="orders" fill="#4a9eff" />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         <div className="dashboard-card">
