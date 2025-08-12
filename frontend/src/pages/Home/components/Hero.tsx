@@ -43,7 +43,7 @@ const Hero: React.FC = () => {
                 href="#"
                 className="inline-flex items-center justify-center px-5 py-3 text-base font-bold text-center text-blue-900 border-2 border-blue-900 rounded-lg bg-white hover:bg-blue-50"
               >
-                Continue as Customer
+                Continue as Guest
               </a>
             </div>
           </div>

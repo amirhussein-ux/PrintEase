@@ -27,8 +27,6 @@ import { MdOutlineManageSearch } from "react-icons/md";
 import { GrDocumentCloud } from "react-icons/gr";
 import { FiShoppingCart } from "react-icons/fi";
 
-
-
 const products = [
   { name: 'Stickers', description: 'High-quality printing solutions', href: '#', icon: ChartPieIcon },
   { name: 'T-Shirt', description: 'Custom design services for your needs', href: '#', icon: CursorArrowRaysIcon },
@@ -44,17 +42,18 @@ const products = [
 ];
 
 const services = [
-  { name: 'QR Code Pickup', description: 'Streamline business transactions with our QR code system', href: '#', icon: <BsQrCode /> },
-  { name: 'Queue Management', description: 'Optimize your workflow with our queue management system', href: '#', icon: <MdOutlineManageSearch /> },
-  { name: 'Document Cloud Integration', description: 'Seamlessly integrate with popular cloud services like Google Drive, Dropbox, and OneDrive', href: '#', icon: <GrDocumentCloud /> },
+  { name: 'QR Code Pickup', description: 'Streamline business transactions with our QR code system', href: '#services', icon: <BsQrCode /> },
+  { name: 'Queue Management', description: 'Optimize your workflow with our queue management system', href: '#services', icon: <MdOutlineManageSearch /> },
+  { name: 'Document Cloud Integration', description: 'Seamlessly integrate with popular cloud services like Google Drive, Dropbox, and OneDrive', href: '#services', icon: <GrDocumentCloud /> },
   {
     name: 'Products',
     description: 'Our product offerings',
-    href: '#',
+    href: '#services',
     icon: <FiShoppingCart />,
     products: products
   }
 ];
+
 const callsToAction = [
   { name: 'Watch demo', href: '#', icon: PlayCircleIcon },
 ]
@@ -62,26 +61,39 @@ const callsToAction = [
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  // Scroll to top handler
-  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
-    e.preventDefault();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-  // Scroll to About section with offset for fixed header
-  const handleAboutClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, isMobile: boolean = false) => {
-    e.preventDefault();
-    const aboutSection = document.querySelector('h2');
-    if (aboutSection) {
-      const header = document.querySelector('header');
-      const headerHeight = header ? header.getBoundingClientRect().height : 0;
-      const sectionTop = aboutSection.getBoundingClientRect().top + window.scrollY;
+  const scrollToSection = (selector: string, isMobile: boolean = false) => {
+    if (isMobile) setMobileMenuOpen(false)
+    
+    const section = document.querySelector(selector)
+    if (section) {
+      const header = document.querySelector('header')
+      const headerHeight = header ? header.getBoundingClientRect().height : 0
+      const sectionTop = section.getBoundingClientRect().top + window.scrollY
+      
       window.scrollTo({
         top: sectionTop - headerHeight,
         behavior: 'smooth'
-      });
+      })
     }
-    if (isMobile) setMobileMenuOpen(false);
-  };
+  }
+
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
+    e.preventDefault()
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleServiceClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, isMobile: boolean = false) => {
+    e.preventDefault()
+    window.dispatchEvent(new CustomEvent('showServices'))
+    scrollToSection('#services', isMobile)
+  }
+
+  const handleProductClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, isMobile: boolean = false) => {
+    e.preventDefault()
+    window.dispatchEvent(new CustomEvent('showProducts'))
+    scrollToSection('#services', isMobile)
+  }
+
   return (
     <header className="bg-blue-900 fixed top-0 left-0 w-full z-50">
       <nav aria-label="Global" className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8">
@@ -106,8 +118,7 @@ export default function Header() {
           </button>
         </div>
         <PopoverGroup className="hidden sm:flex lg:hidden sm:gap-x-8">
-          {/* Home button removed */}
-          <a href="#about" className="text-base font-semibold text-white" onClick={(e) => handleAboutClick(e)}>
+          <a href="#about" className="text-base font-semibold text-white" onClick={(e) => { e.preventDefault(); scrollToSection('#about'); }}>
             About
           </a>
           <Popover className="relative">
@@ -125,11 +136,9 @@ export default function Header() {
                     <Disclosure key={item.name} as="div" className="group relative flex flex-col gap-y-2 rounded-lg p-4 text-sm/6 hover:bg-gray-50">
                       <DisclosureButton className="flex items-center gap-x-6 w-full">
                         <div className="flex size-11 flex-none items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
-                          {typeof item.icon === 'function'
-                            ? <item.icon aria-hidden="true" className="size-6 text-gray-600 group-hover:text-indigo-600" />
-                            : React.isValidElement(item.icon)
-                              ? React.cloneElement(item.icon, { className: "size-6 text-gray-600 group-hover:text-indigo-600", 'aria-hidden': true })
-                              : null}
+                          {React.isValidElement(item.icon)
+                            ? React.cloneElement(item.icon, { className: "size-6 text-gray-600 group-hover:text-indigo-600", 'aria-hidden': true })
+                            : null}
                         </div>
                         <div className="flex-auto text-left">
                           <span className="block font-semibold text-gray-900">{item.name}</span>
@@ -139,7 +148,12 @@ export default function Header() {
                       </DisclosureButton>
                       <DisclosurePanel className="ml-12 mt-2 flex flex-col gap-y-1">
                         {item.products.map((prod) => (
-                          <a key={prod.name} href={prod.href} className="flex items-center gap-x-2 text-sm text-gray-700 hover:text-indigo-600">
+                          <a 
+                            key={prod.name} 
+                            href={prod.href} 
+                            className="flex items-center gap-x-2 text-sm text-gray-700 hover:text-indigo-600"
+                            onClick={(e) => handleProductClick(e)}
+                          >
                             {typeof prod.icon === 'function'
                               ? <prod.icon aria-hidden="true" className="size-4 text-gray-400" />
                               : React.isValidElement(prod.icon)
@@ -154,14 +168,16 @@ export default function Header() {
                     <div key={item.name} className="group relative flex flex-col gap-y-2 rounded-lg p-4 text-sm/6 hover:bg-gray-50">
                       <div className="flex items-center gap-x-6">
                         <div className="flex size-11 flex-none items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
-                          {typeof item.icon === 'function'
-                            ? <item.icon aria-hidden="true" className="size-6 text-gray-600 group-hover:text-indigo-600" />
-                            : React.isValidElement(item.icon)
-                              ? React.cloneElement(item.icon, { className: "size-6 text-gray-600 group-hover:text-indigo-600", 'aria-hidden': true })
-                              : null}
+                          {React.isValidElement(item.icon)
+                            ? React.cloneElement(item.icon, { className: "size-6 text-gray-600 group-hover:text-indigo-600", 'aria-hidden': true })
+                            : null}
                         </div>
                         <div className="flex-auto">
-                          <a href={item.href} className="block font-semibold text-gray-900">
+                          <a 
+                            href={item.href} 
+                            className="block font-semibold text-gray-900"
+                            onClick={(e) => handleServiceClick(e)}
+                          >
                             {item.name}
                             <span className="absolute inset-0" />
                           </a>
@@ -194,7 +210,7 @@ export default function Header() {
           </a>
         </PopoverGroup>
         <PopoverGroup className="hidden lg:flex lg:gap-x-12"> 
-          <a href="#about" className="text-base font-semibold text-white" onClick={(e) => handleAboutClick(e)}>
+          <a href="#about" className="text-base font-semibold text-white" onClick={(e) => { e.preventDefault(); scrollToSection('#about'); }}>
             About
           </a>
           <Popover className="relative">
@@ -212,11 +228,9 @@ export default function Header() {
                     <Disclosure key={item.name} as="div" className="group relative flex flex-col gap-y-2 rounded-lg p-4 text-sm/6 hover:bg-gray-50">
                       <DisclosureButton className="flex items-center gap-x-6 w-full">
                         <div className="flex size-11 flex-none items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
-                          {typeof item.icon === 'function'
-                            ? <item.icon aria-hidden="true" className="size-6 text-gray-600 group-hover:text-indigo-600" />
-                            : React.isValidElement(item.icon)
-                              ? React.cloneElement(item.icon, { className: "size-6 text-gray-600 group-hover:text-indigo-600", 'aria-hidden': true })
-                              : null}
+                          {React.isValidElement(item.icon)
+                            ? React.cloneElement(item.icon, { className: "size-6 text-gray-600 group-hover:text-indigo-600", 'aria-hidden': true })
+                            : null}
                         </div>
                         <div className="flex-auto text-left">
                           <span className="block font-semibold text-gray-900">{item.name}</span>
@@ -226,7 +240,12 @@ export default function Header() {
                       </DisclosureButton>
                       <DisclosurePanel className="ml-12 mt-2 flex flex-col gap-y-1">
                         {item.products.map((prod) => (
-                          <a key={prod.name} href={prod.href} className="flex items-center gap-x-2 text-sm text-gray-700 hover:text-indigo-600">
+                          <a 
+                            key={prod.name} 
+                            href={prod.href} 
+                            className="flex items-center gap-x-2 text-sm text-gray-700 hover:text-indigo-600"
+                            onClick={(e) => handleProductClick(e)}
+                          >
                             {typeof prod.icon === 'function'
                               ? <prod.icon aria-hidden="true" className="size-4 text-gray-400" />
                               : React.isValidElement(prod.icon)
@@ -241,14 +260,16 @@ export default function Header() {
                     <div key={item.name} className="group relative flex flex-col gap-y-2 rounded-lg p-4 text-sm/6 hover:bg-gray-50">
                       <div className="flex items-center gap-x-6">
                         <div className="flex size-11 flex-none items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
-                          {typeof item.icon === 'function'
-                            ? <item.icon aria-hidden="true" className="size-6 text-gray-600 group-hover:text-indigo-600" />
-                            : React.isValidElement(item.icon)
-                              ? React.cloneElement(item.icon, { className: "size-6 text-gray-600 group-hover:text-indigo-600", 'aria-hidden': true })
-                              : null}
+                          {React.isValidElement(item.icon)
+                            ? React.cloneElement(item.icon, { className: "size-6 text-gray-600 group-hover:text-indigo-600", 'aria-hidden': true })
+                            : null}
                         </div>
                         <div className="flex-auto">
-                          <a href={item.href} className="block font-semibold text-gray-900">
+                          <a 
+                            href={item.href} 
+                            className="block font-semibold text-gray-900"
+                            onClick={(e) => handleServiceClick(e)}
+                          >
                             {item.name}
                             <span className="absolute inset-0" />
                           </a>
@@ -305,17 +326,15 @@ export default function Header() {
           <div className="mt-6 flow-root">
             <div className="-my-6 divide-y divide-gray-500/10">
               <div className="space-y-2 py-6">               
-                {/* Home button removed */}
                 <a
                   href="#about"
                   className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-white hover:bg-gray-50 hover:text-black"
-                  onClick={(e) => handleAboutClick(e, true)}
+                  onClick={(e) => { e.preventDefault(); scrollToSection('#about', true); }}
                 >
                   About
                 </a>
                 <Disclosure as="div" className="-mx-3">
                   <DisclosureButton className="group flex w-full items-center justify-between rounded-lg py-2 pr-3.5 pl-3 text-base/7 font-semibold text-white hover:bg-gray-50 hover:text-black">
-
                     Services
                     <ChevronDownIcon aria-hidden="true" className="size-5 flex-none group-data-open:rotate-180" />
                   </DisclosureButton>
@@ -333,8 +352,11 @@ export default function Header() {
                                 {item.products.map((prod) => (
                                   <Disclosure as="div" key={prod.name}>
                                     <DisclosureButton
+                                      as="a"
+                                      href="#services"
                                       className="flex items-center rounded-lg py-2 px-4 text-sm text-black w-full whitespace-normal transition-colors duration-150 hover:bg-blue-900 hover:text-white"
                                       style={{ justifyContent: 'flex-start' }}
+                                      onClick={(e) => { e.preventDefault(); handleProductClick(e, true); }}
                                     >
                                       <span className="block w-full text-left">{prod.name}</span>
                                     </DisclosureButton>
@@ -346,8 +368,9 @@ export default function Header() {
                         ) : (
                           <DisclosureButton
                             as="a"
-                            href={item.href}
+                            href="#services"
                             className="block rounded-lg py-2 pr-3 pl-6 text-sm/7 font-semibold text-white hover:bg-gray-50 hover:text-black"
+                            onClick={(e) => { e.preventDefault(); handleServiceClick(e, true); }}
                           >
                             {item.name}
                           </DisclosureButton>

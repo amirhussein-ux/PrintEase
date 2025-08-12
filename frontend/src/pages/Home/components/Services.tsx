@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { BsQrCode } from 'react-icons/bs'
 import { MdOutlineManageSearch } from 'react-icons/md'
 import { GrDocumentCloud } from 'react-icons/gr'
@@ -92,10 +92,57 @@ const products = [
 export default function Services() {
   const [showProducts, setShowProducts] = useState(false)
   const [fade, setFade] = useState(true)
-  // Track loading state for each product image
   const [imgLoaded, setImgLoaded] = useState(Array(products.length).fill(false))
+  const servicesRef = useRef<HTMLDivElement>(null)
 
-  const features = showProducts ? products : services
+  useEffect(() => {
+    const handleShowProducts = () => {
+      setFade(false)
+      setTimeout(() => {
+        setShowProducts(true)
+        setFade(true)
+        // Scroll to services after state update
+        setTimeout(() => {
+          if (servicesRef.current) {
+            const header = document.querySelector('header')
+            const headerHeight = header?.getBoundingClientRect().height || 0
+            const sectionTop = servicesRef.current.getBoundingClientRect().top + window.scrollY
+            window.scrollTo({
+              top: sectionTop - headerHeight,
+              behavior: 'smooth'
+            })
+          }
+        }, 10)
+      }, 200)
+    }
+
+    const handleShowServices = () => {
+      setFade(false)
+      setTimeout(() => {
+        setShowProducts(false)
+        setFade(true)
+        // Scroll to services after state update
+        setTimeout(() => {
+          if (servicesRef.current) {
+            const header = document.querySelector('header')
+            const headerHeight = header?.getBoundingClientRect().height || 0
+            const sectionTop = servicesRef.current.getBoundingClientRect().top + window.scrollY
+            window.scrollTo({
+              top: sectionTop - headerHeight,
+              behavior: 'smooth'
+            })
+          }
+        }, 10)
+      }, 200)
+    }
+
+    window.addEventListener('showProducts', handleShowProducts)
+    window.addEventListener('showServices', handleShowServices)
+    return () => {
+      window.removeEventListener('showProducts', handleShowProducts)
+      window.removeEventListener('showServices', handleShowServices)
+    }
+  }, [])
 
   const toggleView = () => {
     setFade(false)
@@ -105,7 +152,6 @@ export default function Services() {
     }, 200)
   }
 
-  // Handler for image load
   const handleImgLoad = (idx: number) => {
     setImgLoaded((prev) => {
       const updated = [...prev]
@@ -114,8 +160,10 @@ export default function Services() {
     })
   }
 
+  const features = showProducts ? products : services
+
   return (
-    <div className="bg-white py-24 sm:py-32 transition-all duration-500">
+    <div id="services" ref={servicesRef} className="bg-white py-24 sm:py-32 transition-all duration-500">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto max-w-2xl lg:text-center">
           <p
@@ -142,7 +190,6 @@ export default function Services() {
                   <div className="flex items-center gap-4 mb-3">
                     {'image' in feature ? (
                       <div className="w-16 h-16 rounded-full overflow-hidden relative">
-                        {/* Skeleton loader */}
                         {!imgLoaded[idx] && (
                           <div className="w-full h-full animate-pulse bg-gray-300 absolute inset-0 z-10" />
                         )}

@@ -2,7 +2,7 @@ import EmblaCarousel from "./Embla Carousel/EmblaCarousel";
 
 export default function About() {
   return (
-    <div className="relative isolate overflow-hidden bg-white py-24 sm:py-32">
+    <div id="about" className="relative isolate overflow-hidden bg-white py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row gap-12 items-center">
           {/* Left: Text Section */}
