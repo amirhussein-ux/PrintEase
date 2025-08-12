@@ -92,6 +92,8 @@ const products = [
 export default function Services() {
   const [showProducts, setShowProducts] = useState(false)
   const [fade, setFade] = useState(true)
+  // Track loading state for each product image
+  const [imgLoaded, setImgLoaded] = useState(Array(products.length).fill(false))
 
   const features = showProducts ? products : services
 
@@ -101,6 +103,15 @@ export default function Services() {
       setShowProducts(!showProducts)
       setFade(true)
     }, 200)
+  }
+
+  // Handler for image load
+  const handleImgLoad = (idx: number) => {
+    setImgLoaded((prev) => {
+      const updated = [...prev]
+      updated[idx] = true
+      return updated
+    })
   }
 
   return (
@@ -122,24 +133,30 @@ export default function Services() {
               fade ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
             }`}
           >
-            {features.map((feature) => (
+            {features.map((feature, idx) => (
               <div
                 key={feature.name}
                 className="transform transition-transform duration-300 hover:scale-[1.02] h-full"
               >
                 <div className="p-6 rounded-lg bg-blue-900 text-white h-full">
                   <div className="flex items-center gap-4 mb-3">
-                    {showProducts ? (
-                      <div className="w-16 h-16 rounded-full overflow-hidden">
-                        <img 
-                          src={feature.image} 
+                    {'image' in feature ? (
+                      <div className="w-16 h-16 rounded-full overflow-hidden relative">
+                        {/* Skeleton loader */}
+                        {!imgLoaded[idx] && (
+                          <div className="w-full h-full animate-pulse bg-gray-300 absolute inset-0 z-10" />
+                        )}
+                        <img
+                          src={feature.image}
                           alt={feature.name}
                           className="w-full h-full object-cover"
+                          style={{ opacity: imgLoaded[idx] ? 1 : 0, transition: 'opacity 0.5s' }}
+                          onLoad={() => handleImgLoad(idx)}
                         />
                       </div>
                     ) : (
                       <div className="text-white">
-                        {feature.icon}
+                        {'icon' in feature && feature.icon}
                       </div>
                     )}
                     <dt className="text-lg font-semibold">
