@@ -26,7 +26,6 @@ import { BsQrCode } from "react-icons/bs";
 import { MdOutlineManageSearch } from "react-icons/md";
 import { GrDocumentCloud } from "react-icons/gr";
 import { FiShoppingCart } from "react-icons/fi";
-import { href } from 'react-router-dom'
 
 
 
@@ -63,16 +62,36 @@ const callsToAction = [
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
+  // Scroll to top handler
+  const handleLogoClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>) => {
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  // Scroll to About section with offset for fixed header
+  const handleAboutClick = (e: React.MouseEvent<HTMLAnchorElement, MouseEvent>, isMobile: boolean = false) => {
+    e.preventDefault();
+    const aboutSection = document.querySelector('h2');
+    if (aboutSection) {
+      const header = document.querySelector('header');
+      const headerHeight = header ? header.getBoundingClientRect().height : 0;
+      const sectionTop = aboutSection.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({
+        top: sectionTop - headerHeight,
+        behavior: 'smooth'
+      });
+    }
+    if (isMobile) setMobileMenuOpen(false);
+  };
   return (
     <header className="bg-blue-900 fixed top-0 left-0 w-full z-50">
       <nav aria-label="Global" className="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8">
         <div className="flex lg:flex-1">
-          <a href="#" className="-m-1.5 p-1.5">
+          <a href="#" className="-m-1.5 p-1.5" onClick={handleLogoClick}>
             <span className="sr-only">PrintEase</span>
             <img
-              alt=""
+              alt="PrintEase Logo"
               src="/src/assets/PrintEase-Logo.png"
-              className="h-8 w-auto"
+              className="h-8 w-auto cursor-pointer"
             />
           </a>
         </div>
@@ -87,10 +106,8 @@ export default function Header() {
           </button>
         </div>
         <PopoverGroup className="hidden sm:flex lg:hidden sm:gap-x-8">
-          <a href="#" className="text-base font-semibold text-white">
-            Home
-          </a>
-          <a href="#" className="text-base font-semibold text-white">
+          {/* Home button removed */}
+          <a href="#about" className="text-base font-semibold text-white" onClick={(e) => handleAboutClick(e)}>
             About
           </a>
           <Popover className="relative">
@@ -177,10 +194,7 @@ export default function Header() {
           </a>
         </PopoverGroup>
         <PopoverGroup className="hidden lg:flex lg:gap-x-12"> 
-          <a href="#" className="text-base font-semibold text-white">
-            Home
-          </a>
-          <a href="#" className="text-base font-semibold text-white">
+          <a href="#about" className="text-base font-semibold text-white" onClick={(e) => handleAboutClick(e)}>
             About
           </a>
           <Popover className="relative">
@@ -271,12 +285,12 @@ export default function Header() {
         <div className="fixed inset-0 z-50" />
         <DialogPanel className="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-blue-900 p-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
           <div className="flex items-center justify-between">
-            <a href="#" className="-m-1.5 p-1.5">
+            <a href="#" className="-m-1.5 p-1.5" onClick={handleLogoClick}>
               <span className="sr-only">PrintEase</span>
               <img
-                alt=""
+                alt="PrintEase Logo"
                 src="src/assets/PrintEase-Logo.png"
-                className="h-8 w-auto"
+                className="h-8 w-auto cursor-pointer"
               />
             </a>
             <button
@@ -291,9 +305,11 @@ export default function Header() {
           <div className="mt-6 flow-root">
             <div className="-my-6 divide-y divide-gray-500/10">
               <div className="space-y-2 py-6">               
+                {/* Home button removed */}
                 <a
-                  href="#"
+                  href="#about"
                   className="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-white hover:bg-gray-50 hover:text-black"
+                  onClick={(e) => handleAboutClick(e, true)}
                 >
                   About
                 </a>
