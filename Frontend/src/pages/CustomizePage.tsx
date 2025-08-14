@@ -1,6 +1,25 @@
-import React, { useState, useRef, useEffect } from 'react';
-import 'react-quill/dist/quill.snow.css';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
+import { Canvas, useLoader } from '@react-three/fiber';
+import { OrbitControls, useGLTF } from '@react-three/drei';
+import * as THREE from 'three';
 import './CustomizePage.css';
+
+// Simple error boundary for 3D viewer
+class ModelErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean}> {
+  constructor(props: {children: React.ReactNode}) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div style={{color: 'red', textAlign: 'center', padding: 40}}>Failed to load 3D model.</div>;
+    }
+    return this.props.children;
+  }
+}
 
 const productList = [
   'Stickers',
@@ -48,16 +67,20 @@ const CustomizePage: React.FC = () => {
   const [tshirtSide, setTshirtSide] = useState<'front' | 'back'>('front');
   const [canvasSize, setCanvasSize] = useState(700);
   const [uploadedImage, setUploadedImage] = useState<any>(null);
+  const [imgPos, setImgPos] = useState({ x: 0, y: 0 });
+  const [imgScale, setImgScale] = useState(1);
+  const [draggingImg, setDraggingImg] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [minimapRect, setMinimapRect] = useState({ x: 40, y: 40, w: 120, h: 80 });
   const [draggingMinimap, setDraggingMinimap] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [resizing, setResizing] = useState(false);
   const [resizeStart, setResizeStart] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [draggingId, setDraggingId] = useState<number | null>(null);
-
+  
+  // Add missing refs
   const middlePanelRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const minimapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -216,7 +239,8 @@ const CustomizePage: React.FC = () => {
           src: reader.result,
           id: Date.now(),
         });
-        setMinimapRect({ x: 40, y: 40, w: 120, h: 80 });
+        setImgPos({ x: 40, y: 40 });
+        setImgScale(1);
       };
       reader.readAsDataURL(file);
     } else {
@@ -252,6 +276,82 @@ const CustomizePage: React.FC = () => {
   };
 
   const showColorSelection = selectedProduct === 'T-shirts' || selectedProduct === 'Mugs';
+
+  // 3D Mug component with dynamic canvas texture
+  function MugModel() {
+    const gltf = useGLTF('/models/Mug.glb');
+    const canvasSize = 1024;
+    const printArea = { x: 180, y: 180, w: 664, h: 380 };
+    const [canvasUrl, setCanvasUrl] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasSize;
+      canvas.height = canvasSize;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvasSize, canvasSize);
+      if (uploadedImage) {
+        const img = new window.Image();
+        img.src = uploadedImage.src;
+        img.onload = () => {
+          ctx.drawImage(
+            img,
+            printArea.x + imgPos.x,
+            printArea.y + imgPos.y,
+            printArea.w * imgScale,
+            printArea.h * imgScale
+          );
+          setCanvasUrl(canvas.toDataURL());
+        };
+      } else {
+        setCanvasUrl(canvas.toDataURL());
+      }
+    }, [uploadedImage, imgPos, imgScale]);
+
+    const texture = canvasUrl ? useLoader(THREE.TextureLoader as any, canvasUrl) : null;
+
+    React.useEffect(() => {
+      if (texture && gltf.scene) {
+        gltf.scene.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh && (child as THREE.Mesh).material) {
+            const material = (child as THREE.Mesh).material as THREE.MeshStandardMaterial;
+            material.map = texture;
+            material.needsUpdate = true;
+          }
+        });
+      }
+    }, [texture, gltf.scene]);
+
+    return <primitive object={gltf.scene} scale={20} />;
+  }
+
+  // 3D T-Shirt component
+  function TShirtModel() {
+    const possibleFiles = [
+      '/models/T-Shirt.glb',
+      '/models/TShirt.glb',
+      '/models/tshirt.glb',
+      '/models/t-shirt.glb',
+      '/models/Tshirt.glb',
+      '/models/tShirt.glb',
+    ];
+    let gltf, foundPath;
+    for (let path of possibleFiles) {
+      try {
+        gltf = useGLTF(path);
+        foundPath = path;
+        break;
+      } catch (e) {}
+    }
+    if (!gltf) return null;
+    return (
+      <group position={[0, -2, 0]}>
+        <primitive object={gltf.scene} scale={25} />
+      </group>
+    );
+  }
 
   return (
     <div className="customize-container">
@@ -336,55 +436,84 @@ const CustomizePage: React.FC = () => {
                 alt="Uploaded"
                 style={{
                   position: 'absolute',
-                  left: minimapRect.x,
-                  top: minimapRect.y,
-                  width: minimapRect.w,
-                  height: minimapRect.h,
+                  left: 18 + imgPos.x,
+                  top: 18 + imgPos.y,
+                  width: 164 * imgScale,
+                  height: 95 * imgScale,
                   objectFit: 'contain',
-                  pointerEvents: 'none',
-                  border: '2px solid #162e72',
-                  borderRadius: 4,
-                  background: '#fff'
+                  cursor: draggingImg ? 'grabbing' : 'grab',
+                  zIndex: 2,
+                  userSelect: 'none',
+                }}
+                draggable={false}
+                onMouseDown={(e) => {
+                  setDraggingImg(true);
+                  setDragStart({ x: e.clientX - imgPos.x, y: e.clientY - imgPos.y });
                 }}
               />
             )}
             {uploadedImage && (
               <div
-                ref={minimapRef}
                 style={{
                   position: 'absolute',
-                  left: minimapRect.x,
-                  top: minimapRect.y,
-                  width: minimapRect.w,
-                  height: minimapRect.h,
-                  border: '2px solid #162e72',
+                  left: imgPos.x + 164 * imgScale - 12,
+                  top: 18 + imgPos.y + 95 * imgScale - 12,
+                  width: 16,
+                  height: 16,
+                  background: '#162e72',
                   borderRadius: 4,
-                  cursor: resizing ? 'nwse-resize' : 'move',
-                  background: 'rgba(22,46,114,0.08)',
-                  zIndex: 2,
-                  boxSizing: 'border-box',
+                  cursor: 'nwse-resize',
+                  zIndex: 3,
                 }}
-                onMouseDown={handleMinimapMouseDown}
-              >
-                <div
-                  className="resize-handle"
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    bottom: 0,
-                    width: 16,
-                    height: 16,
-                    background: '#162e72',
-                    borderRadius: '0 0 4px 0',
-                    cursor: 'nwse-resize',
-                    zIndex: 3,
-                  }}
-                  onMouseDown={handleResizeMouseDown}
-                />
-              </div>
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  setDraggingImg(false);
+                  setDragStart({ x: e.clientX, y: e.clientY });
+                  const startScale = imgScale;
+                  const startX = imgPos.x;
+                  const startY = imgPos.y;
+                  function onMove(ev: MouseEvent) {
+                    const dx = ev.clientX - (dragStart ? dragStart.x : 0);
+                    const dy = ev.clientY - (dragStart ? dragStart.y : 0);
+                    let newScale = Math.max(0.2, Math.min(2, startScale + (dx + dy) / 200));
+                    setImgScale(newScale);
+                  }
+                  function onUp() {
+                    window.removeEventListener('mousemove', onMove);
+                    window.removeEventListener('mouseup', onUp);
+                  }
+                  window.addEventListener('mousemove', onMove);
+                  window.addEventListener('mouseup', onUp);
+                }}
+              />
             )}
           </div>
         </div>
+
+        {/* Drag overlay for image */}
+        {draggingImg && dragStart && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 1000,
+              cursor: 'grabbing'
+            }}
+            onMouseMove={(e) => {
+              const newX = e.clientX - dragStart.x;
+              const newY = e.clientY - dragStart.y;
+              setImgPos({ x: newX, y: newY });
+            }}
+            onMouseUp={() => {
+              setDraggingImg(false);
+              setDragStart(null);
+            }}
+          />
+        )}
+
         <div
           className="upload-box"
           onDrop={handleDrop}
@@ -489,73 +618,89 @@ const CustomizePage: React.FC = () => {
             </div>
           )}
         </div>
-        <div
-          className="canvas-plane"
-          style={{
-            position: 'relative',
-            width: canvasSize,
-            height: canvasSize,
-            background: '#fff',
-            border: '1px solid #ccc',
-            borderRadius: 8,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.06)'
-          }}
-        >
-          <canvas
-            ref={canvasRef}
-            width={canvasSize}
-            height={canvasSize}
-            style={{ width: '100%', height: '100%' }}
-          />
-          {elements.map((el) => (
-            <div
-              key={el.id}
-              className="canvas-element"
-              onMouseDown={(e) => handleDrag(e, el.id)}
-              onClick={() => setSelectedElementId(el.id)}
-              style={{
-                position: 'absolute',
-                top: el.y,
-                left: el.x,
-                cursor: 'move',
-                pointerEvents: 'auto',
-                background: selectedElementId === el.id ? 'rgba(22,46,114,0.08)' : 'transparent',
-                border: selectedElementId === el.id ? '2px solid #162e72' : 'none',
-                borderRadius: 4,
-                display: 'flex',
-                alignItems: 'center',
-                zIndex: selectedElementId === el.id ? 2 : 1
-              }}
-            >
-              {el.type === 'text' ? (
-                <span
-                  style={{
-                    fontFamily: el.font,
-                    fontSize: `${el.size}px`,
-                    color: el.color,
-                    userSelect: 'none',
-                    pointerEvents: 'none',
-                    transform: `scale(${el.scale ? el.scale / 100 : 1})`,
-                  }}
-                >
-                  {el.text}
-                </span>
-              ) : (
-                <img
-                  src={el.src}
-                  alt="Uploaded"
-                  style={{
-                    opacity: el.opacity / 100,
-                    transform: `scale(${el.scale / 100})`,
-                    width: '100px',
-                    userSelect: 'none',
-                    pointerEvents: 'none',
-                  }}
-                />
-              )}
-            </div>
-          ))}
-        </div>
+        {/* 3D Product Viewer */}
+        {(selectedProduct === 'Mugs' || selectedProduct === 'T-shirts') ? (
+          <div style={{ width: canvasSize, height: canvasSize, background: '#fff', borderRadius: 8, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #ccc', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ModelErrorBoundary>
+              <Canvas camera={{ position: [0, 0, 5] }} style={{ width: '100%', height: '100%' }}>
+                <ambientLight intensity={0.7} />
+                <directionalLight position={[5, 5, 5]} intensity={0.7} />
+                <Suspense fallback={null}>
+                  {selectedProduct === 'Mugs' ? <MugModel /> : <TShirtModel />}
+                </Suspense>
+                <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} />
+              </Canvas>
+            </ModelErrorBoundary>
+          </div>
+        ) : (
+          <div
+            className="canvas-plane"
+            style={{
+              position: 'relative',
+              width: canvasSize,
+              height: canvasSize,
+              background: '#fff',
+              border: '1px solid #ccc',
+              borderRadius: 8,
+              boxShadow: '0 2px 12px rgba(0,0,0,0.06)'
+            }}
+          >
+            <canvas
+              ref={canvasRef}
+              width={canvasSize}
+              height={canvasSize}
+              style={{ width: '100%', height: '100%' }}
+            />
+            {elements.map((el) => (
+              <div
+                key={el.id}
+                className="canvas-element"
+                onMouseDown={(e) => handleDrag(e, el.id)}
+                onClick={() => setSelectedElementId(el.id)}
+                style={{
+                  position: 'absolute',
+                  top: el.y,
+                  left: el.x,
+                  cursor: 'move',
+                  pointerEvents: 'auto',
+                  background: selectedElementId === el.id ? 'rgba(22,46,114,0.08)' : 'transparent',
+                  border: selectedElementId === el.id ? '2px solid #162e72' : 'none',
+                  borderRadius: 4,
+                  display: 'flex',
+                  alignItems: 'center',
+                  zIndex: selectedElementId === el.id ? 2 : 1
+                }}
+              >
+                {el.type === 'text' ? (
+                  <span
+                    style={{
+                      fontFamily: el.font,
+                      fontSize: `${el.size}px`,
+                      color: el.color,
+                      userSelect: 'none',
+                      pointerEvents: 'none',
+                      transform: `scale(${el.scale ? el.scale / 100 : 1})`,
+                    }}
+                  >
+                    {el.text}
+                  </span>
+                ) : (
+                  <img
+                    src={el.src}
+                    alt="Uploaded"
+                    style={{
+                      opacity: el.opacity / 100,
+                      transform: `scale(${el.scale / 100})`,
+                      width: '100px',
+                      userSelect: 'none',
+                      pointerEvents: 'none',
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

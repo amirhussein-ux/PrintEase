@@ -1,12 +1,14 @@
+
 import React from 'react';
 import './Hero.css';
 import AuthPopup from './AuthPopup';
+import homeBackground from '../assets/homeBackground.jpg';
 
 const Hero: React.FC = () => {
   return (
     <section id="home" className="hero">
       <div className="hero-background">
-        <img src="/src/assets/homeBackground.jpg" alt="Printing Operations" />
+        <img src={homeBackground} alt="Printing Operations" />
       </div>
       <div className="hero-overlay"></div>
       <div className="hero-content">
