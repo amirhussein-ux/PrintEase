@@ -21,11 +21,11 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
 
       {/* Role Tabs */}
       <div className="flex justify-center">
-        <div className="inline-flex rounded-md bg-blue-900 p-1 w-full sm:w-auto">
+        <div className="inline-flex rounded-3xl bg-blue-900 p-1 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setRole("admin")}
-            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm font-medium rounded-s-3xl transition-colors ${
               role === "admin"
                 ? "bg-white text-gray-900 shadow"
                 : "text-white hover:text-white"
@@ -36,7 +36,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
           <button
             type="button"
             onClick={() => setRole("customer")}
-            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm font-medium rounded-e-3xl transition-colors ${
               role === "customer"
                 ? "bg-white text-gray-900 shadow"
                 : "text-white hover:text-white"
