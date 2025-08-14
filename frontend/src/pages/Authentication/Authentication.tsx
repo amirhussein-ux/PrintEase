@@ -1,4 +1,5 @@
 import { useLocation } from "react-router-dom";
+import React, { useState } from "react";
 import { LoginForm } from "./components/login-form";
 import { SignupForm } from "./components/signup-form";
 import { ForgotPasswordForm } from "./components/forgot-password-form";
@@ -8,19 +9,24 @@ export default function AuthenticationPage() {
   const location = useLocation();
   const isSignup = location.pathname === "/signup";
   const isForgotPassword = location.pathname === "/forgot-password";
+  const [logoLoaded, setLogoLoaded] = useState(false);
 
   return (
-    <div
-      className="relative grid min-h-svh lg:grid-cols-2 auth-bg"
-    >
+    <div className="relative grid min-h-svh lg:grid-cols-2 auth-bg">
       {/* Left content */}
       <div className="flex flex-col gap-4 p-6 md:p-10">
-        <div className="flex justify-center lg:justify-start items-center gap-2">
-          <a href="/">
+        <div className="flex justify-center lg:justify-start items-center gap-2 relative h-12 w-auto">
+          <a href="/" className="h-12 w-auto block relative">
+            {/* Skeleton loader */}
+            {!logoLoaded && (
+              <div className="h-12 w-32 animate-pulse bg-gray-300 absolute top-0 left-0 rounded" style={{ zIndex: 1 }} />
+            )}
             <img
               src={PrintEaseLogo}
               alt="PrintEase Logo"
               className="h-12 w-auto cursor-pointer"
+              style={{ opacity: logoLoaded ? 1 : 0, transition: "opacity 0.5s" }}
+              onLoad={() => setLogoLoaded(true)}
             />
           </a>
         </div>

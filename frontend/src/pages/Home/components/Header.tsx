@@ -27,6 +27,7 @@ import { MdOutlineManageSearch } from "react-icons/md";
 import { GrDocumentCloud } from "react-icons/gr";
 import { FiShoppingCart } from "react-icons/fi";
 
+  
 const products = [
   { name: 'Stickers', description: 'High-quality printing solutions', href: '#', icon: ChartPieIcon },
   { name: 'T-Shirt', description: 'Custom design services for your needs', href: '#', icon: CursorArrowRaysIcon },
