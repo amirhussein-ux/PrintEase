@@ -39,12 +39,20 @@ const Hero: React.FC = () => {
               >
                 Log in
               </button>
-              <a
-                href="#"
+              <button
+                type="button"
                 className="inline-flex items-center justify-center px-5 py-3 text-base font-bold text-center text-blue-900 border-2 border-blue-900 rounded-lg bg-white hover:bg-blue-50"
+                onClick={() => {
+                  sessionStorage.setItem("token", "guest-token");
+                  sessionStorage.setItem(
+                    "user",
+                    JSON.stringify({ role: "customer", name: "Guest User" })
+                  );
+                  navigate("/dashboard/customer"); // 👈 redirect directly
+                }}
               >
                 Continue as Guest
-              </a>
+              </button>
             </div>
           </div>
         </div>

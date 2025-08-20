@@ -3,7 +3,6 @@ const jwt = require("jsonwebtoken");
 
 // generate JWT
 const generateToken = (id, role) => {
-    console.log("JWT_SECRET in generateToken:", process.env.JWT_SECRET);
     return jwt.sign({ id, role }, process.env.JWT_SECRET, {
         expiresIn: "7d",
     });
@@ -55,6 +54,22 @@ exports.loginUser = async (req, res) => {
             role: user.role,
             token: generateToken(user._id, user.role),
         });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// GUEST TOKEN
+exports.generateGuestToken = (req, res) => {
+    try {
+        const guestId = "guest_" + Date.now(); // unique id for guest
+        const role = "guest";
+
+        const token = jwt.sign({ id: guestId, role }, process.env.JWT_SECRET, {
+            expiresIn: "1d", // shorter expiration for guests
+        });
+
+        res.json({ _id: guestId, role, token });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
