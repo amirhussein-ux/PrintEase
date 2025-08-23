@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cors = require('cors');   // ⬅️ add this
 const app = express();
 const connectDB = require('./config/db');
 
@@ -11,6 +12,12 @@ console.log("🔹 Starting server...");
 
 // middleware
 app.use(express.json());
+
+// ✅ CORS setup
+app.use(cors({
+    origin: "http://localhost:5173", 
+    credentials: true,               
+}));
 
 // db connect
 connectDB().then(() => {
