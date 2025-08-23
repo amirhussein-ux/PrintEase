@@ -52,14 +52,6 @@ const AdminDashboardContent: React.FC = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <header className="flex justify-between items-center mb-10">
-        <h1 className="text-3xl font-bold text-blue-900">Admin Dashboard</h1>
-        <div className="flex gap-4 text-xl">
-          <span>👤</span>
-          <span>🔔</span>
-        </div>
-      </header>
 
       {/* Dashboard Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
