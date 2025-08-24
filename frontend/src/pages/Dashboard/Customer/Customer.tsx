@@ -1,9 +1,15 @@
 import React from 'react'
 import DashboardHeader from '../shared_components/dashboard_header'
+import { useAuth } from '../../../context/AuthContext'
 
 const Customer = () => {
+  const { user } = useAuth()  
+
   return (
-    <DashboardHeader role="customer" />
+    <DashboardHeader 
+      role="customer" 
+      userName={`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "Guest"} 
+    />
   )
 }
 

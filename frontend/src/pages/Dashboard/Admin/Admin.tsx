@@ -20,7 +20,11 @@ const Admin: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-950 text-white">
       {/* Header */}
-      <DashboardHeader role={user.role as 'admin'} userName={user.name} />
+      <DashboardHeader 
+        role={user.role as 'admin'} 
+        userName={`${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "Guest"} 
+/>
+
 
       {/* Main content */}
       <main className="pt-16 p-6">

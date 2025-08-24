@@ -1,11 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
+import type { ReactNode } from "react";
 import api from "../lib/api";
 
 export interface User {
-  _id: string;
-  name: string;
-  email: string;
-  role: string;
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string | null;
+  role: "admin" | "customer" | "guest";
 }
 
 interface AuthContextType {
@@ -15,61 +17,36 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<User>;
   signup: (data: { name: string; email: string; password: string; role: string }) => Promise<User>;
   logout: () => void;
+  continueAsGuest: () => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  // Safe parsing for user
   const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem("user");
-    if (!storedUser) return null;
-
     try {
-      return JSON.parse(storedUser);
+      const stored =
+        localStorage.getItem("user") || sessionStorage.getItem("user");
+      return stored ? JSON.parse(stored) : null;
     } catch (err) {
-      console.warn("Failed to parse user from localStorage:", err);
-      localStorage.removeItem("user");
+      console.warn("Failed to parse stored user:", err);
       return null;
     }
   });
 
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("token"));
+  const [token, setToken] = useState<string | null>(() => {
+    return localStorage.getItem("token") || sessionStorage.getItem("token");
+  });
+
   const [loading, setLoading] = useState<boolean>(true);
 
-  // Attach token automatically to API requests
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-  }, [token]);
-
-  // Load latest profile if token exists
-  useEffect(() => {
-    const fetchProfile = async () => {
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const res = await api.get("/auth/profile");
-        if (res.data?.user) {
-          setUser(res.data.user);
-          try {
-            localStorage.setItem("user", JSON.stringify(res.data.user));
-          } catch (err) {
-            console.warn("Failed to save user to localStorage:", err);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch profile:", err);
-        // Do NOT clear user/token — keep login persisted
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProfile();
+    setLoading(false);
   }, [token]);
 
   const login = async (email: string, password: string): Promise<User> => {
@@ -82,12 +59,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(userData);
     setToken(userToken);
 
-    try {
-      localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem("token", userToken);
-    } catch (err) {
-      console.warn("Failed to save login data to localStorage:", err);
-    }
+    // persist normal users
+    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("token", userToken);
 
     return userData;
   };
@@ -102,12 +76,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(userData);
     setToken(userToken);
 
-    try {
-      localStorage.setItem("user", JSON.stringify(userData));
-      localStorage.setItem("token", userToken);
-    } catch (err) {
-      console.warn("Failed to save signup data to localStorage:", err);
-    }
+    localStorage.setItem("user", JSON.stringify(userData));
+    localStorage.setItem("token", userToken);
 
     return userData;
   };
@@ -117,10 +87,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setToken(null);
     localStorage.removeItem("user");
     localStorage.removeItem("token");
+    sessionStorage.removeItem("user");
+    sessionStorage.removeItem("token");
+  };
+
+  // ✅ Real guest login using backend
+  const continueAsGuest = async (): Promise<User> => {
+    const res = await api.post("/auth/guest");
+    const userData: User = res.data.user;
+    const userToken: string = res.data.token;
+
+    setUser(userData);
+    setToken(userToken);
+
+    // store in sessionStorage (cleared when tab/browser closes)
+    sessionStorage.setItem("user", JSON.stringify(userData));
+    sessionStorage.setItem("token", userToken);
+
+    return userData;
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, signup, logout, continueAsGuest }}>
       {children}
     </AuthContext.Provider>
   );

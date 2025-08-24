@@ -42,13 +42,25 @@ const Hero: React.FC = () => {
               <button
                 type="button"
                 className="inline-flex items-center justify-center px-5 py-3 text-base font-bold text-center text-blue-900 border-2 border-blue-900 rounded-lg bg-white hover:bg-blue-50"
-                onClick={() => {
-                  sessionStorage.setItem("token", "guest-token");
-                  sessionStorage.setItem(
-                    "user",
-                    JSON.stringify({ role: "customer", name: "Guest User" })
-                  );
-                  navigate("/dashboard/customer"); // 👈 redirect directly
+                onClick={async () => {
+                  try {
+                    const res = await fetch("http://localhost:8000/api/auth/guest", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                    });
+
+                    if (!res.ok) throw new Error("Failed to create guest session");
+
+                    const data = await res.json();
+
+                    // Save the token + user info
+                    sessionStorage.setItem("token", data.token);
+                    sessionStorage.setItem("user", JSON.stringify(data.user));
+
+                    navigate("/dashboard/customer");
+                  } catch (error) {
+                    console.error("Guest login failed:", error);
+                  }
                 }}
               >
                 Continue as Guest
