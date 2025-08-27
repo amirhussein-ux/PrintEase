@@ -25,7 +25,14 @@ export default function DashboardHeader({ role, userName }: DashboardHeaderProps
     { name: 'Notifications', href: null },
   ]
 
-  const links = role === 'admin' ? adminLinks : []
+   const customerLinks = [
+    { name: 'Order', href: '#' },
+    { name: 'Customize', href: '#' },
+    { name: 'Track Orders', href: '#' },
+
+  ]
+
+  const links = role === 'admin' ? adminLinks : customerLinks
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
