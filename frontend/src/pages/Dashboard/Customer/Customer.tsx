@@ -1,16 +1,16 @@
-import React from 'react'
-import DashboardHeader from '../shared_components/dashboard_header'
-import { useAuth } from '../../../context/AuthContext'
+import React from "react";
+import DashboardLayout from "../shared_components/DashboardLayout";
+import { useAuth } from "../../../context/AuthContext";
 
-const Customer = () => {
-  const { user } = useAuth()  
+const Customer: React.FC = () => {
+  const { user } = useAuth();
 
   return (
-    <DashboardHeader 
-      role="customer" 
-      userName={`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "Guest"} 
-    />
-  )
-}
+    <DashboardLayout role="customer">
+      <h1 className="text-2xl font-bold">Welcome, {user?.firstName}</h1>
+      {/* Add customer-specific dashboard content here */}
+    </DashboardLayout>
+  );
+};
 
-export default Customer
+export default Customer;
