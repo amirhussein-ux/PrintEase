@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, { useEffect, useState } from 'react';
 import DashboardHeader from '../shared_components/dashboard_header';
 import AdminDashboardContent from './AdminDashboardContent';
@@ -83,6 +84,17 @@ const Admin: React.FC = () => {
         <AdminDashboardContent />
       </main>
     </div>
+=======
+import React from "react";
+import DashboardLayout from "../shared_components/DashboardLayout";
+import AdminDashboardContent from "./AdminDashboardContent";
+
+const Admin: React.FC = () => {
+  return (
+    <DashboardLayout role="admin">
+      <AdminDashboardContent />
+    </DashboardLayout>
+>>>>>>> f3d04468c04bbb81a2947062f8eac47f04a57145
   );
 };
 
