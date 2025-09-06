@@ -262,7 +262,7 @@ export default function CreateShop() {
                 </div>
               </div>
 
-              {/* verification removed */}
+              {/* verification removed to be added*/}
             </div>
 
             {/* RIGHT COLUMN */}
@@ -330,8 +330,6 @@ export default function CreateShop() {
                   <input id="birCert" type="file" className="hidden" />
                 </label>
               </div>
-
-              {/* map note */}
             </div>
 
             {/* Map row spanning both columns */}
@@ -363,18 +361,26 @@ export default function CreateShop() {
                 </MapContainer>
               </div>
               <p className="text-xs text-gray-500 mt-2">Click map to pin and autofill (OSM Nominatim).</p>
-              {/* manual placement removed */}
             </div>
 
             {/* submit */}
             <div className="lg:col-span-2">
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex w-full justify-center rounded-md bg-blue-950 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-900 focus:outline-none disabled:opacity-60"
-              >
-                {loading ? "Creating..." : "Create Store"}
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full rounded-md bg-blue-950 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-900 focus:outline-none disabled:opacity-60"
+                >
+                  {loading ? "Creating..." : "Create Store"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/')}
+                  className="w-full rounded-md bg-neutral-300 px-3 py-2 text-sm font-semibold text-black hover:bg-gray-300 focus:outline-none"
+                >
+                  Cancel
+                </button>
+              </div>
               {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
             </div>
           </form>
