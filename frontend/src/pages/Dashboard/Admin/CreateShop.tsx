@@ -1,147 +1,385 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../../../lib/api";
+import PrintEaseLogo from "../../../assets/PrintEase-Logo.png";
 
-export default function CreatePrintStore() {
-  const [showVerification, setShowVerification] = useState(false);
+/* map imports */
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+// fix leaflet icon URLs
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+// explicit default icon
+const DefaultMarkerIcon = L.icon({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  tooltipAnchor: [16, -28],
+  shadowSize: [41, 41],
+});
+// set default marker icon
+L.Marker.prototype.options.icon = DefaultMarkerIcon;
+
+export default function CreateShop() {
+  // verification input removed
+  const [storeName, setStoreName] = useState("");
+  const [tin, setTin] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [addressLine, setAddressLine] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
+  const [stateField, setStateField] = useState("");
+  const [postal, setPostal] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  // marker position
+  const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
+  // marker position (click to place, auto reverse-geocode)
+  
+
+  // map click handler
+  function MapClickHandler() {
+    useMapEvents({
+      click: async (e: L.LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
+        setPosition({ lat, lng });
+        await reverseGeocode(lat, lng);
+      },
+    });
+    return null;
+  }
+
+  // reverse geocode helper
+  async function reverseGeocode(lat: number, lng: number) {
+    try {
+      const resp = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`
+      );
+      if (!resp.ok) return;
+      const data = await resp.json();
+      const addr = data.address || {};
+      console.debug("nominatim address:", addr);
+      const streetParts = [addr.house_number, addr.road, addr.barangay, addr.suburb, addr.neighbourhood, addr.hamlet]
+        .filter(Boolean)
+        .join(" ");
+      if (streetParts) setAddressLine(streetParts);
+      const cityValue = addr.city || addr.city_district || addr.town || addr.village || addr.municipality || addr.county || "";
+      setCity(cityValue);
+      const provinceCandidate = addr.state || addr.province || addr.state_district || addr.region || addr.county || "";
+      const provinceValue = /metro manila|ncr|national capital region/i.test(provinceCandidate) ? "Metro Manila" : provinceCandidate;
+      setStateField(provinceValue);
+      setCountry(addr.country || "");
+      setPostal(addr.postcode || "");
+    } catch (err) {
+      console.error("Reverse geocode failed:", err);
+    }
+  }
 
   return (
-    <div className="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8 bg-gray-900">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <img
-          alt="PrintEase"
-          src="https://tailwindcss.com/plus-assets/img/logos/mark.svg?color=indigo&shade=500"
-          className="mx-auto h-12 w-auto"
-        />
-        <h2 className="mt-6 text-center text-2xl font-bold tracking-tight text-white">
-          Create your print store
-        </h2>
-      </div>
+    <div className="min-h-screen bg-gradient-to-b from-white via-white to-black flex flex-col">
+  {/* header */}
+      <header className="w-full bg-transparent">
+    <div className="max-w-4xl mx-auto gap-2 pt-6 pb-1 flex flex-col items-center justify-center">
+      <img alt="PrintEase" src={PrintEaseLogo} className="h-25 w-auto mt-10" />
+        </div>
+      </header>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <form action="#" method="POST" className="space-y-6">
-          {/* Print Store Name */}
-          <div>
-            <label htmlFor="storeName" className="block text-sm font-medium text-gray-100">
-              Print Store Name
-            </label>
-            <div className="mt-2">
-              <input
-                id="storeName"
-                name="storeName"
-                type="text"
-                required
-                className="block w-full rounded-md bg-white/5 px-3 py-2 text-white outline outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus:outline-2 focus:outline-indigo-500 sm:text-sm"
-                placeholder="e.g. PrintEase Express"
-              />
+  {/* main form */}
+      <main className="flex-1 flex items-start justify-center px-6 py-16 lg:px-8">
+        <div className="w-full max-w-6xl mt-6">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setError(null);
+              setLoading(true);
+              try {
+                const payload = {
+                  name: storeName,
+                  tin,
+                  mobile,
+                  address: {
+                    addressLine,
+                    city,
+                    country,
+                      state: stateField,
+                      postal,
+                      location: position ? { lat: position.lat, lng: position.lng } : undefined,
+                  },
+                };
+
+                await api.post("/print-store", payload);
+                navigate("/dashboard/admin");
+              } catch (err: unknown) {
+                let msg = "Failed to create store";
+                if (typeof err === "object" && err !== null && "response" in err) {
+                  const maybe = err as {
+                    response?: { data?: { message?: string } };
+                  };
+                  msg = maybe.response?.data?.message || msg;
+                } else if (err instanceof Error) {
+                  msg = err.message;
+                }
+                setError(msg);
+              } finally {
+                setLoading(false);
+              }
+            }}
+             className="grid grid-cols-1 lg:grid-cols-2 gap-8 border-2 border-blue-900 rounded-xl p-8 lg:p-10 bg-gray-100 shadow-lg"
+          >
+            <div className="lg:col-span-2 text-center mb-6">
+              <h2 className="text-2xl lg:text-3xl font-bold text-black">CREATE SHOP</h2>
             </div>
-          </div>
 
-          {/* TIN */}
-          <div>
-            <label htmlFor="tin" className="block text-sm font-medium text-gray-100">
-              TIN
-            </label>
-            <div className="mt-2">
-              <input
-                id="tin"
-                name="tin"
-                type="text"
-                required
-                className="block w-full rounded-md bg-white/5 px-3 py-2 text-white outline outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus:outline-2 focus:outline-indigo-500 sm:text-sm"
-                placeholder="123-456-789"
-              />
-            </div>
-          </div>
-
-          {/* BIR Certificate Upload */}
-          <div>
-            <label htmlFor="birCert" className="block text-sm font-medium text-gray-100">
-              Copy of your BIR Certificate of Registration Form (BIR 2303) · Business Name/Style
-            </label>
-            <div className="mt-2 flex justify-center rounded-md border border-dashed border-gray-500 px-6 py-10">
-              <div className="text-center">
-                <svg
-                  className="mx-auto h-12 w-12 text-gray-400"
-                  stroke="currentColor"
-                  fill="none"
-                  viewBox="0 0 48 48"
-                  aria-hidden="true"
+            {/* LEFT COLUMN */}
+            <div className="space-y-6">
+              {/* Store Name */}
+              <div>
+                <label
+                  htmlFor="storeName"
+                  className="block text-sm font-semibold text-black"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L24 6l18 12v18a6 6 0 01-6 6H12a6 6 0 01-6-6V18z"
-                  />
-                </svg>
-                <div className="mt-4 flex text-sm text-gray-400">
-                  <label
-                    htmlFor="birCert"
-                    className="relative cursor-pointer rounded-md bg-gray-800 px-3 py-2 font-semibold text-indigo-400 hover:text-indigo-300 focus-within:outline-none"
-                  >
-                    <span>Upload a file</span>
-                    <input id="birCert" name="birCert" type="file" className="sr-only" />
-                  </label>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">PNG, JPG, or PDF up to 10MB</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile Number with Send Code */}
-          <div>
-            <label htmlFor="mobile" className="block text-sm font-medium text-gray-100">
-              Active Mobile Number
-            </label>
-            <div className="mt-2 relative flex rounded-md shadow-sm">
-              <input
-                id="mobile"
-                name="mobile"
-                type="tel"
-                required
-                className="block w-full rounded-l-md bg-white/5 px-3 py-2 text-white outline outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus:outline-2 focus:outline-indigo-500 sm:text-sm"
-                placeholder="09XXXXXXXXX"
-              />
-              <button
-                type="button"
-                onClick={() => setShowVerification(true)}
-                className="rounded-r-md bg-indigo-500 px-4 text-sm font-semibold text-white hover:bg-indigo-400 focus:outline-none"
-              >
-                Send Code
-              </button>
-            </div>
-          </div>
-
-          {/* Verification Code (shows up after Send Code) */}
-          {showVerification && (
-            <div>
-              <label htmlFor="verification" className="block text-sm font-medium text-gray-100">
-                Verification Code
-              </label>
-              <div className="mt-2">
+                  STORE NAME
+                </label>
                 <input
-                  id="verification"
-                  name="verification"
+                  id="storeName"
                   type="text"
+                  value={storeName}
+                  onChange={(e) => setStoreName(e.target.value)}
                   required
-                  className="block w-full rounded-md bg-white/5 px-3 py-2 text-white outline outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus:outline-2 focus:outline-indigo-500 sm:text-sm"
-                  placeholder="Enter 6-digit code"
+                  className="mt-2 block w-full rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                  placeholder="e.g. PrintEase Express"
                 />
               </div>
+
+              {/* TIN */}
+              <div>
+                <label
+                  htmlFor="tin"
+                  className="block text-sm font-semibold text-black"
+                >
+                  TAX PAYER IDENTIFICATION NUMBER
+                </label>
+                <input
+                  id="tin"
+                  type="text"
+                  value={tin}
+                  onChange={(e) => setTin(e.target.value)}
+                  className="mt-2 block w-full rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                  placeholder="123-456-789"
+                />
+              </div>
+
+              {/* Mobile Number */}
+              <div>
+                <label
+                  htmlFor="mobile"
+                  className="block text-sm font-semibold text-black"
+                >
+                  ACTIVE MOBILE NUMBER
+                </label>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    id="mobile"
+                    type="tel"
+                    value={mobile}
+                    onChange={(e) => setMobile(e.target.value)}
+                    className="flex-1 rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                    placeholder="09XXXXXXXXX"
+                  />
+                  <button
+                    type="button"
+                    // send code placeholder
+                    onClick={() => { /* send code action can be implemented here */ }}
+                    className="rounded-xl bg-neutral-300 px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 focus:outline-none"
+                  >
+                    Send Code
+                  </button>
+                </div>
+              </div>
+
+              {/* address */}
+              <div>
+                <label className="block text-sm font-semibold text-black">Street Address</label>
+                <div className="mt-2">
+                  <input
+                    id="addressLine"
+                    type="text"
+                    value={addressLine}
+                    onChange={(e) => setAddressLine(e.target.value)}
+                    className="w-full rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                    placeholder="Address (Apartment, Street, Barangay, etc.)"
+                  />
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    id="city"
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                    placeholder="City / Municipality"
+                  />
+                  <input
+                    id="state"
+                    type="text"
+                    value={stateField}
+                    onChange={(e) => setStateField(e.target.value)}
+                    className="rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                    placeholder="Province / Region"
+                  />
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    id="postal"
+                    type="text"
+                    value={postal}
+                    onChange={(e) => setPostal(e.target.value)}
+                    className="rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                    placeholder="Postal / Zip Code"
+                  />
+                  <input
+                    id="country"
+                    type="text"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className="rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
+                    placeholder="Country"
+                  />
+                </div>
+              </div>
+
+              {/* verification removed */}
             </div>
-          )}
 
-          {/* Submit */}
-          <div>
-            <button
-              type="submit"
-              className="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-400 focus:outline-none"
-            >
-              Create Store
-            </button>
-          </div>
-        </form>
+            {/* RIGHT COLUMN */}
+            <div className="space-y-6">
+              {/* shop logo */}
+              <div>
+                <label
+                  htmlFor="shopLogo"
+                  className="block text-sm font-semibold text-black"
+                >
+                  PRINT SHOP LOGO
+                </label>
+                <label
+                  htmlFor="shopLogo"
+                  className="mt-2 flex flex-col items-center justify-center w-full h-36 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100"
+                >
+                  <svg
+                    className="w-8 h-8 mb-4 text-gray-500"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10M17 7v10M7 12h10" />
+                  </svg>
+                  <p className="mb-2 text-sm text-gray-500">
+                    <span className="font-semibold">Click to upload</span> or drag & drop
+                  </p>
+                  <p className="text-xs text-gray-500">PNG, JPG or SVG</p>
+                  <input id="shopLogo" type="file" accept="image/*" className="hidden" />
+                </label>
+              </div>
 
-      </div>
+              {/* BIR certificate */}
+              <div>
+                <label
+                  htmlFor="birCert"
+                  className="block text-sm font-semibold text-black"
+                >
+                  BIR CERTIFICATE OF REGISTRATION (Form 2303)
+                </label>
+                <label
+                  htmlFor="birCert"
+                  className="mt-2 flex flex-col items-center justify-center w-full h-50 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100"
+                >
+                  <svg
+                    className="w-8 h-8 mb-4 text-gray-500"
+                    aria-hidden="true"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 20 16"
+                  >
+                    <path
+                      stroke="currentColor"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+                    />
+                  </svg>
+                  <p className="mb-2 text-sm text-gray-500">
+                    <span className="font-semibold">Click to upload</span> or drag & drop
+                  </p>
+                  <p className="text-xs text-gray-500">PNG, PDF, JPG or DOCX</p>
+                  <input id="birCert" type="file" className="hidden" />
+                </label>
+              </div>
+
+              {/* map note */}
+            </div>
+
+            {/* Map row spanning both columns */}
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-semibold text-black">PIN LOCATION ON MAP</label>
+              <div className="mt-2 w-full h-72 rounded-lg overflow-hidden border border-gray-300">
+                  <MapContainer center={[14.5995, 120.9842]} zoom={13} style={{ height: "100%", width: "100%" }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <MapClickHandler />
+                  {position && (
+                    <Marker
+                      position={[position.lat, position.lng]}
+                      draggable={true}
+                      eventHandlers={{
+                        dragend: async (e) => {
+                          const marker = e.target as L.Marker;
+                          const p = marker.getLatLng();
+                          setPosition({ lat: p.lat, lng: p.lng });
+                          await reverseGeocode(p.lat, p.lng);
+                        },
+                      }}
+                    >
+                      <Popup>
+                        Selected location
+                        <div className="text-xs">Lat: {position.lat.toFixed(5)}, Lng: {position.lng.toFixed(5)}</div>
+                      </Popup>
+                    </Marker>
+                  )}
+                </MapContainer>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Click map to pin and autofill (OSM Nominatim).</p>
+              {/* manual placement removed */}
+            </div>
+
+            {/* submit */}
+            <div className="lg:col-span-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full justify-center rounded-md bg-blue-950 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-900 focus:outline-none disabled:opacity-60"
+              >
+                {loading ? "Creating..." : "Create Store"}
+              </button>
+              {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
+            </div>
+          </form>
+        </div>
+      </main>
     </div>
   );
 }

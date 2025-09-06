@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Home, Authentication, Admin, Customer } from "./pages";
+import CreatePrintStore from "./pages/Dashboard/Admin/CreateShop";
+import SelectShop from "./pages/Dashboard/Customer/SelectShop";
 import PrivateRoute from "./components/PrivateRoute";
 
 function App() {
@@ -27,6 +29,24 @@ function App() {
           element={
             <PrivateRoute>
               <Customer />
+            </PrivateRoute>
+          }
+        />
+        {/* Select shop picker for customers/guests */}
+        <Route
+          path="/customer/select-shop"
+          element={
+            <PrivateRoute>
+              <SelectShop />
+            </PrivateRoute>
+          }
+        />
+        {/* Protected Create Print Store page*/}
+        <Route
+          path="/admin/create-shop"
+          element={
+            <PrivateRoute>
+              <CreatePrintStore />
             </PrivateRoute>
           }
         />

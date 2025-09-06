@@ -57,7 +57,7 @@ const Hero: React.FC = () => {
                     sessionStorage.setItem("token", data.token);
                     sessionStorage.setItem("user", JSON.stringify(data.user));
 
-                    navigate("/dashboard/customer");
+                    navigate("/customer/select-shop");
                   } catch (error) {
                     console.error("Guest login failed:", error);
                   }

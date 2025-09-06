@@ -1,0 +1,24 @@
+import { createContext } from "react";
+import type { ReactNode } from "react";
+
+export interface User {
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string | null;
+  role: "admin" | "customer" | "guest";
+}
+
+export interface AuthContextType {
+  user: User | null;
+  token: string | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<User>;
+  signup: (data: { firstName: string; lastName: string; email: string; password: string; role: string }) => Promise<User>;
+  logout: () => void;
+  continueAsGuest: () => Promise<User>;
+}
+
+export const AuthContext = createContext<AuthContextType | null>(null);
+
+export const AuthProviderProps = ({} as { children: ReactNode });

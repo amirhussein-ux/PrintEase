@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Dialog, DialogPanel } from '@headlessui/react'
 import { XMarkIcon, ChevronDownIcon } from '@heroicons/react/24/outline'
 import { NavLink, Link } from 'react-router-dom'
-import { useAuth } from '../../../context/AuthContext'
+import { useAuth } from '../../../context/useAuth'
 
 interface DashboardHeaderProps {
   role: 'admin' | 'customer'

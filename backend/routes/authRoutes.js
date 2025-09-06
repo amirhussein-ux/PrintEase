@@ -20,7 +20,7 @@ router.get("/profile", protect, (req, res) => {
 // One-time admin creation route (remove after use)
 router.post("/create-admin", async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { firstName, lastName, email, password } = req.body;
 
         const userExists = await User.findOne({ email });
         if (userExists) {
@@ -30,7 +30,8 @@ router.post("/create-admin", async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const admin = await User.create({
-            name,
+            firstName,
+            lastName,
             email,
             password: hashedPassword,
             role: "admin"
@@ -38,7 +39,8 @@ router.post("/create-admin", async (req, res) => {
 
         res.status(201).json({
             _id: admin._id,
-            name: admin.name,
+            firstName: admin.firstName,
+            lastName: admin.lastName,
             email: admin.email,
             role: admin.role,
         });

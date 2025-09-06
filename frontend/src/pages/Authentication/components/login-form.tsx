@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "../../../context/useAuth";
 
 const LoginForm: React.FC = () => {
   const navigate = useNavigate();
@@ -19,11 +19,12 @@ const LoginForm: React.FC = () => {
     try {
       const user = await login(email, password);
 
-      // Redirect based on role
+      // redirect
       if (user.role === "admin") {
         navigate("/dashboard/admin");
       } else {
-        navigate("/dashboard/customer");
+        // customer route
+        navigate("/customer/select-shop");
       }
     } catch (err: any) {
       setError(err.message || "Login failed");
@@ -35,7 +36,7 @@ const LoginForm: React.FC = () => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-6 bg-gray-50 p-8 rounded-xl shadow-lg w-full max-w-md mx-auto mt-20"
+      className="flex flex-col gap-6 bg-white p-8 rounded-xl w-full max-w-md mx-auto mt-20"
     >
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold text-gray-900">Login to your account</h1>
