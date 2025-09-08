@@ -18,6 +18,9 @@ const printStoreSchema = new mongoose.Schema({
     },
   },
   mobile: { type: String, required: true },
+  // reference to logo stored in GridFS
+  logoFileId: { type: mongoose.Schema.Types.ObjectId },
+  logoMime: { type: String },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: true });
 

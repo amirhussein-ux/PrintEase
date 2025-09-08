@@ -6,7 +6,7 @@ export interface User {
   firstName?: string;
   lastName?: string;
   email?: string | null;
-  role: "admin" | "customer" | "guest";
+  role: "owner" | "customer" | "guest";
 }
 
 export interface AuthContextType {
@@ -14,7 +14,7 @@ export interface AuthContextType {
   token: string | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<User>;
-  signup: (data: { firstName: string; lastName: string; email: string; password: string; role: string }) => Promise<User>;
+  signup: (data: { firstName: string; lastName: string; email: string; password: string; confirmPassword: string; role: string }) => Promise<User>;
   logout: () => void;
   continueAsGuest: () => Promise<User>;
 }

@@ -1,26 +1,37 @@
  const PrintStore = require('../models/printStoreModel');
 const User = require('../models/userModel');
+const mongoose = require('mongoose');
+const { ObjectId } = mongoose.Types;
 
 // Create print store
 exports.createPrintStore = async (req, res) => {
   try {
   const { name, tin, birCertUrl, mobile, address } = req.body;
+    // If address was sent as a JSON string (multipart/form-data), parse it
+    let parsedAddress = address;
+    if (typeof address === 'string') {
+      try {
+        parsedAddress = JSON.parse(address);
+      } catch (e) {
+        parsedAddress = address;
+      }
+    }
     const userId = req.user.id;
 
-  // only admin
+  // only owner
     const user = await User.findById(userId);
-    if (!user || user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only admin can create a print store' });
+    if (!user || user.role !== 'owner') {
+      return res.status(403).json({ message: 'Only owner can create a print store' });
     }
 
   // check existing store
     const existing = await PrintStore.findOne({ owner: userId });
     if (existing) {
-      return res.status(400).json({ message: 'Admin already has a print store' });
+      return res.status(400).json({ message: 'Owner already has a print store' });
     }
 
   // location
-    let addressPayload = address || {};
+  let addressPayload = parsedAddress || {};
     if (addressPayload.location) {
       const lat = parseFloat(addressPayload.location.lat);
       const lng = parseFloat(addressPayload.location.lng);
@@ -31,18 +42,36 @@ exports.createPrintStore = async (req, res) => {
       }
     }
 
-    const store = await PrintStore.create({
+    const storeData = {
       name,
       tin,
       birCertUrl,
       mobile,
       address: addressPayload,
       owner: userId,
-    });
+    };
 
-    // create shop collection (sanitized name)
-    const mongoose = require('mongoose');
-    const collectionName = name.toLowerCase().replace(/\s+/g, '_');
+    // if a file was uploaded in memory via multer, store it to GridFS
+    if (req.file && req.file.buffer) {
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+      const uploadStream = bucket.openUploadStream(req.file.originalname, {
+        contentType: req.file.mimetype,
+      });
+      uploadStream.end(req.file.buffer);
+      // wait for finish and capture the stream id (GridFS file id)
+      const fileId = await new Promise((resolve, reject) => {
+        uploadStream.on('finish', () => resolve(uploadStream.id));
+        uploadStream.on('error', reject);
+      });
+      // attach GridFS file id and mime to store
+      storeData.logoFileId = fileId;
+      storeData.logoMime = req.file.mimetype;
+    }
+
+    const store = await PrintStore.create(storeData);
+
+  // create shop collection (sanitized name)
+  const collectionName = name.toLowerCase().replace(/\s+/g, '_');
     // dummy schema
     const shopSchema = new mongoose.Schema({ any: {} }, { strict: false });
     try {
@@ -59,7 +88,7 @@ exports.createPrintStore = async (req, res) => {
   }
 };
 
-// Get admin's store
+// Get owner's store
 exports.getMyPrintStore = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -75,10 +104,29 @@ exports.getMyPrintStore = async (req, res) => {
 exports.getAllPrintStores = async (req, res) => {
   try {
   // select basic fields
-  const stores = await PrintStore.find({}, 'name mobile address tin createdAt');
+  const stores = await PrintStore.find({}, 'name mobile address tin createdAt logoFileId');
     res.json(stores);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// Stream logo from GridFS by id
+exports.getLogoById = async (req, res) => {
+  try {
+    const id = req.params.id;
+    if (!ObjectId.isValid(id)) return res.status(400).send('Invalid id');
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+    const _id = new ObjectId(id);
+    const files = await bucket.find({ _id }).toArray();
+    if (!files || files.length === 0) return res.status(404).send('Not found');
+    const file = files[0];
+    res.set('Content-Type', file.contentType || 'application/octet-stream');
+    const download = bucket.openDownloadStream(_id);
+    download.pipe(res);
+    download.on('error', () => res.status(500).end());
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -101,9 +149,8 @@ exports.createPrintStoreTest = async (req, res) => {
       owner: ownerId,
     });
 
-    // create shop collection (test)
-    const mongoose = require('mongoose');
-    const collectionName = (name || 'test_store').toLowerCase().replace(/\s+/g, '_');
+  // create shop collection (test)
+  const collectionName = (name || 'test_store').toLowerCase().replace(/\s+/g, '_');
     const shopSchema = new mongoose.Schema({ any: {} }, { strict: false });
     try {
       mongoose.model(collectionName);

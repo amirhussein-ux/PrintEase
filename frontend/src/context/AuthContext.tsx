@@ -48,7 +48,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return userData;
   };
 
-  const signup = async (data: { firstName: string; lastName: string; email: string; password: string; role: string }): Promise<User> => {
+  const signup = async (data: { firstName: string; lastName: string; email: string; password: string; confirmPassword?: string; role: string }): Promise<User> => {
+    // forward confirmPassword to backend so server-side validation can return specific errors (e.g. minlength)
     const res = await api.post("/auth/register", data);
     const userData: User = res.data.user;
     const userToken: string = res.data.token;

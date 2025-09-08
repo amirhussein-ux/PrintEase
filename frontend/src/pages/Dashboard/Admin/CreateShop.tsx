@@ -1,13 +1,14 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../../../lib/api";
+import CropperModal from '../../../components/CropperModal';
 import PrintEaseLogo from "../../../assets/PrintEase-Logo.png";
 
 /* map imports */
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-// fix leaflet icon URLs
+//leaflet icon URLs
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
@@ -42,7 +43,20 @@ export default function CreateShop() {
   const [postal, setPostal] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [originalLogoFile, setOriginalLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    return () => {
+      if (logoPreview) URL.revokeObjectURL(logoPreview);
+      if (cropSrc) URL.revokeObjectURL(cropSrc);
+    };
+  }, [logoPreview, cropSrc]);
 
   // marker position
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
@@ -92,7 +106,9 @@ export default function CreateShop() {
   {/* header */}
       <header className="w-full bg-transparent">
     <div className="max-w-4xl mx-auto gap-2 pt-6 pb-1 flex flex-col items-center justify-center">
-      <img alt="PrintEase" src={PrintEaseLogo} className="h-25 w-auto mt-10" />
+      <Link to="/" aria-label="Go to landing page">
+        <img alt="PrintEase" src={PrintEaseLogo} className="h-25 w-auto mt-10" />
+      </Link>
         </div>
       </header>
 
@@ -105,22 +121,25 @@ export default function CreateShop() {
               setError(null);
               setLoading(true);
               try {
-                const payload = {
-                  name: storeName,
-                  tin,
-                  mobile,
-                  address: {
-                    addressLine,
-                    city,
-                    country,
-                      state: stateField,
-                      postal,
-                      location: position ? { lat: position.lat, lng: position.lng } : undefined,
-                  },
+                const form = new FormData();
+                form.append('name', storeName);
+                form.append('tin', tin);
+                form.append('mobile', mobile);
+                const addressObj = {
+                  addressLine,
+                  city,
+                  country,
+                  state: stateField,
+                  postal,
+                  location: position ? { lat: position.lat, lng: position.lng } : undefined,
                 };
+                form.append('address', JSON.stringify(addressObj));
+                if (logoFile) form.append('logo', logoFile);
 
-                await api.post("/print-store", payload);
-                navigate("/dashboard/admin");
+                await api.post('/print-store', form, {
+                  headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                navigate("/dashboard/owner");
               } catch (err: unknown) {
                 let msg = "Failed to create store";
                 if (typeof err === "object" && err !== null && "response" in err) {
@@ -275,26 +294,123 @@ export default function CreateShop() {
                 >
                   PRINT SHOP LOGO
                 </label>
-                <label
-                  htmlFor="shopLogo"
-                  className="mt-2 flex flex-col items-center justify-center w-full h-36 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100"
-                >
-                  <svg
-                    className="w-8 h-8 mb-4 text-gray-500"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
+                {!logoPreview ? (
+                  <label
+                    htmlFor="shopLogo"
+                    className="mt-2 flex flex-col items-center justify-center w-full h-36 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100"
                   >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10M17 7v10M7 12h10" />
-                  </svg>
-                  <p className="mb-2 text-sm text-gray-500">
-                    <span className="font-semibold">Click to upload</span> or drag & drop
-                  </p>
-                  <p className="text-xs text-gray-500">PNG, JPG or SVG</p>
-                  <input id="shopLogo" type="file" accept="image/*" className="hidden" />
-                </label>
+                    <>
+                      <svg
+                        className="w-8 h-8 mb-4 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 7v10M17 7v10M7 12h10" />
+                      </svg>
+                      <p className="mb-2 text-sm text-gray-500">
+                        <span className="font-semibold">Click to upload</span> or drag & drop
+                      </p>
+                      <p className="text-xs text-gray-500">PNG, JPG or SVG</p>
+                      <input
+                        id="shopLogo"
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          if (!f) return;
+                          // save original file for future edits
+                          setOriginalLogoFile(f);
+                          const url = URL.createObjectURL(f);
+                          setCropSrc(url);
+                          setShowCropper(true);
+                        }}
+                      />
+                    </>
+                  </label>
+                ) : (
+                  <div
+                    className="mt-2 flex flex-col items-center justify-center w-full h-36 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100"
+                    role="button"
+                    onClick={() => {
+                      // Prefer original uploaded file so users re-edit the full image
+                      if (originalLogoFile) {
+                        const url = URL.createObjectURL(originalLogoFile);
+                        setCropSrc(url);
+                        setShowCropper(true);
+                      } else if (logoFile) {
+                        const url = URL.createObjectURL(logoFile);
+                        setCropSrc(url);
+                        setShowCropper(true);
+                      } else if (logoPreview) {
+                        setCropSrc(logoPreview);
+                        setShowCropper(true);
+                      }
+                    }}
+                  >
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-3">
+                      <div className="h-20 w-20 rounded-full overflow-hidden bg-white flex items-center justify-center">
+                        <img src={logoPreview} alt="logo preview" className="h-full w-full object-cover" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (logoPreview) URL.revokeObjectURL(logoPreview);
+                            setLogoPreview(null);
+                            setLogoFile(null);
+                            setOriginalLogoFile(null);
+                          }}
+                          className="rounded-md bg-red-100 px-3 py-1 text-sm text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <input
+                        id="shopLogo"
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          if (!f) return;
+                          setOriginalLogoFile(f);
+                          const url = URL.createObjectURL(f);
+                          setCropSrc(url);
+                          setShowCropper(true);
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {showCropper && cropSrc && (
+                <CropperModal
+                  src={cropSrc}
+                  aspect={1}
+                  onCancel={() => {
+                    setShowCropper(false);
+                    URL.revokeObjectURL(cropSrc);
+                    setCropSrc(null);
+                  }}
+                  onApply={(file) => {
+                    // revoke previous preview
+                    if (logoPreview) URL.revokeObjectURL(logoPreview);
+                    const url = URL.createObjectURL(file);
+                    setLogoFile(file);
+                    setLogoPreview(url);
+                    setShowCropper(false);
+                    if (cropSrc) URL.revokeObjectURL(cropSrc);
+                    setCropSrc(null);
+                  }}
+                />
+              )}
 
               {/* BIR certificate */}
               <div>

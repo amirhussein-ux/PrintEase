@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import DashboardSidebar from "./DashboardSidebar";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "../../../context/useAuth";
 import logo from "/src/assets/PrintEase-Logo-Dark.png";
 
 interface DashboardLayoutProps {
-  role: "admin" | "customer";
+  role: "owner" | "customer";
   children: React.ReactNode;
 }
 

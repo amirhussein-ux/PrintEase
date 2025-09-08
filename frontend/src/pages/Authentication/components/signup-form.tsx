@@ -1,13 +1,14 @@
 import { FcGoogle } from "react-icons/fc";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import api from "../../../lib/api";
+import { useAuth } from "../../../context/useAuth";
 
 
 
 export function SignupForm({ className, ...props }: React.ComponentProps<"form">) {
   const navigate = useNavigate();
-  const [role, setRole] = useState<"admin" | "customer">("admin");
+  const { signup } = useAuth();
+  const [role, setRole] = useState<"owner" | "customer">("owner");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,7 +24,8 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
     setError(null);
     setLoading(true);
     try {
-      const res = await api.post("/auth/register", {
+  // Use auth context signup so user state and token are set consistently
+  await signup({
         firstName,
         lastName,
         email,
@@ -31,9 +33,13 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
         confirmPassword,
         role,
       });
-      // Store token and redirect (optional: store user info)
-      localStorage.setItem("token", res.data.token);
-      navigate("/dashboard");
+
+      // If an owner signed up, send them to create-shop flow first.
+      if (role === "owner") {
+        navigate("/owner/create-shop");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err: unknown) {
       if (
         typeof err === "object" &&
@@ -43,6 +49,8 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
       ) {
         const response = (err as { response?: { data?: { message?: string } } }).response;
         setError(response?.data?.message || "Signup failed");
+      } else if (err instanceof Error) {
+        setError(err.message);
       } else {
         setError("Signup failed");
       }
@@ -71,14 +79,14 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
         <div className="inline-flex rounded-3xl bg-blue-900 p-1 w-full sm:w-auto">
           <button
             type="button"
-            onClick={() => setRole("admin")}
+            onClick={() => setRole("owner")}
             className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 text-sm font-medium rounded-s-3xl transition-colors ${
-              role === "admin"
+              role === "owner"
                 ? "bg-white text-gray-900 shadow"
                 : "text-white hover:text-white"
             }`}
           >
-            As an Admin
+            As an Owner
           </button>
 
           <button

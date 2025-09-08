@@ -12,14 +12,14 @@ import {
 } from "@heroicons/react/24/outline"
 
 interface DashboardSidebarProps {
-  role: "admin" | "customer"
+  role: "owner" | "customer"
   className?: string
   closeSidebar?: () => void 
 }
 
 export default function DashboardSidebar({ role, className, closeSidebar }: DashboardSidebarProps) {
   const adminLinks = [
-    { name: "Dashboard", href: "/dashboard/admin", icon: <HomeIcon className="h-5 w-5" /> },
+    { name: "Dashboard", href: "/dashboard/owner", icon: <HomeIcon className="h-5 w-5" /> },
     { name: "Order Management", href: "/dashboard/orders", icon: <ClipboardDocumentListIcon className="h-5 w-5" /> },
     { name: "Service Management", href: "/dashboard/services", icon: <Cog6ToothIcon className="h-5 w-5" /> },
     { name: "Inventory", href: "/dashboard/inventory", icon: <CubeIcon className="h-5 w-5" /> },
@@ -34,7 +34,7 @@ export default function DashboardSidebar({ role, className, closeSidebar }: Dash
     { name: "Profile", href: "/profile", icon: <UserCircleIcon className="h-5 w-5" /> },
   ]
 
-  const links = role === "admin" ? adminLinks : customerLinks
+  const links = role === "owner" ? adminLinks : customerLinks
 
   return (
     <aside

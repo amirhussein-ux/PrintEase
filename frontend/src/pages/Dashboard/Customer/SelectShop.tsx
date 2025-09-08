@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -218,8 +218,10 @@ export default function SelectShop() {
   {/* header */}
       <header className="w-full bg-white">
         <div className="max-w-8xl mx-auto px-6 py-4 flex items-center gap-4 justify-center lg:justify-start">
-          <img alt="PrintEase" src={PrintEaseLogoMobile} className="block lg:hidden h-16 w-auto" />
-          <img alt="PrintEase" src={PrintEaseLogo} className="hidden lg:block h-20 w-auto" />
+          <Link to="/" aria-label="Go to landing page">
+            <img alt="PrintEase" src={PrintEaseLogoMobile} className="block lg:hidden h-16 w-auto" />
+            <img alt="PrintEase" src={PrintEaseLogo} className="hidden lg:block h-20 w-auto" />
+          </Link>
         </div>
       </header>
 
@@ -326,9 +328,24 @@ export default function SelectShop() {
                                 }}
                               >
                                 <div className="flex items-center gap-4 min-w-0">
-                                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white font-semibold overflow-hidden">
-                                    <span className="text-sm font-semibold">{initials}</span>
-                                  </div>
+                                  {/* show logo if available, otherwise initials */}
+                                  {(() => {
+                                    const raw = (store as any).logoFileId;
+                                    const logoId = typeof raw === 'string' ? raw : raw?._id || raw?.toString?.();
+                                    if (logoId) {
+                                      const src = `${api.defaults.baseURL}/print-store/logo/${logoId}`;
+                                      return (
+                                        <div className="h-12 w-12 rounded-full overflow-hidden flex-shrink-0 bg-white/5 flex items-center justify-center">
+                                          <img src={src} alt={`${store.name} logo`} className="h-full w-full object-cover" />
+                                        </div>
+                                      );
+                                    }
+                                    return (
+                                      <div className="h-12 w-12 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex-shrink-0 flex items-center justify-center text-white font-semibold overflow-hidden">
+                                        <span className="text-sm font-semibold">{initials}</span>
+                                      </div>
+                                    );
+                                  })()}
                                   <div className="min-w-0">
                                     <p className="text-sm font-semibold">{store.name}</p>
                                     <p className="mt-1 text-xs text-gray-300 break-words">{addressParts || 'No address provided'}</p>
@@ -420,14 +437,25 @@ export default function SelectShop() {
           <div className="absolute inset-0 bg-black/60" onClick={() => setSelectedStore(null)} />
           <div className="relative max-w-3xl w-full mx-4 bg-black border border-white/10 rounded-lg overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-              <div>
-                <h3 className="text-base font-semibold">{selectedStore.name}</h3>
-                <p className="text-xs text-gray-300">{[
-                  selectedStore.address?.addressLine,
-                  selectedStore.address?.city,
-                  selectedStore.address?.state,
-                  selectedStore.address?.postal,
-                ].filter(Boolean).join(', ')}</p>
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const raw = (selectedStore as any)?.logoFileId;
+                  const logoId = typeof raw === 'string' ? raw : raw?._id || raw?.toString?.();
+                  if (logoId) {
+                    const src = `${api.defaults.baseURL}/print-store/logo/${logoId}`;
+                    return <img src={src} alt={`${selectedStore.name} logo`} className="h-10 w-10 object-cover rounded" />;
+                  }
+                  return null;
+                })()}
+                <div>
+                  <h3 className="text-base font-semibold">{selectedStore.name}</h3>
+                  <p className="text-xs text-gray-300">{[
+                    selectedStore.address?.addressLine,
+                    selectedStore.address?.city,
+                    selectedStore.address?.state,
+                    selectedStore.address?.postal,
+                  ].filter(Boolean).join(', ')}</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {locating && <span className="text-sm text-gray-300">Requesting location…</span>}

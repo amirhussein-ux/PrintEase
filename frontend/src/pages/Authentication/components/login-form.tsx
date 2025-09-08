@@ -20,8 +20,8 @@ const LoginForm: React.FC = () => {
       const user = await login(email, password);
 
       // redirect
-      if (user.role === "admin") {
-        navigate("/dashboard/admin");
+      if (user.role === "owner") {
+        navigate("/dashboard/owner");
       } else {
         // customer route
         navigate("/customer/select-shop");

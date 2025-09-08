@@ -17,8 +17,8 @@ router.get("/profile", protect, (req, res) => {
     res.json(req.user);
 });
 
-// One-time admin creation route (remove after use)
-router.post("/create-admin", async (req, res) => {
+// One-time owner creation route (remove after use)
+router.post("/create-owner", async (req, res) => {
     try {
         const { firstName, lastName, email, password } = req.body;
 
@@ -29,20 +29,20 @@ router.post("/create-admin", async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const admin = await User.create({
+        const owner = await User.create({
             firstName,
             lastName,
             email,
             password: hashedPassword,
-            role: "admin"
+            role: "owner"
         });
 
         res.status(201).json({
-            _id: admin._id,
-            firstName: admin.firstName,
-            lastName: admin.lastName,
-            email: admin.email,
-            role: admin.role,
+            _id: owner._id,
+            firstName: owner.firstName,
+            lastName: owner.lastName,
+            email: owner.email,
+            role: owner.role,
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

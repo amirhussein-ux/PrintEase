@@ -7,7 +7,7 @@ import { NavLink, Link } from 'react-router-dom'
 import { useAuth } from '../../../context/useAuth'
 
 interface DashboardHeaderProps {
-  role: 'admin' | 'customer'
+  role: 'owner' | 'customer'
   userName: string
 }
 
@@ -18,7 +18,7 @@ export default function DashboardHeader({ role, userName }: DashboardHeaderProps
   const { logout } = useAuth()
 
   const adminLinks = [
-    { name: 'Dashboard', href: '/dashboard/admin' },
+    { name: 'Dashboard', href: '/dashboard/owner' },
     { name: 'Orders', href: null },
     { name: 'Services', href: null },
     { name: 'Inventory', href: null },
@@ -32,7 +32,7 @@ export default function DashboardHeader({ role, userName }: DashboardHeaderProps
 
   ]
 
-  const links = role === 'admin' ? adminLinks : customerLinks
+  const links = role === 'owner' ? adminLinks : customerLinks
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

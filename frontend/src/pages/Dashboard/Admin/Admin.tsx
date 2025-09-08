@@ -14,7 +14,7 @@ const Admin: React.FC = () => {
 
   useEffect(() => {
     const checkPrintStore = async () => {
-      if (!user || user.role !== 'admin') {
+  if (!user || user.role !== 'owner') {
         setLoading(false);
         return;
       }
@@ -41,10 +41,10 @@ const Admin: React.FC = () => {
     checkPrintStore();
   }, [user]);
 
-  // redirect admin without store
+  // redirect owner without store
   useEffect(() => {
-    if (user && user.role === 'admin' && hasStore === false) {
-      navigate('/admin/create-shop');
+    if (user && user.role === 'owner' && hasStore === false) {
+      navigate('/owner/create-shop');
     }
   }, [user, hasStore, navigate]);
 
@@ -58,7 +58,7 @@ const Admin: React.FC = () => {
       </div>
     );
   }
-  if (user.role === 'admin' && !hasStore) {
+  if (user.role === 'owner' && !hasStore) {
     // navigation handled in effect above; render nothing during redirect
     return null;
   }
@@ -67,7 +67,7 @@ const Admin: React.FC = () => {
     <div className="min-h-screen bg-gray-950 text-white">
       {/* header */}
       <DashboardHeader
-        role={user.role as 'admin'}
+        role={user.role as 'owner'}
         userName={(() => {
           // name fallback: full, email local-part, Guest
           const u = user as User;
@@ -80,7 +80,7 @@ const Admin: React.FC = () => {
 
       {/* main */}
       <main className="pt-16 p-6">
-        <AdminDashboardContent />
+        <AdminDashboardContent sidebarOpen={false} />
       </main>
     </div>
   );

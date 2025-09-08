@@ -13,9 +13,9 @@ function App() {
         <Route path="/signup" element={<Authentication />} />
         <Route path="/forgot-password" element={<Authentication />} />
 
-        {/* Protected Admin dashboard */}
+        {/* Protected Owner dashboard */}
         <Route
-          path="/dashboard/admin"
+          path="/dashboard/owner"
           element={
             <PrivateRoute>
               <Admin />
@@ -43,7 +43,7 @@ function App() {
         />
         {/* Protected Create Print Store page*/}
         <Route
-          path="/admin/create-shop"
+          path="/owner/create-shop"
           element={
             <PrivateRoute>
               <CreatePrintStore />
