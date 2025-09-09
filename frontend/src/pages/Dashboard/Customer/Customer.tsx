@@ -1,5 +1,5 @@
 import React from 'react'
-import DashboardHeader from '../shared_components/dashboard_header'
+import DashboardLayout from '../shared_components/DashboardLayout'
 import { useAuth } from '../../../context/useAuth'
 
 const Customer: React.FC = () => {

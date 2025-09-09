@@ -23,8 +23,6 @@ export default function DashboardSidebar({ role, className, closeSidebar }: Dash
     { name: "Order Management", href: "/dashboard/orders", icon: <ClipboardDocumentListIcon className="h-5 w-5" /> },
     { name: "Service Management", href: "/dashboard/services", icon: <Cog6ToothIcon className="h-5 w-5" /> },
     { name: "Inventory", href: "/dashboard/inventory", icon: <CubeIcon className="h-5 w-5" /> },
-    { name: "Notifications", href: "/dashboard/notifications", icon: <BellIcon className="h-5 w-5" /> },
-    { name: "User Profile", href: "/profile", icon: <UserCircleIcon className="h-5 w-5" /> },
   ]
 
   const customerLinks = [

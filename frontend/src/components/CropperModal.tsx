@@ -1,14 +1,19 @@
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Cropper from 'react-easy-crop';
+
+type PixelCrop = { x: number; y: number; width: number; height: number };
 
 type Props = {
   src: string;
   aspect?: number;
   onCancel: () => void;
   onApply: (file: File) => void;
+  /** Theme for modal content: "light" or "dark" (default). */
+  theme?: "light" | "dark";
 };
 
-// helper to create image element
+// Create an HTMLImageElement from a URL
 function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -19,30 +24,37 @@ function createImage(url: string): Promise<HTMLImageElement> {
   });
 }
 
-async function getCroppedImg(imageSrc: string, pixelCrop: any, rotation = 0) {
+function getRadianAngle(degree: number) {
+  return (degree * Math.PI) / 180;
+}
+
+function rotateSize(width: number, height: number, rotation: number) {
+  const rotRad = getRadianAngle(rotation);
+  return {
+    width: Math.abs(Math.cos(rotRad) * width) + Math.abs(Math.sin(rotRad) * height),
+    height: Math.abs(Math.sin(rotRad) * width) + Math.abs(Math.cos(rotRad) * height),
+  };
+}
+
+async function getCroppedImg(imageSrc: string, pixelCrop: PixelCrop, rotation = 0) {
   const image = await createImage(imageSrc);
 
-  const radians = (rotation * Math.PI) / 180;
-  const maxDim = Math.max(image.width, image.height);
-  const safeArea = 2 * maxDim;
-
-  // draw the image onto a large enough canvas and rotate it
+  const rotRad = getRadianAngle(rotation);
+  const { width: bBoxWidth, height: bBoxHeight } = rotateSize(image.width, image.height, rotation);
+  // Rotate on a temp canvas sized to fit the rotated image
   const canvas = document.createElement('canvas');
-  canvas.width = safeArea;
-  canvas.height = safeArea;
+  canvas.width = bBoxWidth;
+  canvas.height = bBoxHeight;
   const ctx = canvas.getContext('2d')!;
 
-  // move origin to center and rotate
-  ctx.translate(safeArea / 2, safeArea / 2);
-  ctx.rotate(radians);
-  ctx.drawImage(image, -image.width / 2, -image.height / 2);
-
-  // extract the cropped area from the rotated image
-  const dataX = Math.round(safeArea / 2 - image.width / 2 + pixelCrop.x);
-  const dataY = Math.round(safeArea / 2 - image.height / 2 + pixelCrop.y);
-  const data = ctx.getImageData(dataX, dataY, pixelCrop.width, pixelCrop.height);
-
-  // put extracted data into a new canvas of the desired size
+  // Center, rotate, then draw
+  ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
+  ctx.rotate(rotRad);
+  ctx.translate(-image.width / 2, -image.height / 2);
+  ctx.drawImage(image, 0, 0);
+  // Extract the selected crop area
+  const data = ctx.getImageData(pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height);
+  // Draw crop to output canvas
   const outCanvas = document.createElement('canvas');
   outCanvas.width = pixelCrop.width;
   outCanvas.height = pixelCrop.height;
@@ -52,13 +64,13 @@ async function getCroppedImg(imageSrc: string, pixelCrop: any, rotation = 0) {
   return await new Promise<Blob | null>((resolve) => outCanvas.toBlob(resolve, 'image/png'));
 }
 
-export default function CropperModal({ src, aspect = 1, onCancel, onApply }: Props) {
+export default function CropperModal({ src, aspect = 1, onCancel, onApply, theme = "dark" }: Props) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<PixelCrop | null>(null);
 
-  const onCropComplete = useCallback((_: any, croppedAreaPixelsLocal: any) => {
+  const onCropComplete = useCallback((_: unknown, croppedAreaPixelsLocal: PixelCrop) => {
     setCroppedAreaPixels(croppedAreaPixelsLocal);
   }, []);
 
@@ -70,17 +82,32 @@ export default function CropperModal({ src, aspect = 1, onCancel, onApply }: Pro
     onApply(file);
   }, [croppedAreaPixels, src, onApply, rotation]);
 
-  return (
+  const isLight = theme === "light";
+  const cardClasses = isLight
+    ? "rounded-xl bg-white text-gray-900 border border-gray-200 shadow-xl p-4 w-full max-w-lg"
+    : "rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl p-4 w-full max-w-lg";
+  const stageClasses = isLight ? "bg-gray-100" : "bg-gray-800";
+  const rotateBtnClasses = isLight
+    ? "px-3 py-2 rounded bg-gray-200 text-gray-900 hover:bg-gray-300 flex items-center gap-2"
+    : "px-3 py-2 rounded bg-gray-700 text-white hover:bg-gray-600 flex items-center gap-2";
+  const cancelBtnClasses = isLight
+    ? "px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+    : "px-3 py-2 rounded border border-white/10 text-white hover:bg-white/10";
+  const applyBtnClasses = isLight
+    ? "px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-500"
+    : "px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-500";
+
+  const content = (
     <div className="fixed inset-0 flex items-center justify-center bg-black/60 min-h-screen" style={{ zIndex: 2147483647 }}>
-      <div className="bg-white rounded-lg p-4 w-full max-w-lg" style={{ zIndex: 2147483648 }}>
-        <div style={{ position: 'relative', height: 360, background: '#333' }}>
+      <div className={cardClasses} style={{ zIndex: 2147483648 }}>
+        <div className={stageClasses} style={{ position: 'relative', height: 360 }}>
           <Cropper
             image={src}
             crop={crop}
             zoom={zoom}
             rotation={rotation}
             aspect={aspect}
-            cropShape="round"
+            cropShape="rect"
             showGrid={false}
             onCropChange={setCrop}
             onZoomChange={setZoom}
@@ -94,7 +121,7 @@ export default function CropperModal({ src, aspect = 1, onCancel, onApply }: Pro
               type="button"
               onClick={() => setRotation((r) => (r + 90) % 360)}
               title="Rotate 90°"
-              className="px-3 py-2 rounded bg-gray-200 flex items-center gap-2"
+              className={rotateBtnClasses}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3v4m0 0a6 6 0 11-6 6H5" />
@@ -103,11 +130,13 @@ export default function CropperModal({ src, aspect = 1, onCancel, onApply }: Pro
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={onCancel} className="px-3 py-2 rounded bg-gray-200">Cancel</button>
-            <button type="button" onClick={handleApply} className="px-3 py-2 rounded bg-blue-900 text-white">Apply</button>
+            <button type="button" onClick={onCancel} className={cancelBtnClasses}>Cancel</button>
+            <button type="button" onClick={handleApply} className={applyBtnClasses}>Apply</button>
           </div>
         </div>
       </div>
     </div>
   );
+  if (typeof document === 'undefined') return null;
+  return createPortal(content, document.body);
 }

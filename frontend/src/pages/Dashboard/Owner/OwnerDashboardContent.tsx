@@ -1,5 +1,4 @@
 import React, { useState } from "react"
-import { useAuth } from "../../../context/useAuth"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
 import {
@@ -14,12 +13,7 @@ interface InventoryItem {
   productType: string
 }
 
-interface AdminDashboardContentProps {
-  sidebarOpen: boolean
-}
-
-const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ sidebarOpen }) => {
-  const { user } = useAuth()
+const AdminDashboardContent: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(2025)
   const [selectedProduct, setSelectedProduct] = useState("MUGS")
 
@@ -40,6 +34,24 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ sidebarOp
           : 300 + (i * 35) % 200,
     }))
 
+  const monthNames: Record<
+    "Jan" | "Feb" | "Mar" | "Apr" | "May" | "Jun" | "Jul" | "Aug" | "Sep" | "Oct" | "Nov" | "Dec",
+    string
+  > = {
+    Jan: "January",
+    Feb: "February",
+    Mar: "March",
+    Apr: "April",
+    May: "May",
+    Jun: "June",
+    Jul: "July",
+    Aug: "August",
+    Sep: "September",
+    Oct: "October",
+    Nov: "November",
+    Dec: "December",
+  }
+
   // Inventory data
   const inventoryData: InventoryItem[] = [
     { name: "Bond Paper", expectedStock: 500, currentStock: 120, productType: "BOND PAPER" },
@@ -57,7 +69,7 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ sidebarOp
   })
 
   return (
-    <div className="transition-all duration-300 font-crimson p-4 lg:ml-64">
+    <div className="transition-all duration-300 font-crimson p-4">
       <div className="w-full max-w-6xl mx-auto space-y-6">
         
         {/* Top Stats Cards */}
@@ -97,12 +109,11 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ sidebarOp
                   <YAxis allowDecimals={false}/>
                   <Tooltip
                     cursor={false}
-                    formatter={(value:number)=>[`₱${value}`,"Sales"]}
-                    labelFormatter={label => ({
-                      Jan:"January",Feb:"February",Mar:"March",Apr:"April",
-                      May:"May",Jun:"June",Jul:"July",Aug:"August",
-                      Sep:"September",Oct:"October",Nov:"November",Dec:"December"
-                    }[label]||label)}
+                    formatter={(value: number) => [`₱${value}`, "Sales"]}
+                    labelFormatter={(label: unknown) => {
+                      const key = typeof label === 'string' ? (label as keyof typeof monthNames) : undefined
+                      return key && monthNames[key] ? monthNames[key] : String(label ?? '')
+                    }}
                   />
                   <Bar dataKey="sales" fill="#1e3a8a" radius={[6,6,0,0]}/>
                 </BarChart>
@@ -178,12 +189,12 @@ const AdminDashboardContent: React.FC<AdminDashboardContentProps> = ({ sidebarOp
                         innerRadius={40}
                         outerRadius={80}
                         labelLine={false}
-                        label={({ cx, cy, midAngle, innerRadius, outerRadius, index }) => {
+                        label={({ cx = 0, cy = 0, midAngle = 0, innerRadius = 0, outerRadius = 0, index = 0 }) => {
                           const RADIAN = Math.PI / 180
                           const radius = innerRadius + (outerRadius - innerRadius) / 2
                           const x = cx + radius * Math.cos(-midAngle * RADIAN)
                           const y = cy + radius * Math.sin(-midAngle * RADIAN)
-                          const slice = pieData[index]
+                          const slice = pieData[index] || { name: "", value: 0 }
                           return (
                             <text
                               x={x}

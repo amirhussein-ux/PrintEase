@@ -50,6 +50,9 @@ export default function CreateShop() {
   const [showCropper, setShowCropper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
+  const [headerImgLoaded, setHeaderImgLoaded] = useState(false);
+  const [logoImgLoaded, setLogoImgLoaded] = useState(false);
+  const [mapLoading, setMapLoading] = useState(true);
 
   useEffect(() => {
     return () => {
@@ -57,6 +60,11 @@ export default function CreateShop() {
       if (cropSrc) URL.revokeObjectURL(cropSrc);
     };
   }, [logoPreview, cropSrc]);
+
+  useEffect(() => {
+    // reset logo image loaded state when preview changes
+    setLogoImgLoaded(false);
+  }, [logoPreview]);
 
   // marker position
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(null);
@@ -107,7 +115,17 @@ export default function CreateShop() {
       <header className="w-full bg-transparent">
     <div className="max-w-4xl mx-auto gap-2 pt-6 pb-1 flex flex-col items-center justify-center">
       <Link to="/" aria-label="Go to landing page">
-        <img alt="PrintEase" src={PrintEaseLogo} className="h-25 w-auto mt-10" />
+        <div className="mt-10 flex items-center justify-center">
+          {!headerImgLoaded && (
+            <div className="h-10 w-40 bg-gray-200 rounded-md animate-pulse" />
+          )}
+          <img
+            alt="PrintEase"
+            src={PrintEaseLogo}
+            onLoad={() => setHeaderImgLoaded(true)}
+            className={`h-25 w-auto ${headerImgLoaded ? '' : 'hidden'}`}
+          />
+        </div>
       </Link>
         </div>
       </header>
@@ -353,7 +371,17 @@ export default function CreateShop() {
                   >
                     <div className="w-full h-full flex flex-col items-center justify-center gap-3">
                       <div className="h-20 w-20 rounded-full overflow-hidden bg-white flex items-center justify-center">
-                        <img src={logoPreview} alt="logo preview" className="h-full w-full object-cover" />
+                        {!logoImgLoaded && (
+                          <div className="h-full w-full bg-gray-200 animate-pulse" />
+                        )}
+                        {logoPreview && (
+                          <img
+                            src={logoPreview}
+                            alt="logo preview"
+                            onLoad={() => setLogoImgLoaded(true)}
+                            className={`h-full w-full object-cover ${logoImgLoaded ? '' : 'hidden'}`}
+                          />
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
@@ -364,6 +392,7 @@ export default function CreateShop() {
                             setLogoPreview(null);
                             setLogoFile(null);
                             setOriginalLogoFile(null);
+                            setLogoImgLoaded(false);
                           }}
                           className="rounded-md bg-red-100 px-3 py-1 text-sm text-red-700"
                         >
@@ -394,13 +423,13 @@ export default function CreateShop() {
                 <CropperModal
                   src={cropSrc}
                   aspect={1}
+                  theme="light"
                   onCancel={() => {
                     setShowCropper(false);
                     URL.revokeObjectURL(cropSrc);
                     setCropSrc(null);
                   }}
                   onApply={(file) => {
-                    // revoke previous preview
                     if (logoPreview) URL.revokeObjectURL(logoPreview);
                     const url = URL.createObjectURL(file);
                     setLogoFile(file);
@@ -451,9 +480,13 @@ export default function CreateShop() {
             {/* Map row spanning both columns */}
             <div className="lg:col-span-2">
               <label className="block text-sm font-semibold text-black">PIN LOCATION ON MAP</label>
-              <div className="mt-2 w-full h-72 rounded-lg overflow-hidden border border-gray-300">
+              <div className="mt-2 w-full h-72 rounded-lg overflow-hidden border border-gray-300 relative">
+                  {mapLoading && <div className="absolute inset-0 bg-gray-200 animate-pulse z-[1]" />}
                   <MapContainer center={[14.5995, 120.9842]} zoom={13} style={{ height: "100%", width: "100%" }}>
-                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <TileLayer
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    eventHandlers={{ load: () => setMapLoading(false) }}
+                  />
                   <MapClickHandler />
                   {position && (
                     <Marker

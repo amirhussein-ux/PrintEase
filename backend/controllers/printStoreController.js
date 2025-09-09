@@ -68,21 +68,9 @@ exports.createPrintStore = async (req, res) => {
       storeData.logoMime = req.file.mimetype;
     }
 
-    const store = await PrintStore.create(storeData);
+  const store = await PrintStore.create(storeData);
 
-  // create shop collection (sanitized name)
-  const collectionName = name.toLowerCase().replace(/\s+/g, '_');
-    // dummy schema
-    const shopSchema = new mongoose.Schema({ any: {} }, { strict: false });
-    try {
-      mongoose.model(collectionName);
-    } catch (e) {
-      mongoose.model(collectionName, shopSchema);
-    }
-    // ensure collection exists
-    await mongoose.connection.createCollection(collectionName);
-
-    res.status(201).json(store);
+  res.status(201).json(store);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -149,16 +137,6 @@ exports.createPrintStoreTest = async (req, res) => {
       owner: ownerId,
     });
 
-  // create shop collection (test)
-  const collectionName = (name || 'test_store').toLowerCase().replace(/\s+/g, '_');
-    const shopSchema = new mongoose.Schema({ any: {} }, { strict: false });
-    try {
-      mongoose.model(collectionName);
-    } catch (e) {
-      mongoose.model(collectionName, shopSchema);
-    }
-    await mongoose.connection.createCollection(collectionName);
-+
     res.status(201).json(store);
   } catch (error) {
     res.status(500).json({ message: error.message });

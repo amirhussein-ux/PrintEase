@@ -6,6 +6,7 @@ const connectDB = require('./config/db');
 
 const authRoutes = require('./routes/authRoutes');
 const printStoreRoutes = require('./routes/printStoreRoutes');
+const serviceRoutes = require('./routes/serviceRoutes');
 
 const PORT = process.env.PORT || 8000;
 
@@ -34,6 +35,7 @@ app.get("/", (req, res) => {
 // routes
 app.use("/api/auth", authRoutes);
 app.use("/api/print-store", printStoreRoutes);
+app.use("/api/services", serviceRoutes);
 
 app.listen(PORT, () => {
     console.log(`✅ Server is running on port ${PORT}`);

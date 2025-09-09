@@ -1,6 +1,8 @@
 import React, { useState } from "react";
+import { BellIcon, UserCircleIcon } from "@heroicons/react/24/outline";
 import DashboardSidebar from "./DashboardSidebar";
 import { useAuth } from "../../../context/useAuth";
+import { Link, useNavigate } from "react-router-dom";
 import logo from "/src/assets/PrintEase-Logo-Dark.png";
 
 interface DashboardLayoutProps {
@@ -9,8 +11,10 @@ interface DashboardLayoutProps {
 }
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const navigate = useNavigate();
 
   if (!user) {
     return (
@@ -26,20 +30,73 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
   return (
     <div className="min-h-screen relative flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 h-16 flex items-center px-6 fixed top-0 left-0 right-0 z-20">
-        {/* Sidebar toggle button */}
-        <button
-          className="lg:hidden mr-4 p-2 rounded hover:bg-gray-100 transition"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-        >
-          <span className="block w-6 h-0.5 bg-gray-900 mb-1"></span>
-          <span className="block w-6 h-0.5 bg-gray-900 mb-1"></span>
-          <span className="block w-6 h-0.5 bg-gray-900"></span>
-        </button>
+      <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 fixed top-0 left-0 right-0 z-20">
+        <div className="flex items-center">
+          {/* Sidebar toggle button */}
+          <button
+            className="lg:hidden mr-4 p-2 rounded hover:bg-gray-100 transition"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <span className="block w-6 h-0.5 bg-gray-900 mb-1"></span>
+            <span className="block w-6 h-0.5 bg-gray-900 mb-1"></span>
+            <span className="block w-6 h-0.5 bg-gray-900"></span>
+          </button>
 
-        {/* Logo */}
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="PrintEase Logo" className="h-10 w-auto" />
+          {/* Logo */}
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="PrintEase Logo" className="h-10 w-auto" />
+          </div>
+        </div>
+
+        {/* Right-side icons */}
+        <div className="flex items-center gap-3 relative">
+          {role === 'owner' && (
+            <>
+              {/* Profile dropdown */}
+              <div className="relative">
+                <button
+                  title="Profile"
+                  className="p-2 rounded hover:bg-gray-100"
+                  onClick={() => setProfileOpen((v) => !v)}
+                >
+                  <UserCircleIcon className="h-6 w-6 text-gray-800" />
+                </button>
+                {profileOpen && (
+                  <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1">
+                    <Link
+                      to="/profile"
+                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Edit Profile
+                    </Link>
+                    <Link
+                      to="/owner/create-shop"
+                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      Edit Shop
+                    </Link>
+                    <button
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
+                      onClick={() => {
+                        setProfileOpen(false);
+                        logout();
+                        navigate("/login");
+                      }}
+                    >
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Notifications on right */}
+              <button title="Notifications" className="p-2 rounded hover:bg-gray-100">
+                <BellIcon className="h-6 w-6 text-gray-800" />
+              </button>
+            </>
+          )}
         </div>
       </header>
 

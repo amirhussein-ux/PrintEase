@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import DashboardHeader from '../shared_components/dashboard_header';
-import AdminDashboardContent from './AdminDashboardContent';
+import DashboardLayout from '../shared_components/DashboardLayout';
+import AdminDashboardContent from './OwnerDashboardContent';
 import { useAuth } from '../../../context/useAuth';
-import type { User } from '../../../context/authContextCore';
 import api from '../../../lib/api';
 import { useNavigate } from 'react-router-dom';
 
@@ -64,25 +63,9 @@ const Admin: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {/* header */}
-      <DashboardHeader
-        role={user.role as 'owner'}
-        userName={(() => {
-          // name fallback: full, email local-part, Guest
-          const u = user as User;
-          const full = `${u?.firstName ?? ""} ${u?.lastName ?? ""}`.trim();
-          if (full) return full;
-          if (u?.email) return u.email.split('@')[0];
-          return 'Guest';
-        })()}
-      />
-
-      {/* main */}
-      <main className="pt-16 p-6">
-        <AdminDashboardContent sidebarOpen={false} />
-      </main>
-    </div>
+    <DashboardLayout role={"owner"}>
+      <AdminDashboardContent />
+    </DashboardLayout>
   );
 };
 

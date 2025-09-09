@@ -21,6 +21,7 @@ type PrintStore = {
   _id: string;
   name: string;
   mobile?: string;
+  logoFileId?: unknown;
   address?: {
     addressLine?: string;
     city?: string;
@@ -219,8 +220,8 @@ export default function SelectShop() {
       <header className="w-full bg-white">
         <div className="max-w-8xl mx-auto px-6 py-4 flex items-center gap-4 justify-center lg:justify-start">
           <Link to="/" aria-label="Go to landing page">
-            <img alt="PrintEase" src={PrintEaseLogoMobile} className="block lg:hidden h-16 w-auto" />
-            <img alt="PrintEase" src={PrintEaseLogo} className="hidden lg:block h-20 w-auto" />
+            <img alt="PrintEase" src={PrintEaseLogoMobile} className="block lg:hidden h-10 w-auto" />
+            <img alt="PrintEase" src={PrintEaseLogo} className="hidden lg:block h-10 w-auto" />
           </Link>
         </div>
       </header>
@@ -330,8 +331,15 @@ export default function SelectShop() {
                                 <div className="flex items-center gap-4 min-w-0">
                                   {/* show logo if available, otherwise initials */}
                                   {(() => {
-                                    const raw = (store as any).logoFileId;
-                                    const logoId = typeof raw === 'string' ? raw : raw?._id || raw?.toString?.();
+                                    const raw = store.logoFileId as unknown;
+                                    let logoId: string | undefined;
+                                    if (typeof raw === 'string') {
+                                      logoId = raw;
+                                    } else if (raw && typeof raw === 'object') {
+                                      const maybe = raw as { _id?: unknown; toString?: () => string };
+                                      if (typeof maybe._id === 'string') logoId = maybe._id;
+                                      else if (typeof maybe.toString === 'function') logoId = maybe.toString();
+                                    }
                                     if (logoId) {
                                       const src = `${api.defaults.baseURL}/print-store/logo/${logoId}`;
                                       return (
@@ -439,8 +447,15 @@ export default function SelectShop() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
               <div className="flex items-center gap-3">
                 {(() => {
-                  const raw = (selectedStore as any)?.logoFileId;
-                  const logoId = typeof raw === 'string' ? raw : raw?._id || raw?.toString?.();
+                  const raw = selectedStore?.logoFileId as unknown;
+                  let logoId: string | undefined;
+                  if (typeof raw === 'string') {
+                    logoId = raw;
+                  } else if (raw && typeof raw === 'object') {
+                    const maybe = raw as { _id?: unknown; toString?: () => string };
+                    if (typeof maybe._id === 'string') logoId = maybe._id;
+                    else if (typeof maybe.toString === 'function') logoId = maybe.toString();
+                  }
                   if (logoId) {
                     const src = `${api.defaults.baseURL}/print-store/logo/${logoId}`;
                     return <img src={src} alt={`${selectedStore.name} logo`} className="h-10 w-10 object-cover rounded" />;

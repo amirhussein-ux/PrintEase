@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 
 interface PrivateRouteProps {
-  children: React.ReactNode; // changed from JSX.Element
+  children: React.ReactNode;
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
@@ -17,9 +17,9 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />; // added replace for cleaner navigation
+  if (!user) return <Navigate to="/login" replace />;
 
-  return <>{children}</>; // wrap children in fragment
+  return <>{children}</>;
 };
 
 export default PrivateRoute;

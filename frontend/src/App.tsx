@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Home, Authentication, Admin, Customer } from "./pages";
-import CreatePrintStore from "./pages/Dashboard/Admin/CreateShop";
+import CreatePrintStore from "./pages/Dashboard/Owner/CreateShop";
 import SelectShop from "./pages/Dashboard/Customer/SelectShop";
+import ServiceManagement from "./pages/Dashboard/Owner/ServiceManagement";
 import PrivateRoute from "./components/PrivateRoute";
 
 function App() {
@@ -47,6 +48,16 @@ function App() {
           element={
             <PrivateRoute>
               <CreatePrintStore />
+            </PrivateRoute>
+          }
+        />
+
+        {/* Service Management */}
+        <Route
+          path="/dashboard/services"
+          element={
+            <PrivateRoute>
+              <ServiceManagement />
             </PrivateRoute>
           }
         />

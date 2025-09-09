@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-const { createPrintStore, getMyPrintStore, getLogoById } = require('../controllers/printStoreController');
+const { createPrintStore, getMyPrintStore, getLogoById, createPrintStoreTest } = require('../controllers/printStoreController');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
