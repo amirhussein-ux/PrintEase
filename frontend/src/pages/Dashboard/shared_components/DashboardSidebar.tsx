@@ -26,10 +26,8 @@ export default function DashboardSidebar({ role, className, closeSidebar }: Dash
   ]
 
   const customerLinks = [
-    { name: "Dashboard", href: "/dashboard/customer", icon: <HomeIcon className="h-5 w-5" /> },
+    { name: "Services", href: "/dashboard/customer", icon: <ClipboardDocumentListIcon className="h-5 w-5" /> },
     { name: "My Orders", href: "/dashboard/my-orders", icon: <ShoppingBagIcon className="h-5 w-5" /> },
-    { name: "Notifications", href: "/dashboard/notifications", icon: <BellIcon className="h-5 w-5" /> },
-    { name: "Profile", href: "/profile", icon: <UserCircleIcon className="h-5 w-5" /> },
   ]
 
   const links = role === "owner" ? adminLinks : customerLinks

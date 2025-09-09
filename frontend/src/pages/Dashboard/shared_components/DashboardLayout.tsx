@@ -48,55 +48,52 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
           </div>
         </div>
 
-        {/* Right-side icons */}
+        {/* Right-side icons*/}
         <div className="flex items-center gap-3 relative">
-          {role === 'owner' && (
-            <>
-              {/* Profile dropdown */}
-              <div className="relative">
-                <button
-                  title="Profile"
-                  className="p-2 rounded hover:bg-gray-100"
-                  onClick={() => setProfileOpen((v) => !v)}
+          {/* Profile dropdown */}
+          <div className="relative">
+            <button
+              title="Profile"
+              className="p-2 rounded hover:bg-gray-100"
+              onClick={() => setProfileOpen((v) => !v)}
+            >
+              <UserCircleIcon className="h-6 w-6 text-gray-800" />
+            </button>
+            {profileOpen && (
+              <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1">
+                <Link
+                  to="/profile"
+                  className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setProfileOpen(false)}
                 >
-                  <UserCircleIcon className="h-6 w-6 text-gray-800" />
-                </button>
-                {profileOpen && (
-                  <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1">
-                    <Link
-                      to="/profile"
-                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setProfileOpen(false)}
-                    >
-                      Edit Profile
-                    </Link>
-                    <Link
-                      to="/owner/create-shop"
-                      className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={() => setProfileOpen(false)}
-                    >
-                      Edit Shop
-                    </Link>
-                    <button
-                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
-                      onClick={() => {
-                        setProfileOpen(false);
-                        logout();
-                        navigate("/login");
-                      }}
-                    >
-                      Log out
-                    </button>
-                  </div>
+                  Edit Profile
+                </Link>
+                {role === 'owner' && (
+                  <Link
+                    to="/owner/create-shop"
+                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    Edit Shop
+                  </Link>
                 )}
+                <button
+                  className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    logout();
+                    navigate("/login");
+                  }}
+                >
+                  Log out
+                </button>
               </div>
-
-              {/* Notifications on right */}
-              <button title="Notifications" className="p-2 rounded hover:bg-gray-100">
-                <BellIcon className="h-6 w-6 text-gray-800" />
-              </button>
-            </>
-          )}
+            )}
+          </div>
+          {/* Notifications on right */}
+          <button title="Notifications" className="p-2 rounded hover:bg-gray-100">
+            <BellIcon className="h-6 w-6 text-gray-800" />
+          </button>
         </div>
       </header>
 
