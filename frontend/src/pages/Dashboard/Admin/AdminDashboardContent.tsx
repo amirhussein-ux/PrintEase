@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react"
-import { useAuth } from "../../../context/AuthContext"
+import { useAuth } from "../../../context/useAuth"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
 import {
@@ -95,22 +95,23 @@ const InventoryPie = ({ items, type }: { items: InventoryItem[]; type: string })
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={80} labelLine={false}
-            label={({ cx, cy, midAngle, innerRadius, outerRadius, index }) => {
-              if (midAngle === undefined || index === undefined) return null
-              const RAD = Math.PI / 180
-              const r = innerRadius + (outerRadius - innerRadius) / 2
-              const x = cx + r * Math.cos(-midAngle * RAD)
-              const y = cy + r * Math.sin(-midAngle * RAD)
-              const slice = pieData[index]
-              return (
-                <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight="bold"
-                  fill={type === "INK"
-                    ? (slice.name === "Remaining" ? "#4b5563" : "#fff")
-                    : (slice.name !== "Remaining" ? "#4b5563" : "#fff")}>
-                  {type === "INK" && slice.name === "Remaining" ? `${slice.value}%` : slice.value}
-                </text>
-              )
-            }}>
+              label={(props: any) => {
+                const { cx = 0, cy = 0, midAngle, innerRadius = 0, outerRadius = 0, index } = props;
+                if (midAngle === undefined || index === undefined) return null
+                const RAD = Math.PI / 180
+                const r = innerRadius + (outerRadius - innerRadius) / 2
+                const x = cx + r * Math.cos(-midAngle * RAD)
+                const y = cy + r * Math.sin(-midAngle * RAD)
+                const slice = pieData[index]
+                return (
+                  <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight="bold"
+                    fill={type === "INK"
+                      ? (slice.name === "Remaining" ? "#4b5563" : "#fff")
+                      : (slice.name !== "Remaining" ? "#4b5563" : "#fff")}>
+                    {type === "INK" && slice.name === "Remaining" ? `${slice.value}%` : slice.value}
+                  </text>
+                )
+              }}>
             {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
         </PieChart>

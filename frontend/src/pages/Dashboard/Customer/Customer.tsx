@@ -1,6 +1,6 @@
-import React from "react";
-import DashboardLayout from "../shared_components/DashboardLayout";
-import { useAuth } from "../../../context/AuthContext";
+import React from 'react'
+import DashboardHeader from '../shared_components/dashboard_header'
+import { useAuth } from '../../../context/useAuth'
 
 const Customer: React.FC = () => {
   const { user } = useAuth();

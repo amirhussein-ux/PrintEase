@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Home, Authentication, Admin, Customer } from "./pages";
+import CreatePrintStore from "./pages/Dashboard/Admin/CreateShop";
+import SelectShop from "./pages/Dashboard/Customer/SelectShop";
 import PrivateRoute from "./components/PrivateRoute";
 
 function App() {
@@ -11,9 +13,9 @@ function App() {
         <Route path="/signup" element={<Authentication />} />
         <Route path="/forgot-password" element={<Authentication />} />
 
-        {/* Protected Admin dashboard */}
+        {/* Protected Owner dashboard */}
         <Route
-          path="/dashboard/admin"
+          path="/dashboard/owner"
           element={
             <PrivateRoute>
               <Admin />
@@ -27,6 +29,24 @@ function App() {
           element={
             <PrivateRoute>
               <Customer />
+            </PrivateRoute>
+          }
+        />
+        {/* Select shop picker for customers/guests */}
+        <Route
+          path="/customer/select-shop"
+          element={
+            <PrivateRoute>
+              <SelectShop />
+            </PrivateRoute>
+          }
+        />
+        {/* Protected Create Print Store page*/}
+        <Route
+          path="/owner/create-shop"
+          element={
+            <PrivateRoute>
+              <CreatePrintStore />
             </PrivateRoute>
           }
         />

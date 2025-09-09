@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../context/useAuth";
 
 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
   const [imgLoaded, setImgLoaded] = useState(false);
+  const { continueAsGuest } = useAuth();
+  const [guestLoading, setGuestLoading] = useState(false);
   return (
     <section className="relative w-full h-screen flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 w-full h-full z-0">
@@ -43,27 +46,19 @@ const Hero: React.FC = () => {
                 type="button"
                 className="inline-flex items-center justify-center px-5 py-3 text-base font-bold text-center text-blue-900 border-2 border-blue-900 rounded-lg bg-white hover:bg-blue-50"
                 onClick={async () => {
+                  if (guestLoading) return;
+                  setGuestLoading(true);
                   try {
-                    const res = await fetch("http://localhost:8000/api/auth/guest", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                    });
-
-                    if (!res.ok) throw new Error("Failed to create guest session");
-
-                    const data = await res.json();
-
-                    // Save the token + user info
-                    sessionStorage.setItem("token", data.token);
-                    sessionStorage.setItem("user", JSON.stringify(data.user));
-
-                    navigate("/dashboard/customer");
+                    await continueAsGuest();
+                    navigate("/customer/select-shop");
                   } catch (error) {
                     console.error("Guest login failed:", error);
+                  } finally {
+                    setGuestLoading(false);
                   }
                 }}
               >
-                Continue as Guest
+                {guestLoading ? 'Continuing...' : 'Continue as Guest'}
               </button>
             </div>
           </div>

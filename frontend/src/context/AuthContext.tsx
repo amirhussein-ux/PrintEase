@@ -1,26 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import api from "../lib/api";
-
-export interface User {
-  _id?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string | null;
-  role: "admin" | "customer" | "guest";
-}
-
-interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<User>;
-  signup: (data: { name: string; email: string; password: string; role: string }) => Promise<User>;
-  logout: () => void;
-  continueAsGuest: () => Promise<User>;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
+import { AuthContext } from "./authContextCore";
+import type { User } from "./authContextCore";
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
@@ -66,7 +48,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return userData;
   };
 
-  const signup = async (data: { name: string; email: string; password: string; role: string }): Promise<User> => {
+  const signup = async (data: { firstName: string; lastName: string; email: string; password: string; confirmPassword?: string; role: string }): Promise<User> => {
+    // forward confirmPassword to backend so server-side validation can return specific errors (e.g. minlength)
     const res = await api.post("/auth/register", data);
     const userData: User = res.data.user;
     const userToken: string = res.data.token;
@@ -114,8 +97,4 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 };
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-};
+// Note: useAuth hook is exported from ./useAuth.ts
