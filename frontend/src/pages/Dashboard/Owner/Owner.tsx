@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../shared_components/DashboardLayout';
-import AdminDashboardContent from './OwnerDashboardContent';
+import OwnerDashboardContent from './OwnerDashboardContent';
 import { useAuth } from '../../../context/useAuth';
 import api from '../../../lib/api';
 import { useNavigate } from 'react-router-dom';
 
-const Admin: React.FC = () => {
+const Owner: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [hasStore, setHasStore] = useState<boolean | null>(null);
@@ -13,24 +13,22 @@ const Admin: React.FC = () => {
 
   useEffect(() => {
     const checkPrintStore = async () => {
-  if (!user || user.role !== 'owner') {
+      if (!user || user.role !== "owner") {
         setLoading(false);
         return;
       }
       try {
-        await api.get('/print-store/mine');
+        await api.get("/print-store/mine");
         setHasStore(true);
       } catch (err: unknown) {
-        // only if 404 (no shop)
         let status: number | undefined;
-        if (typeof err === 'object' && err !== null && 'response' in err) {
+        if (typeof err === "object" && err !== null && "response" in err) {
           const maybe = err as { response?: { status?: number } };
           status = maybe.response?.status;
         }
         if (status === 404) {
           setHasStore(false);
         } else {
-          // other errors -> treat as error
           setHasStore(true);
         }
       } finally {
@@ -40,10 +38,9 @@ const Admin: React.FC = () => {
     checkPrintStore();
   }, [user]);
 
-  // redirect owner without store
   useEffect(() => {
-    if (user && user.role === 'owner' && hasStore === false) {
-      navigate('/owner/create-shop');
+    if (user && user.role === "owner" && hasStore === false) {
+      navigate("/owner/create-shop");
     }
   }, [user, hasStore, navigate]);
 
@@ -57,16 +54,16 @@ const Admin: React.FC = () => {
       </div>
     );
   }
-  if (user.role === 'owner' && !hasStore) {
-    // navigation handled in effect above; render nothing during redirect
-    return null;
+
+  if (user.role === "owner" && !hasStore) {
+    return null; // redirect is handled
   }
 
   return (
     <DashboardLayout role={"owner"}>
-      <AdminDashboardContent />
+      <OwnerDashboardContent />
     </DashboardLayout>
   );
 };
 
-export default Admin;
+export default Owner;

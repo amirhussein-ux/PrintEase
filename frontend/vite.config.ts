@@ -14,5 +14,5 @@ export default defineConfig({
     port: 5173,   // force Vite to use 5173
     open: true,   // auto-open in your browser
   },
+  assetsInclude: ['**/*.ttf'], // allow Vite to import fonts like base64
 })
-
