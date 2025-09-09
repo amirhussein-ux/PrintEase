@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -7,9 +7,12 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { CiLocationArrow1 } from "react-icons/ci";
+import { AiFillStar, AiOutlineStar, AiOutlineCamera, AiOutlineCloseCircle } from 'react-icons/ai';
 import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
 import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
 import api from '../../../lib/api';
+import { isAxiosError } from 'axios';
+import { useAuth } from '../../../context/useAuth';
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,
@@ -20,6 +23,7 @@ L.Icon.Default.mergeOptions({
 type PrintStore = {
   _id: string;
   name: string;
+  tin?: string;
   mobile?: string;
   logoFileId?: unknown;
   address?: {
@@ -30,7 +34,31 @@ type PrintStore = {
     postal?: string;
     location?: { lat: number; lng: number };
   };
+  createdAt?: string;
 };
+
+type Review = {
+  _id: string;
+  user: { firstName?: string; lastName?: string; _id?: string } | string;
+  rating: number;
+  comment?: string;
+  imageFileId?: unknown; // legacy single image
+  images?: Array<{ fileId: unknown; mime?: string | null; filename?: string | null }>;
+  createdAt: string;
+};
+
+function isError(e: unknown): e is Error {
+  return e instanceof Error;
+}
+
+function getReviewUserId(u: Review['user']): string | undefined {
+  if (typeof u === 'string') return u;
+  if (u && typeof u === 'object' && '_id' in u) {
+    const id = (u as { _id?: unknown })._id;
+    return typeof id === 'string' ? id : undefined;
+  }
+  return undefined;
+}
 
 export default function SelectShop() {
   const [stores, setStores] = useState<PrintStore[]>([]);
@@ -42,9 +70,89 @@ export default function SelectShop() {
   const [locating, setLocating] = useState(false);
   const [selectedStore, setSelectedStore] = useState<PrintStore | null>(null);
   const [isMobile, setIsMobile] = useState<boolean>(false);
+  const [showDetails, setShowDetails] = useState<boolean>(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState<string | null>(null);
+  const [avgRating, setAvgRating] = useState<number>(0);
+  const [reviewCount, setReviewCount] = useState<number>(0);
+  const [myRating, setMyRating] = useState<number>(0);
+  const [myComment, setMyComment] = useState<string>('');
+  const [initialRating, setInitialRating] = useState<number>(0);
+  const [initialComment, setInitialComment] = useState<string>('');
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState<boolean>(false);
+  const [closeTarget, setCloseTarget] = useState<'mobile' | 'desktop' | null>(null);
+  const [myImages, setMyImages] = useState<Array<{ file: File; preview: string }>>([]);
   const navigate = useNavigate();
   const [selectionNonce, setSelectionNonce] = useState<number>(0);
   const mapRef = useRef<L.Map | null>(null);
+  const { user } = useAuth();
+
+  // helpers for image picking and cleanup (multiple up to 5)
+  const removeImageAt = (idx: number) => {
+    setMyImages((prev) => {
+      const next = [...prev];
+      const [removed] = next.splice(idx, 1);
+      if (removed?.preview) {
+        try { URL.revokeObjectURL(removed.preview); } catch { /* noop */ }
+      }
+      return next;
+    });
+  };
+
+  const clearAllImages = () => {
+    setMyImages((prev) => {
+      for (const it of prev) {
+        try { URL.revokeObjectURL(it.preview); } catch { /* noop */ }
+      }
+      return [];
+    });
+  };
+
+  const pickImages = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/jpg,image/webp';
+    input.multiple = true;
+    input.onchange = () => {
+      const files = Array.from(input.files || []);
+      if (!files.length) return;
+      setMyImages((prev) => {
+        const remainingSlots = Math.max(0, 5 - prev.length);
+        const selected = files
+          .filter((f) => /image\/(png|jpe?g|webp)/i.test(f.type) && f.size <= 5 * 1024 * 1024)
+          .slice(0, remainingSlots)
+          .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+        return [...prev, ...selected];
+      });
+    };
+    input.click();
+  };
+
+  // Unsaved-changes guard (both modals)
+  const isDirty = myImages.length > 0 || myRating !== initialRating || (myComment.trim() || '') !== (initialComment.trim() || '');
+  const requestClose = (which: 'mobile' | 'desktop') => {
+    if (isDirty) {
+      setCloseTarget(which);
+      setShowDiscardConfirm(true);
+    } else {
+      if (which === 'mobile') setSelectedStore(null);
+      if (which === 'desktop') setShowDetails(false);
+    }
+  };
+  const confirmDiscard = () => {
+    // revert to initial values and close
+    setMyRating(initialRating);
+    setMyComment(initialComment);
+    clearAllImages();
+    if (closeTarget === 'mobile') setSelectedStore(null);
+    if (closeTarget === 'desktop') setShowDetails(false);
+    setShowDiscardConfirm(false);
+    setCloseTarget(null);
+  };
+  const cancelDiscard = () => { setShowDiscardConfirm(false); setCloseTarget(null); };
+
+  const userId = useMemo(() => user?._id, [user]);
 
   useEffect(() => {
     const fetchStores = async () => {
@@ -62,6 +170,49 @@ export default function SelectShop() {
     };
     fetchStores();
   }, []);
+
+  // Load reviews when opening details for a store
+  useEffect(() => {
+    const load = async (storeId: string) => {
+      setReviewsLoading(true);
+      setReviewsError(null);
+      try {
+        const res = await api.get(`/reviews/store/${storeId}`);
+        const { reviews, averageRating, count } = res.data || {};
+        setReviews(reviews || []);
+        setAvgRating(averageRating || 0);
+        setReviewCount(count || 0);
+        // set my review if exists
+        if (userId) {
+          const mine = (reviews || []).find((r: Review) => getReviewUserId(r.user) === userId);
+          setMyRating(mine?.rating || 0);
+          setMyComment(mine?.comment || '');
+          setInitialRating(mine?.rating || 0);
+          setInitialComment(mine?.comment || '');
+        } else {
+          setMyRating(0);
+          setMyComment('');
+          setInitialRating(0);
+          setInitialComment('');
+        }
+        // reset staged images on load
+        clearAllImages();
+      } catch (e: unknown) {
+        if (isAxiosError(e)) {
+          setReviewsError(e.response?.data?.message ?? e.message);
+        } else if (isError(e)) {
+          setReviewsError(e.message);
+        } else {
+          setReviewsError('Failed to load reviews');
+        }
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+    if (showDetails && selectedStore?._id) {
+      load(selectedStore._id);
+    }
+  }, [showDetails, selectedStore?._id, userId]);
 
   // mobile/desktop
   useEffect(() => {
@@ -146,20 +297,20 @@ export default function SelectShop() {
     shouldPanToUser,
     setShouldPanToUser,
     selectedStore,
-  selectionNonce,
+    selectionNonce,
   }: {
     userLocation: { lat: number; lng: number } | null;
     shouldPanToUser: boolean;
     setShouldPanToUser: (v: boolean) => void;
     selectedStore: PrintStore | null;
-  selectionNonce?: number;
+    selectionNonce?: number;
   }) {
     const map = useMap();
 
     useEffect(() => {
       if (!map) return;
 
-  // pan to user
+      // pan to user
       if (shouldPanToUser && userLocation) {
         map.flyTo([userLocation.lat, userLocation.lng], Math.max(map.getZoom(), 13));
         // Reset the flag so we don't re-trigger; store is already cleared on click.
@@ -167,22 +318,21 @@ export default function SelectShop() {
         return;
       }
 
-  // fit bounds for user+store
+      // fit bounds for user+store
       if (userLocation && selectedStore?.address?.location) {
         const a = L.latLng(userLocation.lat, userLocation.lng);
         const b = L.latLng(selectedStore.address.location.lat, selectedStore.address.location.lng);
         const bounds = L.latLngBounds([a, b]);
-        // fitBounds will ensure both markers are visible; cap max zoom so it doesn't zoom too close
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
         return;
       }
 
-  // center on store
+      // center on store
       if (selectedStore?.address?.location) {
         const loc = selectedStore.address.location;
         map.flyTo([loc.lat, loc.lng], Math.max(map.getZoom(), 14));
       }
-  }, [map, userLocation, shouldPanToUser, setShouldPanToUser, selectedStore, selectionNonce]);
+    }, [map, userLocation, shouldPanToUser, setShouldPanToUser, selectedStore, selectionNonce]);
 
     return null;
   }
@@ -216,7 +366,7 @@ export default function SelectShop() {
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-blue-900 via-indigo-900 to-black text-white">
-  {/* header */}
+      {/* header */}
       <header className="w-full bg-white">
         <div className="max-w-8xl mx-auto px-6 py-4 flex items-center gap-4 justify-center lg:justify-start">
           <Link to="/" aria-label="Go to landing page">
@@ -320,7 +470,7 @@ export default function SelectShop() {
                             return (
                               <li
                                 key={store._id}
-                                className={`flex items-center justify-between gap-x-6 py-3 px-3 hover:bg-white/5 rounded cursor-pointer ${selectedStore?._id === store._id ? 'bg-white/10' : ''}`}
+                                className={`flex items-center justify-between gap-x-6 py-3 px-3 hover:bg:white/5 hover:bg-white/5 rounded cursor-pointer ${selectedStore?._id === store._id ? 'bg-white/10' : ''}`}
                                 role="button"
                                 tabIndex={0}
                                 onClick={handleSelect}
@@ -365,9 +515,20 @@ export default function SelectShop() {
                                 </div>
 
                                 <div className="flex shrink-0 items-center">
-                                  <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                  </svg>
+                                  <button
+                                    type="button"
+                                    aria-label="View store details"
+                                    className="p-1 rounded hover:bg-white/10"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedStore(store);
+                                      setShowDetails(true);
+                                    }}
+                                  >
+                                    <svg className="h-5 w-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  </button>
                                 </div>
                               </li>
                             );
@@ -439,10 +600,10 @@ export default function SelectShop() {
         </div>
       </main>
 
-  {/* store modal */}
-  {selectedStore && isMobile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setSelectedStore(null)} />
+      {/* store modal (mobile) */}
+      {selectedStore && isMobile && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => requestClose('mobile')} />
           <div className="relative max-w-3xl w-full mx-4 bg-black border border-white/10 rounded-lg overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
               <div className="flex items-center gap-3">
@@ -463,20 +624,35 @@ export default function SelectShop() {
                   return null;
                 })()}
                 <div>
-                  <h3 className="text-base font-semibold">{selectedStore.name}</h3>
+                  <h3 className="text-base font-semibold flex items-center gap-2">
+                    {selectedStore.name}
+                    {reviewCount > 0 && (
+                      <span className="text-xs text-yellow-400 flex items-center gap-1">
+                        <AiFillStar /> {avgRating.toFixed(1)} ({reviewCount})
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-xs text-gray-300">{[
                     selectedStore.address?.addressLine,
                     selectedStore.address?.city,
                     selectedStore.address?.state,
                     selectedStore.address?.postal,
                   ].filter(Boolean).join(', ')}</p>
+                  <div className="flex flex-col gap-0.5">
+                    {selectedStore.mobile && (
+                      <p className="text-xs text-gray-300">{selectedStore.mobile}</p>
+                    )}
+                    {selectedStore.createdAt && (
+                      <p className="text-xs text-gray-400">Since {new Date(selectedStore.createdAt).getFullYear()}</p>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 {locating && <span className="text-sm text-gray-300">Requesting location…</span>}
                 <button
                   type="button"
-                  onClick={() => setSelectedStore(null)}
+                  onClick={() => requestClose('mobile')}
                   className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm"
                   aria-label="Close store details"
                 >
@@ -500,8 +676,8 @@ export default function SelectShop() {
                       userLocation={userLocation}
                       shouldPanToUser={shouldPanToUser}
                       setShouldPanToUser={setShouldPanToUser}
-                        selectedStore={selectedStore}
-                        selectionNonce={selectionNonce}
+                      selectedStore={selectedStore}
+                      selectionNonce={selectionNonce}
                     />
                     {/* store marker */}
                     <Marker position={[selectedStore.address.location.lat, selectedStore.address.location.lng]}>
@@ -545,6 +721,455 @@ export default function SelectShop() {
                   Select this store
                 </button>
               </div>
+
+              {/* Reviews (mobile) */}
+              <div className="mt-6">
+                <h4 className="text-sm font-semibold mb-3">Reviews</h4>
+                {reviewsLoading && <p className="text-sm text-gray-300">Loading reviews…</p>}
+                {reviewsError && <p className="text-sm text-red-400">{reviewsError}</p>}
+                {!reviewsLoading && !reviewsError && (
+                  <div className="space-y-4">
+                    {reviews.length === 0 && <p className="text-sm text-gray-300">No reviews yet.</p>}
+                    {reviews.map((r) => (
+                      <div key={r._id} className="border border-white/10 rounded p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-gray-300">
+                            {typeof r.user === 'string' ? 'User' : `${r.user?.firstName || ''} ${r.user?.lastName || ''}`}
+                          </div>
+                          <div className="flex items-center gap-1 text-yellow-400">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              i < r.rating ? <AiFillStar key={i} /> : <AiOutlineStar key={i} />
+                            ))}
+                          </div>
+                        </div>
+                        {/* Review images (mobile) */}
+                        {(() => {
+                          const imgs: string[] = [];
+                          // legacy single image first
+                          const raw = r.imageFileId as unknown;
+                          let legacyId: string | undefined;
+                          if (typeof raw === 'string') legacyId = raw;
+                          else if (raw && typeof raw === 'object') {
+                            const maybe = raw as { _id?: unknown; toString?: () => string };
+                            if (typeof maybe._id === 'string') legacyId = maybe._id;
+                            else if (typeof maybe.toString === 'function') legacyId = maybe.toString();
+                          }
+                          if (legacyId) imgs.push(`${api.defaults.baseURL}/reviews/image/${legacyId}`);
+                          // new multiple images
+                          if (Array.isArray(r.images)) {
+                            for (const it of r.images) {
+                              let id: string | undefined;
+                              const rawId = it?.fileId as unknown;
+                              if (typeof rawId === 'string') id = rawId;
+                              else if (rawId && typeof rawId === 'object') {
+                                const maybe2 = rawId as { _id?: unknown; toString?: () => string };
+                                if (typeof maybe2._id === 'string') id = maybe2._id;
+                                else if (typeof maybe2.toString === 'function') id = maybe2.toString();
+                              }
+                              if (id) imgs.push(`${api.defaults.baseURL}/reviews/image/${id}`);
+                            }
+                          }
+                          if (imgs.length === 0) return null;
+                          return (
+                            <div className="mt-2 grid grid-cols-2 gap-2">
+                              {imgs.map((src, i) => (
+                                <img key={i} src={src} alt={`Review attachment ${i + 1}`} className="max-h-56 rounded border border-white/10 object-contain" />
+                              ))}
+                            </div>
+                          );
+                        })()}
+                        {r.comment && <p className="text-sm mt-2 text-gray-200">{r.comment}</p>}
+                        <p className="text-[11px] text-gray-400 mt-2">{new Date(r.createdAt).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* My review form */}
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  {!user || user.role === 'guest' ? (
+                    <p className="text-xs text-gray-300">Log in to leave a review.</p>
+                  ) : (
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!selectedStore) return;
+                        try {
+                          const form = new FormData();
+                          form.append('rating', String(myRating));
+                          form.append('comment', myComment || '');
+                          for (const { file } of myImages) form.append('images', file);
+                          await api.post(`/reviews/store/${selectedStore._id}`, form, {
+                            headers: { 'Content-Type': 'multipart/form-data' },
+                          });
+                          const res = await api.get(`/reviews/store/${selectedStore._id}`);
+                          setReviews(res.data.reviews || []);
+                          setAvgRating(res.data.averageRating || 0);
+                          setReviewCount(res.data.count || 0);
+                          clearAllImages();
+                          setInitialRating(myRating);
+                          setInitialComment(myComment || '');
+                          // mark clean
+                          setInitialRating(myRating);
+                          setInitialComment(myComment || '');
+                        } catch (err: unknown) {
+                          if (isAxiosError(err)) setReviewsError(err.response?.data?.message ?? err.message);
+                          else if (isError(err)) setReviewsError(err.message);
+                          else setReviewsError('Failed to submit review');
+                        }
+                      }}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center gap-2 text-yellow-400">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <button type="button" key={i} onClick={() => setMyRating(i + 1)} aria-label={`Rate ${i + 1} star`} className="hover:scale-105">
+                            {i < myRating ? <AiFillStar /> : <AiOutlineStar />}
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={myComment}
+                        onChange={(e) => setMyComment(e.target.value)}
+                        placeholder="Leave a comment (optional)"
+                        className="w-full rounded bg-transparent border border-white/20 px-3 py-2 text-sm"
+                        rows={3}
+                      />
+                      {/* Add photos (mobile) */}
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={pickImages}
+                          disabled={myImages.length >= 5}
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm ${myImages.length >= 5 ? 'bg-white/5 text-gray-400 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'}`}
+                        >
+                          <AiOutlineCamera />
+                          <span>{myImages.length >= 5 ? 'Max 5 photos' : 'Add photo'}</span>
+                        </button>
+                      </div>
+                      {myImages.length > 0 && (
+                        <div className="mt-2 grid grid-cols-3 gap-2">
+                          {myImages.map((it, idx) => (
+                            <div key={idx} className="relative group">
+                              <img src={it.preview} alt={`Selected ${idx + 1}`} className="h-24 w-full object-cover rounded border border-white/10" />
+                              <button
+                                type="button"
+                                className="absolute -top-2 -right-2 p-0.5 rounded-full bg-black/70 text-red-400 hover:text-red-500"
+                                onClick={() => removeImageAt(idx)}
+                                aria-label="Remove image"
+                              >
+                                <AiOutlineCloseCircle size={22} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button type="submit" className="rounded-full bg-white/10 hover:bg-white/20 px-3 py-1 text-sm">Submit</button>
+                        {myRating > 0 && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!selectedStore) return;
+                              try {
+                                await api.delete(`/reviews/store/${selectedStore._id}/me`);
+                                const res = await api.get(`/reviews/store/${selectedStore._id}`);
+                                setReviews(res.data.reviews || []);
+                                setAvgRating(res.data.averageRating || 0);
+                                setReviewCount(res.data.count || 0);
+                                setMyRating(0);
+                                setMyComment('');
+                                clearAllImages();
+                                setInitialRating(0);
+                                setInitialComment('');
+                                setInitialRating(0);
+                                setInitialComment('');
+                              } catch (err: unknown) {
+                                if (isAxiosError(err)) setReviewsError(err.response?.data?.message ?? err.message);
+                                else if (isError(err)) setReviewsError(err.message);
+                                else setReviewsError('Failed to delete review');
+                              }
+                            }}
+                            className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm"
+                          >
+                            Delete my review
+                          </button>
+                        )}
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Details pop-up (desktop)*/}
+    {selectedStore && showDetails && !isMobile && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70" onClick={() => requestClose('desktop')} />
+          <div className="relative w-full max-w-3xl mx-4 bg-black border-2 border-white/40 rounded-lg overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                {(() => {
+                  const raw = selectedStore?.logoFileId as unknown;
+                  let logoId: string | undefined;
+                  if (typeof raw === 'string') logoId = raw;
+                  else if (raw && typeof raw === 'object') {
+                    const maybe = raw as { _id?: unknown; toString?: () => string };
+                    if (typeof maybe._id === 'string') logoId = maybe._id;
+                    else if (typeof maybe.toString === 'function') logoId = maybe.toString();
+                  }
+                  if (logoId) {
+                    const src = `${api.defaults.baseURL}/print-store/logo/${logoId}`;
+                    return <img src={src} alt={`${selectedStore.name} logo`} className="h-10 w-10 rounded object-cover" />;
+                  }
+                  return null;
+                })()}
+                <div className="min-w-0">
+                  <div className="text-base font-semibold flex items-center gap-2 truncate">
+                    <span className="truncate">{selectedStore.name}</span>
+                    {reviewCount > 0 && (
+                      <span className="text-xs text-yellow-400 flex items-center gap-1 flex-shrink-0">
+                        <AiFillStar /> {avgRating.toFixed(1)} ({reviewCount})
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-300 truncate">
+                    {selectedStore.address?.addressLine}, {selectedStore.address?.city}, {selectedStore.address?.state}, {selectedStore.address?.postal}
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    {selectedStore.mobile && <div className="text-xs text-gray-300">{selectedStore.mobile}</div>}
+                    {selectedStore.createdAt && <div className="text-xs text-gray-400">Since {new Date(selectedStore.createdAt).getFullYear()}</div>}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm" onClick={() => requestClose('desktop')}>Close</button>
+              </div>
+            </div>
+
+            <div className="p-4 space-y-4 overflow-y-auto">
+              {selectedStore.address?.location && (
+                <div className="rounded overflow-hidden border border-white/10 h-48">
+                  <MapContainer
+                    center={[selectedStore.address.location.lat, selectedStore.address.location.lng]}
+                    zoom={14}
+                    zoomControl={false}
+                    style={{ height: '100%', width: '100%' }}
+                  >
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <Marker position={[selectedStore.address.location.lat, selectedStore.address.location.lng]} />
+                  </MapContainer>
+                </div>
+              )}
+
+              <div className="text-sm text-gray-300">
+                {userLocation && selectedStore.address?.location ? (
+                  <span>{distanceKm(userLocation.lat, userLocation.lng, selectedStore.address.location.lat, selectedStore.address.location.lng).toFixed(1)} km away</span>
+                ) : (
+                  <span>Distance unknown. Use "Use My Location" to enable.</span>
+                )}
+              </div>
+
+              <div>
+                <button
+                  type="button"
+                  onClick={() => navigate('/dashboard/customer', { state: { storeId: selectedStore._id } })}
+                  className="w-full rounded bg-white/10 hover:bg-white/20 px-3 py-2 text-sm"
+                >
+                  Select this store
+                </button>
+              </div>
+
+              {/* Reviews */}
+              <div className="pt-2 border-t border-white/10">
+                <h4 className="text-sm font-semibold mb-3">Reviews</h4>
+                {reviewsLoading && <p className="text-sm text-gray-300">Loading reviews…</p>}
+                {reviewsError && <p className="text-sm text-red-400">{reviewsError}</p>}
+                {!reviewsLoading && !reviewsError && (
+                  <div className="space-y-3">
+                    {reviews.length === 0 && <p className="text-sm text-gray-300">No reviews yet.</p>}
+                    {reviews.map((r) => (
+                      <div key={r._id} className="border border-white/10 rounded p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-gray-300">
+                            {typeof r.user === 'string' ? 'User' : `${r.user?.firstName || ''} ${r.user?.lastName || ''}`}
+                          </div>
+                          <div className="flex items-center gap-1 text-yellow-400">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                              i < r.rating ? <AiFillStar key={i} /> : <AiOutlineStar key={i} />
+                            ))}
+                          </div>
+                        </div>
+                        {/* Review images (desktop) */}
+                        {(() => {
+                          const imgs: string[] = [];
+                          // legacy
+                          const raw = r.imageFileId as unknown;
+                          let legacyId: string | undefined;
+                          if (typeof raw === 'string') legacyId = raw;
+                          else if (raw && typeof raw === 'object') {
+                            const maybe = raw as { _id?: unknown; toString?: () => string };
+                            if (typeof maybe._id === 'string') legacyId = maybe._id;
+                            else if (typeof maybe.toString === 'function') legacyId = maybe.toString();
+                          }
+                          if (legacyId) imgs.push(`${api.defaults.baseURL}/reviews/image/${legacyId}`);
+                          // new array
+                          if (Array.isArray(r.images)) {
+                            for (const it of r.images) {
+                              let id: string | undefined;
+                              const rawId = it?.fileId as unknown;
+                              if (typeof rawId === 'string') id = rawId;
+                              else if (rawId && typeof rawId === 'object') {
+                                const maybe2 = rawId as { _id?: unknown; toString?: () => string };
+                                if (typeof maybe2._id === 'string') id = maybe2._id;
+                                else if (typeof maybe2.toString === 'function') id = maybe2.toString();
+                              }
+                              if (id) imgs.push(`${api.defaults.baseURL}/reviews/image/${id}`);
+                            }
+                          }
+                          if (imgs.length === 0) return null;
+                          return (
+                            <div className="mt-2 grid grid-cols-3 gap-2">
+                              {imgs.map((src, i) => (
+                                <img key={i} src={src} alt={`Review attachment ${i + 1}`} className="max-h-56 rounded border border-white/10 object-contain" />
+                              ))}
+                            </div>
+                          );
+                        })()}
+                        {r.comment && <p className="text-sm mt-2 text-gray-200">{r.comment}</p>}
+                        <p className="text-[11px] text-gray-400 mt-2">{new Date(r.createdAt).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* My review form */}
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  {!user || user.role === 'guest' ? (
+                    <p className="text-xs text-gray-300">Log in to leave a review.</p>
+                  ) : (
+                    <form
+            onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!selectedStore) return;
+                        try {
+                          const form = new FormData();
+                          form.append('rating', String(myRating));
+                          form.append('comment', myComment || '');
+                          for (const { file } of myImages) form.append('images', file);
+                          await api.post(`/reviews/store/${selectedStore._id}`, form, {
+                            headers: { 'Content-Type': 'multipart/form-data' },
+                          });
+                          const res = await api.get(`/reviews/store/${selectedStore._id}`);
+                          setReviews(res.data.reviews || []);
+                          setAvgRating(res.data.averageRating || 0);
+                          setReviewCount(res.data.count || 0);
+                          clearAllImages();
+              // mark clean
+              setInitialRating(myRating);
+              setInitialComment(myComment || '');
+                        } catch (err: unknown) {
+                          if (isAxiosError(err)) setReviewsError(err.response?.data?.message ?? err.message);
+                          else if (isError(err)) setReviewsError(err.message);
+                          else setReviewsError('Failed to submit review');
+                        }
+                      }}
+                      className="space-y-2"
+                    >
+                      <div className="flex items-center gap-2 text-yellow-400">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <button type="button" key={i} onClick={() => setMyRating(i + 1)} aria-label={`Rate ${i + 1} star`} className="hover:scale-105">
+                            {i < myRating ? <AiFillStar /> : <AiOutlineStar />}
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={myComment}
+                        onChange={(e) => setMyComment(e.target.value)}
+                        placeholder="Leave a comment (optional)"
+                        className="w-full rounded bg-transparent border border-white/20 px-3 py-2 text-sm"
+                        rows={3}
+                      />
+                      {/* Add photos (desktop) */}
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={pickImages}
+                          disabled={myImages.length >= 5}
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm ${myImages.length >= 5 ? 'bg-white/5 text-gray-400 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'}`}
+                        >
+                          <AiOutlineCamera />
+                          <span>{myImages.length >= 5 ? 'Max 5 photos' : 'Add photo'}</span>
+                        </button>
+                      </div>
+                      {myImages.length > 0 && (
+                        <div className="mt-2 grid grid-cols-5 gap-2">
+                          {myImages.map((it, idx) => (
+                            <div key={idx} className="relative group">
+                              <img src={it.preview} alt={`Selected ${idx + 1}`} className="h-20 w-full object-cover rounded border border-white/10" />
+                              <button
+                                type="button"
+                                className="absolute -top-2 -right-2 p-0.5 rounded-full bg-black/70 text-red-400 hover:text-red-500"
+                                onClick={() => removeImageAt(idx)}
+                                aria-label="Remove image"
+                              >
+                                <AiOutlineCloseCircle size={22} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <button type="submit" className="rounded-full bg-white/10 hover:bg-white/20 px-3 py-1 text-sm">Submit</button>
+                        {myRating > 0 && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!selectedStore) return;
+                              try {
+                                await api.delete(`/reviews/store/${selectedStore._id}/me`);
+                                const res = await api.get(`/reviews/store/${selectedStore._id}`);
+                                setReviews(res.data.reviews || []);
+                                clearAllImages();
+                                setAvgRating(res.data.averageRating || 0);
+                                setReviewCount(res.data.count || 0);
+                                setMyRating(0);
+                                setMyComment('');
+                                setInitialRating(0);
+                                setInitialComment('');
+                              } catch (err: unknown) {
+                                if (isAxiosError(err)) setReviewsError(err.response?.data?.message ?? err.message);
+                                else if (isError(err)) setReviewsError(err.message);
+                                else setReviewsError('Failed to delete review');
+                              }
+                            }}
+                            className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm"
+                          >
+                            Delete my review
+                          </button>
+                        )}
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Global discard confirmation (covers both mobile & desktop) */}
+      {showDiscardConfirm && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70" onClick={cancelDiscard} />
+          <div className="relative w-full max-w-sm mx-4 bg-[#0b0b0b] border border-white/15 rounded-lg p-4 shadow-xl">
+            <h5 className="text-sm font-semibold mb-2">Discard changes?</h5>
+            <p className="text-xs text-gray-300 mb-4">You have unsaved changes in your review. Are you sure you want to discard them?</p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={cancelDiscard} className="rounded bg-white/10 hover:bg-white/20 px-3 py-1 text-sm">Cancel</button>
+              <button type="button" onClick={confirmDiscard} className="rounded bg-red-600 hover:bg-red-700 px-3 py-1 text-sm">Discard</button>
             </div>
           </div>
         </div>

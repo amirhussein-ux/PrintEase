@@ -25,7 +25,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
     setLoading(true);
     try {
   // Use auth context signup so user state and token are set consistently
-  await signup({
+  const created = await signup({
         firstName,
         lastName,
         email,
@@ -34,11 +34,13 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
         role,
       });
 
-      // If an owner signed up, send them to create-shop flow first.
-      if (role === "owner") {
+      // Navigate based on the actual role returned from backend
+      if (created.role === "owner") {
         navigate("/owner/create-shop");
+      } else if (created.role === "customer") {
+        navigate("/customer/select-shop");
       } else {
-        navigate("/dashboard");
+        navigate("/");
       }
     } catch (err: unknown) {
       if (
