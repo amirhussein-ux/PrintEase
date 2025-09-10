@@ -6,6 +6,7 @@ import TrackOrders from "./pages/Dashboard/Customer/TrackOrders";
 import SelectShop from "./pages/Dashboard/Customer/SelectShop";
 import ServiceManagement from "./pages/Dashboard/Owner/ServiceManagement";
 import PrivateRoute from "./components/PrivateRoute";
+import Profile from "./pages/Dashboard/Customer/Profile"; // <-- adjust path as needed
 
 function App() {
   return (
@@ -79,6 +80,16 @@ function App() {
           element={
             <PrivateRoute>
               <OrderManagement />
+            </PrivateRoute>
+          }
+        />
+
+        {/* Profile page */}
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <Profile />
             </PrivateRoute>
           }
         />

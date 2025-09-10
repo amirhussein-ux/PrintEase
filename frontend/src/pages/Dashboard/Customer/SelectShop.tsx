@@ -653,7 +653,7 @@ export default function SelectShop() {
                 <button
                   type="button"
                   onClick={() => requestClose('mobile')}
-                  className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm"
+                  className="rounded-full bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-sm"
                   aria-label="Close store details"
                 >
                   Close
@@ -820,6 +820,7 @@ export default function SelectShop() {
                       }}
                       className="space-y-2"
                     >
+                      <h4 className="text-sm font-semibold mb-2">Ratings</h4>
                       <div className="flex items-center gap-2 text-yellow-400">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <button type="button" key={i} onClick={() => setMyRating(i + 1)} aria-label={`Rate ${i + 1} star`} className="hover:scale-105">
@@ -863,8 +864,8 @@ export default function SelectShop() {
                           ))}
                         </div>
                       )}
-                      <div className="flex items-center gap-2">
-                        <button type="submit" className="rounded-full bg-white/10 hover:bg-white/20 px-3 py-1 text-sm">Submit</button>
+                      <div className="flex justify-end items-center gap-2">
+                        <button type="submit" className="rounded-full bg-green-600 hover:bg-green-700 text-white px-3 py-1 text-sm">Submit</button>
                         {myRating > 0 && (
                           <button
                             type="button"
@@ -945,7 +946,7 @@ export default function SelectShop() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm" onClick={() => requestClose('desktop')}>Close</button>
+                <button className="rounded-full bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-sm" onClick={() => requestClose('desktop')}>Close</button>
               </div>
             </div>
 
@@ -1078,6 +1079,7 @@ export default function SelectShop() {
                       }}
                       className="space-y-2"
                     >
+                      <h4 className="text-sm font-semibold mb-2">Ratings</h4>
                       <div className="flex items-center gap-2 text-yellow-400">
                         {Array.from({ length: 5 }).map((_, i) => (
                           <button type="button" key={i} onClick={() => setMyRating(i + 1)} aria-label={`Rate ${i + 1} star`} className="hover:scale-105">
@@ -1121,8 +1123,8 @@ export default function SelectShop() {
                           ))}
                         </div>
                       )}
-                      <div className="flex items-center gap-2">
-                        <button type="submit" className="rounded-full bg-white/10 hover:bg-white/20 px-3 py-1 text-sm">Submit</button>
+                      <div className="flex justify-end items-center gap-2">
+                        <button type="submit" className="rounded-full bg-green-600 hover:bg-green-700 text-white px-3 py-1 text-sm">Submit</button>
                         {myRating > 0 && (
                           <button
                             type="button"
