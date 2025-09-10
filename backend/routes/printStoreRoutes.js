@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
-const { createPrintStore, getMyPrintStore, getLogoById, createPrintStoreTest } = require('../controllers/printStoreController');
+const { createPrintStore, getMyPrintStore, updateMyPrintStore, getLogoById, createPrintStoreTest } = require('../controllers/printStoreController');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -9,6 +9,7 @@ const router = express.Router();
 // owner routes (accept optional logo upload)
 router.post('/', protect, upload.single('logo'), createPrintStore);
 router.get('/mine', protect, getMyPrintStore);
+router.put('/mine', protect, upload.single('logo'), updateMyPrintStore);
 
 // public list
 const { getAllPrintStores } = require('../controllers/printStoreController');

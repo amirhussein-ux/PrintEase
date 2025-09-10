@@ -88,6 +88,68 @@ exports.getMyPrintStore = async (req, res) => {
   }
 };
 
+// Update owner's store
+exports.updateMyPrintStore = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const store = await PrintStore.findOne({ owner: userId });
+    if (!store) return res.status(404).json({ message: 'No print store found' });
+
+    let { name, tin, birCertUrl, mobile, address, removeLogo } = req.body || {};
+    // parse address if string (multipart)
+    if (typeof address === 'string') {
+      try { address = JSON.parse(address); } catch { /* keep raw */ }
+    }
+    if (address && typeof address === 'object') {
+      if (address.location) {
+        const lat = parseFloat(address.location.lat);
+        const lng = parseFloat(address.location.lng);
+        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+          address.location = { lat, lng };
+        } else {
+          delete address.location;
+        }
+      }
+    }
+
+    // apply updates
+    if (typeof name === 'string') store.name = name;
+    if (typeof tin === 'string') store.tin = tin;
+    if (typeof birCertUrl === 'string') store.birCertUrl = birCertUrl;
+    if (typeof mobile === 'string') store.mobile = mobile;
+    if (address && typeof address === 'object') store.address = { ...store.address?.toObject?.(), ...address };
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+    const removeLogoFlag = typeof removeLogo === 'string' ? (removeLogo === 'true' || removeLogo === '1') : !!removeLogo;
+
+    // remove logo
+    if (removeLogoFlag && store.logoFileId) {
+      try { await bucket.delete(store.logoFileId); } catch (_) {}
+      store.logoFileId = undefined;
+      store.logoMime = undefined;
+    }
+    // replace logo if new file present
+    if (req.file && req.file.buffer) {
+      if (store.logoFileId) {
+        try { await bucket.delete(store.logoFileId); } catch (_) {}
+      }
+      const uploadStream = bucket.openUploadStream(req.file.originalname, { contentType: req.file.mimetype });
+      uploadStream.end(req.file.buffer);
+      const fileId = await new Promise((resolve, reject) => {
+        uploadStream.on('finish', () => resolve(uploadStream.id));
+        uploadStream.on('error', reject);
+      });
+      store.logoFileId = fileId;
+      store.logoMime = req.file.mimetype;
+    }
+
+    await store.save();
+    res.json(store);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 // Get all stores (public)
 exports.getAllPrintStores = async (req, res) => {
   try {

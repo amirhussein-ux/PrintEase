@@ -53,11 +53,14 @@ export default function CreateShop() {
   const [headerImgLoaded, setHeaderImgLoaded] = useState(false);
   const [logoImgLoaded, setLogoImgLoaded] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [removeLogo, setRemoveLogo] = useState(false);
+  // no explicit need to retain logo id; we use URL directly for preview
 
   useEffect(() => {
     return () => {
-      if (logoPreview) URL.revokeObjectURL(logoPreview);
-      if (cropSrc) URL.revokeObjectURL(cropSrc);
+      if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
+      if (cropSrc && cropSrc.startsWith('blob:')) URL.revokeObjectURL(cropSrc);
     };
   }, [logoPreview, cropSrc]);
 
@@ -109,6 +112,53 @@ export default function CreateShop() {
     }
   }
 
+  // load existing store for edit mode
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const res = await api.get('/print-store/mine');
+        if (!active) return;
+        const s = res.data as {
+          name: string; tin?: string; mobile: string; address?: { addressLine?: string; city?: string; country?: string; state?: string; postal?: string; location?: { lat?: number; lng?: number } }; logoFileId?: unknown;
+        };
+        setEditing(true);
+        setStoreName(s.name || '');
+        setTin(s.tin || '');
+        setMobile(s.mobile || '');
+        setAddressLine(s.address?.addressLine || '');
+        setCity(s.address?.city || '');
+        setCountry(s.address?.country || '');
+        setStateField(s.address?.state || '');
+        setPostal(s.address?.postal || '');
+        if (s.address?.location && typeof s.address.location.lat === 'number' && typeof s.address.location.lng === 'number') {
+          setPosition({ lat: s.address.location.lat, lng: s.address.location.lng });
+        }
+        // extract logo id robustly
+        let logoId: string | undefined;
+        const raw = s.logoFileId as unknown;
+        if (typeof raw === 'string') logoId = raw;
+        else if (raw && typeof raw === 'object') {
+          const maybe = raw as { _id?: unknown; toString?: () => string };
+          if (typeof maybe._id === 'string') logoId = maybe._id;
+          else if (typeof maybe.toString === 'function') logoId = maybe.toString();
+        }
+        if (logoId) {
+          const url = `${api.defaults.baseURL}/print-store/logo/${logoId}`;
+          setLogoPreview(url);
+          setRemoveLogo(false);
+        } else {
+          // no logo
+        }
+      } catch {
+        // 404 means no store yet -> create mode
+        setEditing(false);
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-white to-black flex flex-col">
   {/* header */}
@@ -153,13 +203,16 @@ export default function CreateShop() {
                 };
                 form.append('address', JSON.stringify(addressObj));
                 if (logoFile) form.append('logo', logoFile);
+                if (editing && removeLogo && !logoFile) form.append('removeLogo', 'true');
 
-                await api.post('/print-store', form, {
-                  headers: { 'Content-Type': 'multipart/form-data' },
-                });
+                if (editing) {
+                  await api.put('/print-store/mine', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+                } else {
+                  await api.post('/print-store', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+                }
                 navigate("/dashboard/owner");
               } catch (err: unknown) {
-                let msg = "Failed to create store";
+                let msg = editing ? "Failed to update store" : "Failed to create store";
                 if (typeof err === "object" && err !== null && "response" in err) {
                   const maybe = err as {
                     response?: { data?: { message?: string } };
@@ -176,7 +229,7 @@ export default function CreateShop() {
              className="grid grid-cols-1 lg:grid-cols-2 gap-8 border-2 border-blue-900 rounded-xl p-8 lg:p-10 bg-gray-100 shadow-lg"
           >
             <div className="lg:col-span-2 text-center mb-6">
-              <h2 className="text-2xl lg:text-3xl font-bold text-black">CREATE SHOP</h2>
+              <h2 className="text-2xl lg:text-3xl font-bold text-black">{editing ? 'EDIT SHOP' : 'CREATE SHOP'}</h2>
             </div>
 
             {/* LEFT COLUMN */}
@@ -371,7 +424,7 @@ export default function CreateShop() {
                   >
                     <div className="w-full h-full flex flex-col items-center justify-center gap-3">
                       <div className="h-20 w-20 rounded-full overflow-hidden bg-white flex items-center justify-center">
-                        {!logoImgLoaded && (
+            {!logoImgLoaded && (
                           <div className="h-full w-full bg-gray-200 animate-pulse" />
                         )}
                         {logoPreview && (
@@ -388,11 +441,12 @@ export default function CreateShop() {
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (logoPreview) URL.revokeObjectURL(logoPreview);
+              if (logoPreview && logoPreview.startsWith('blob:')) URL.revokeObjectURL(logoPreview);
                             setLogoPreview(null);
                             setLogoFile(null);
                             setOriginalLogoFile(null);
                             setLogoImgLoaded(false);
+              if (editing) setRemoveLogo(true);
                           }}
                           className="rounded-md bg-red-100 px-3 py-1 text-sm text-red-700"
                         >
@@ -520,11 +574,11 @@ export default function CreateShop() {
                   disabled={loading}
                   className="w-full rounded-md bg-blue-950 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-900 focus:outline-none disabled:opacity-60"
                 >
-                  {loading ? "Creating..." : "Create Store"}
+                  {loading ? (editing ? 'Saving...' : 'Creating...') : (editing ? 'Save Changes' : 'Create Store')}
                 </button>
                 <button
                   type="button"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate(editing ? '/dashboard/owner' : '/')}
                   className="w-full rounded-md bg-neutral-300 px-3 py-2 text-sm font-semibold text-black hover:bg-gray-300 focus:outline-none"
                 >
                   Cancel

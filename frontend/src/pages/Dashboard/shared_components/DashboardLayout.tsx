@@ -8,13 +8,21 @@ import logo from "/src/assets/PrintEase-Logo-Dark.png";
 interface DashboardLayoutProps {
   role: "owner" | "customer";
   children: React.ReactNode;
+  centerContent?: React.ReactNode;
 }
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children, centerContent }) => {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const navigate = useNavigate();
+  
+  // Background style: default gradient, solid blue when sidebar is open on mobile
+  const gradientClass = sidebarOpen
+    ? 'bg-blue-900'
+    : role === 'owner'
+      ? 'bg-gradient-to-r from-[#0f172a] via-[#1e3a8a]/90 to-white'
+      : 'bg-gradient-to-r from-blue-900 via-indigo-900 to-black';
 
   if (!user) {
     return (
@@ -30,7 +38,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
   return (
     <div className="min-h-screen relative flex flex-col">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 fixed top-0 left-0 right-0 z-20">
+  <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 fixed top-0 left-0 right-0 z-20">
         <div className="flex items-center">
           {/* Sidebar toggle button */}
           <button
@@ -42,11 +50,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
             <span className="block w-6 h-0.5 bg-gray-900"></span>
           </button>
 
-          {/* Logo */}
-          <div className="flex items-center gap-3">
+          {/* Logo (hidden on mobile) */}
+          <div className="hidden sm:flex items-center gap-3">
             <img src={logo} alt="PrintEase Logo" className="h-10 w-auto" />
           </div>
         </div>
+
+        {/* Center content*/}
+        {centerContent && (
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
+            {centerContent}
+          </div>
+        )}
 
         {/* Right-side icons*/}
         <div className="flex items-center gap-3 relative">
@@ -97,8 +112,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
         </div>
       </header>
 
-      {/* Background gradient */}
-      <div className="absolute inset-0 top-16 bg-gradient-to-r from-[#0f172a] via-[#1e3a8a]/90 to-white" />
+  {/* Background gradient (role-based) */}
+  <div className={`absolute inset-0 top-16 ${gradientClass}`} />
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-col lg:fixed lg:top-1/2 lg:-translate-y-1/2 lg:left-0 lg:w-64 lg:z-30">
@@ -107,23 +122,21 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
 
       {/* Mobile/Tablet Sidebar */}
       <div
-        className={`fixed left-0 top-1/4 -translate-y-1/4 w-64 z-40 transform transition-transform duration-300
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+        className={`fixed left-0 right-0 top-16 w-full z-40 ${sidebarOpen ? 'block' : 'hidden'}`}
       >
         <DashboardSidebar
           role={role}
           closeSidebar={() => setSidebarOpen(false)}
-          className="bg-transparent h-auto"
+          className={`h-auto bg-blue-900 text-white items-center justify-center py-4`}
+          centered={sidebarOpen}
         />
       </div>
 
       {/* Main content */}
       <main
-        className={`relative z-10 mt-16 p-6 transition-all duration-300
-          ${sidebarOpen ? "hidden lg:block" : "block"}
-        `}
+        className={`relative z-10 mt-16 p-6 lg:ml-64 ${sidebarOpen ? 'hidden lg:block' : 'block'}`}
       >
-        <div className="w-full md:w-auto">
+        <div className="w-full">
           {children}
         </div>
       </main>

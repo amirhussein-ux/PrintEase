@@ -17,6 +17,18 @@ import CropperModal from "../../../components/CropperModal";
 
 type PricingUnit = "per page" | "per sq ft" | "per item";
 
+// Currency helpers
+const currencySymbol = (code: string) => {
+  switch (code) {
+    case 'USD': return '$';
+    case 'EUR': return '€';
+    case 'GBP': return '£';
+    case 'JPY': return '¥';
+    case 'PHP': return '₱';
+    default: return code;
+  }
+};
+
 interface VariantOption {
   name: string; // e.g., A4, Red, Small
   priceDelta: number; // additional price
@@ -32,6 +44,7 @@ interface ServiceItem {
   name: string;
   basePrice: number;
   unit: PricingUnit;
+  currency?: string;
   description?: string;
   active: boolean;
   variants?: ServiceVariant[];
@@ -43,6 +56,7 @@ type ServiceDraft = {
   name: string;
   basePrice: number;
   unit: PricingUnit;
+  currency?: string;
   description?: string;
   active: boolean;
   variants?: ServiceVariant[];
@@ -55,6 +69,7 @@ type ApiService = {
   name: string;
   basePrice: number;
   unit: PricingUnit;
+  currency?: string;
   description?: string;
   active: boolean;
   variants?: ServiceVariant[];
@@ -68,6 +83,7 @@ function mapServiceFromApi(s: ApiService): ServiceItem {
     name: s.name,
     basePrice: s.basePrice,
     unit: s.unit,
+  currency: s.currency,
     description: s.description ?? undefined,
     active: !!s.active,
     variants: Array.isArray(s.variants) ? s.variants : undefined,
@@ -144,7 +160,14 @@ export default function ServiceManagement() {
     return sorted;
   }, [services, query, statusFilter, sortKey, sortDir]);
 
-  const money = (v: number) => `₱${v.toLocaleString("en-PH", { maximumFractionDigits: 2 })}`;
+  const money = (v: number, currency: string = 'PHP') => {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(v);
+    } catch {
+      const prefix = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'JPY' ? '¥' : '₱';
+      return `${prefix}${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    }
+  };
 
   const cacheBust = (url?: string | null): string | undefined => {
     if (!url) return undefined;
@@ -166,6 +189,7 @@ export default function ServiceManagement() {
     if (draft.description) form.append('description', draft.description);
     form.append('basePrice', String(draft.basePrice));
     form.append('unit', draft.unit);
+  if (draft.currency) form.append('currency', draft.currency);
     form.append('active', String(draft.active));
     form.append('variants', JSON.stringify(draft.variants || []));
     if (draft.imageFile) form.append('image', draft.imageFile);
@@ -401,7 +425,7 @@ export default function ServiceManagement() {
                 <div className="text-gray-300 text-sm mt-0.5">{s.description}</div>
                 <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-200">
                   <span>
-                    <strong>Pricing:</strong> {money(s.basePrice)} {s.unit}
+                    <strong>Pricing:</strong> {money(s.basePrice, s.currency || 'PHP')} {s.unit}
                   </span>
                 </div>
                 {s.variants && s.variants.length > 0 && (
@@ -477,6 +501,7 @@ function ServiceModal({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [basePrice, setBasePrice] = useState<number>(initial?.basePrice ?? 0);
   const [unit, setUnit] = useState<PricingUnit>(initial?.unit ?? "per page");
+  const [currency, setCurrency] = useState<string>(initial?.currency ?? 'PHP');
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
   const [variants, setVariants] = useState<ServiceVariant[]>(initial?.variants ?? []);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -492,6 +517,7 @@ function ServiceModal({
       setDescription(initial?.description ?? "");
       setBasePrice(initial?.basePrice ?? 0);
       setUnit(initial?.unit ?? "per page");
+  setCurrency(initial?.currency ?? 'PHP');
       setActive(initial?.active ?? true);
       setVariants(initial?.variants ?? []);
       setImageFile(null);
@@ -551,6 +577,7 @@ function ServiceModal({
       description: description.trim() || undefined,
       basePrice: Math.max(0, Number(basePrice) || 0),
       unit,
+  currency,
       active,
       variants: variants.length ? variants : undefined,
   imageFile,
@@ -606,7 +633,7 @@ function ServiceModal({
                     <div>
                       <label className="block text-xs text-gray-300 mb-1">Base price</label>
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-400 text-sm">₱</span>
+                        <span className="text-gray-400 text-sm">{currencySymbol(currency)}</span>
                         <input
                           type="number"
                           inputMode="decimal"
@@ -619,7 +646,7 @@ function ServiceModal({
                       </div>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
                       <label className="block text-xs text-gray-300 mb-1">Pricing unit</label>
                       <select
@@ -630,6 +657,20 @@ function ServiceModal({
                         <option>per page</option>
                         <option>per sq ft</option>
                         <option>per item</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-300 mb-1">Currency</label>
+                      <select
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        <option value="PHP">PHP (₱)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                        <option value="JPY">JPY (¥)</option>
                       </select>
                     </div>
                   </div>
@@ -755,7 +796,7 @@ function ServiceModal({
                                   />
                                 </div>
                                 <div className="col-span-2 flex items-center gap-2">
-                                  <span className="text-gray-400 text-sm">+₱</span>
+                                  <span className="text-gray-400 text-sm">+{currencySymbol(currency)}</span>
                                   <input
                                     type="number"
                                     inputMode="decimal"

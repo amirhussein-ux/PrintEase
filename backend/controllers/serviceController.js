@@ -15,7 +15,7 @@ exports.createService = async (req, res) => {
     const store = await getOwnerStore(userId);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
 
-    let { name, description, basePrice, unit, active = true, variants = [] } = req.body;
+  let { name, description, basePrice, unit, currency, active = true, variants = [] } = req.body;
     // type coercion for multipart fields
     const basePriceNum = typeof basePrice === 'string' ? parseFloat(basePrice) : basePrice;
     const activeBool = typeof active === 'string' ? active === 'true' || active === '1' : !!active;
@@ -28,7 +28,8 @@ exports.createService = async (req, res) => {
       name,
       description,
       basePrice: Number.isFinite(basePriceNum) ? basePriceNum : 0,
-      unit,
+  unit,
+  currency,
       active: activeBool,
       variants: Array.isArray(variantsArr) ? variantsArr : [],
     };
@@ -72,12 +73,13 @@ exports.updateService = async (req, res) => {
     if (updates.active !== undefined) {
       updates.active = typeof updates.active === 'string' ? (updates.active === 'true' || updates.active === '1') : !!updates.active;
     }
-    if (updates.variants !== undefined) {
+  if (updates.variants !== undefined) {
       if (typeof updates.variants === 'string') {
         try { updates.variants = JSON.parse(updates.variants); } catch { updates.variants = svc.variants; }
       }
       if (!Array.isArray(updates.variants)) updates.variants = svc.variants;
     }
+  // currency may come as a string code; let schema enum validate
     Object.assign(svc, updates);
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
     // handle remove image flag
