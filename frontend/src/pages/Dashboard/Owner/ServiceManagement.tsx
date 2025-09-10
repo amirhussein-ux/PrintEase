@@ -25,6 +25,11 @@ const currencySymbol = (code: string) => {
     case 'GBP': return '£';
     case 'JPY': return '¥';
     case 'PHP': return '₱';
+    case 'AUD': return 'A$';
+    case 'CAD': return 'C$';
+    case 'SGD': return 'S$';
+    case 'INR': return '₹';
+    case 'CNY': return '¥';
     default: return code;
   }
 };
@@ -398,7 +403,7 @@ export default function ServiceManagement() {
           {filtered.map((s) => (
             <div
               key={s.id}
-              className="rounded-xl border border-blue-900 bg-blue-900 bg-none p-4 flex items-center gap-4"
+              className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 bg-none p-4 flex items-center gap-4"
             >
               {s.imageUrl && (
                 <div className="shrink-0">
@@ -671,6 +676,11 @@ function ServiceModal({
                         <option value="EUR">EUR (€)</option>
                         <option value="GBP">GBP (£)</option>
                         <option value="JPY">JPY (¥)</option>
+                        <option value="AUD">AUD (A$)</option>
+                        <option value="CAD">CAD (C$)</option>
+                        <option value="SGD">SGD (S$)</option>
+                        <option value="INR">INR (₹)</option>
+                        <option value="CNY">CNY (¥)</option>
                       </select>
                     </div>
                   </div>
