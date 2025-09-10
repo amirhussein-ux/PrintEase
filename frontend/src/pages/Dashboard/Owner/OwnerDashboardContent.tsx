@@ -1,5 +1,5 @@
-import React, { useState, useRef } from "react"
-import { useAuth } from "../../../context/useAuth"
+import React, { useState, useRef, useEffect } from "react"
+import api from "../../../lib/api"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
 import {
@@ -28,11 +28,7 @@ const FULL_MONTHS: Record<string,string> = {
   Sep: "September", Oct: "October", Nov: "November", Dec: "December"
 }
 
-const STATS = [
-  { label: "Current Sales for this DAY", value: "₱5,000" },
-  { label: "Current Sales for this MONTH", value: "₱120,000" },
-  { label: "Current Sales for this YEAR", value: "₱1,500,000" }
-]
+// Dynamic sales cards are computed in component state
 
 const INVENTORY: InventoryItem[] = [
   { name: "Bond Paper", expectedStock: 500, currentStock: 120, productType: "BOND PAPER" },
@@ -95,12 +91,15 @@ const InventoryPie = ({ items, type }: { items: InventoryItem[]; type: string })
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
           <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={80} labelLine={false}
-            label={({ cx, cy, midAngle, innerRadius, outerRadius, index }) => {
+            label={(props: { cx?: number | string; cy?: number | string; midAngle?: number; innerRadius?: number; outerRadius?: number; index?: number }) => {
+              const { cx, cy, midAngle, innerRadius, outerRadius, index } = props || {}
               if (midAngle === undefined || index === undefined) return null
               const RAD = Math.PI / 180
-              const r = innerRadius + (outerRadius - innerRadius) / 2
-              const x = cx + r * Math.cos(-midAngle * RAD)
-              const y = cy + r * Math.sin(-midAngle * RAD)
+              const ir = Number(innerRadius) || 0
+              const or = Number(outerRadius) || 0
+              const r = ir + (or - ir) / 2
+              const x = (Number(cx) || 0) + r * Math.cos(-midAngle * RAD)
+              const y = (Number(cy) || 0) + r * Math.sin(-midAngle * RAD)
               const slice = pieData[index]
               return (
                 <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight="bold"
@@ -121,13 +120,15 @@ const InventoryPie = ({ items, type }: { items: InventoryItem[]; type: string })
 
 // Main dashboard
 const OwnerDashboardContent: React.FC = () => {
-  const { user } = useAuth()
   const [year, setYear] = useState(2025)
   const [product, setProduct] = useState("MUGS")
   const [showModal, setShowModal] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
   const peso = (n: number) => "₱" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const [salesDay, setSalesDay] = useState(0)
+  const [salesMonth, setSalesMonth] = useState(0)
+  const [salesYear, setSalesYear] = useState(0)
 
   // Sales data by month
   const salesData = MONTHS.map((m, i) => ({
@@ -142,6 +143,47 @@ const OwnerDashboardContent: React.FC = () => {
   const grouped = INVENTORY.reduce((acc, i) => {
     (acc[i.productType] ||= []).push(i); return acc
   }, {} as Record<string, InventoryItem[]>)
+
+  // Load sales totals for day/month/year
+  useEffect(() => {
+    let cancelled = false
+    async function loadSales() {
+      try {
+        const storeRes = await api.get('/print-store/mine')
+        const sid: string | undefined = storeRes.data?._id
+        if (!sid) return
+        const ordRes = await api.get(`/orders/store/${sid}`)
+        const orders: Array<{ subtotal?: number; createdAt?: string; status?: string; paymentStatus?: string }> = Array.isArray(ordRes.data) ? ordRes.data : []
+
+        const now = new Date()
+        const startDay = new Date(now); startDay.setHours(0,0,0,0)
+        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        const startYear = new Date(now.getFullYear(), 0, 1)
+
+        let d = 0, m = 0, y = 0
+        for (const o of orders) {
+          const amt = Number(o.subtotal) || 0
+          if (amt <= 0) continue
+          const paid = o.paymentStatus === 'paid' || o.status === 'completed'
+          if (!paid) continue
+          const dt = o.createdAt ? new Date(o.createdAt) : null
+          if (!dt) continue
+          if (dt >= startYear) y += amt
+          if (dt >= startMonth) m += amt
+          if (dt >= startDay) d += amt
+        }
+        if (!cancelled) {
+          setSalesDay(d)
+          setSalesMonth(m)
+          setSalesYear(y)
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadSales()
+    return () => { cancelled = true }
+  }, [])
 
   // Download PDF
   const handleDownloadPDF = async () => {
@@ -206,7 +248,11 @@ const OwnerDashboardContent: React.FC = () => {
       <div className="w-full max-w-7xl mx-auto space-y-6">
         {/* Stats */}
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {STATS.map(s => <StatCard key={s.label} {...s} />)}
+          {[
+            { label: 'Current Sales for this DAY', value: peso(salesDay) },
+            { label: 'Current Sales for this MONTH', value: peso(salesMonth) },
+            { label: 'Current Sales for this YEAR', value: peso(salesYear) },
+          ].map((s) => <StatCard key={s.label} {...s} />)}
         </div>
 
         {/* Sales */}

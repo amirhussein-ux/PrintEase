@@ -67,6 +67,7 @@ export default function OrderPage() {
 	const [quantity, setQuantity] = useState<number>(1);
 	const [files, setFiles] = useState<Array<{ file: File; preview?: string }>>([]);
 	const [notes, setNotes] = useState('');
+	const [submitting, setSubmitting] = useState(false);
 
 
 	// Pricing
@@ -172,6 +173,7 @@ export default function OrderPage() {
 				<h1 className="text-center text-white text-2xl md:text-3xl tracking-widest font-semibold">
 				SELECT A SERVICE
 				</h1>
+				
 				<div className="mt-4">
 					<div className="relative flex items-center justify-center gap-2">
 						<input
@@ -563,13 +565,42 @@ export default function OrderPage() {
 								</button>
 								<button
 									type="button"
-									className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold"
-									onClick={() => {
-										// TODO: submit
+									className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold disabled:opacity-60"
+								disabled={submitting}
+									onClick={async () => {
+									if (!selected || !derivedStoreId) return;
+									try {
+										setSubmitting(true);
+										const options = (selected.variants || []).map((v) => ({
+											label: v.label,
+											optionIndex: Number.isFinite(variantChoices[v.label]) ? Number(variantChoices[v.label]) : 0,
+										}));
+										const fd = new FormData();
+										fd.append('storeId', derivedStoreId);
+										fd.append('serviceId', selected._id);
+										fd.append('quantity', String(safeQty));
+										fd.append('notes', notes || '');
+										fd.append('selectedOptions', JSON.stringify(options));
+										if (Array.isArray(files)) {
+											for (const f of files) {
+												fd.append('files', f.file, f.file.name);
+											}
+										}
+										const res = await api.post('/orders', fd);
+										console.log('Order created', res.data);
 										setSelected(null);
-									}}
+										setFiles([]);
+										setNotes('');
+									} catch (e: unknown) {
+										const err = e as { response?: { data?: { message?: string } }; message?: string };
+										const msg = err?.response?.data?.message || err?.message || 'Failed to place order';
+										alert(msg);
+									} finally {
+										setSubmitting(false);
+									}
+								}}
 								>
-									Continue
+									{submitting ? 'Ordering…' : 'Order'}
 								</button>
 							</div>
 						</div>
