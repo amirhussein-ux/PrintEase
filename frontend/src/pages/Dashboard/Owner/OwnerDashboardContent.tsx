@@ -202,8 +202,8 @@ const OwnerDashboardContent: React.FC = () => {
   }
 
   return (
-    <div className="transition-all duration-300 font-crimson p-4 lg:ml-64">
-      <div className="w-full max-w-6xl mx-auto space-y-6">
+    <div className="transition-all duration-300 font-crimson p-20">
+      <div className="w-full max-w-7xl mx-auto space-y-6">
         {/* Stats */}
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
           {STATS.map(s => <StatCard key={s.label} {...s} />)}

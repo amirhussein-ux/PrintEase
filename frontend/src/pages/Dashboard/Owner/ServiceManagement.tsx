@@ -247,7 +247,7 @@ export default function ServiceManagement() {
 
   return (
     <DashboardLayout role={role}>
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto ">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl md:text-3xl font-bold text-white">Service Management</h1>
