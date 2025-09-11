@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AiOutlineEdit, AiOutlineDelete } from 'react-icons/ai';
+import { AiOutlineEdit, AiOutlineDelete, AiOutlineArrowLeft } from 'react-icons/ai';
 import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
 import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
 import { useAuth } from '../../../context/useAuth';
 
 export default function Profile() {
-  const { user, updateUser  } = useAuth();
+  const { user, updateUser   } = useAuth();
   const navigate = useNavigate();
 
   // Editable fields
@@ -100,8 +100,8 @@ export default function Profile() {
         formData.append('avatar', '');
       }
 
-      // Assuming updateUser  accepts FormData or adapt accordingly
-      await updateUser (formData);
+      // Assuming updateUser   accepts FormData or adapt accordingly
+      await updateUser  (formData);
 
       setSuccessMsg('Profile updated successfully.');
       setIsEditing(false);
@@ -133,7 +133,27 @@ export default function Profile() {
       </header>
 
       <main className="px-6 py-16 lg:px-10">
-        <div className="max-w-3xl mx-auto mt-20">
+        <div className="max-w-3xl mx-auto mt-20 relative">
+          {/* Stylish Back button */}
+          <button
+            type="button"
+            onClick={() => navigate('/dashboard/customer')}
+            className="
+              absolute -top-12 left-0 flex items-center gap-2
+              bg-indigo-700 bg-opacity-70 hover:bg-opacity-90
+              text-white font-semibold text-sm
+              rounded-full px-4 py-2
+              shadow-md
+              transition duration-200 ease-in-out
+              focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1
+              select-none
+            "
+            aria-label="Go back to dashboard"
+          >
+            <AiOutlineArrowLeft size={20} />
+            Back
+          </button>
+
           <div className="border-2 border-white/90 rounded-lg p-6 bg-black">
             <h1
               className="text-xl lg:text-2xl uppercase tracking-wider font-medium mb-6"

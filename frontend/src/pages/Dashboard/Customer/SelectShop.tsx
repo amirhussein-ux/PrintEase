@@ -1052,7 +1052,7 @@ export default function SelectShop() {
                     <p className="text-xs text-gray-300">Log in to leave a review.</p>
                   ) : (
                     <form
-            onSubmit={async (e) => {
+                      onSubmit={async (e) => {
                         e.preventDefault();
                         if (!selectedStore) return;
                         try {
@@ -1068,9 +1068,8 @@ export default function SelectShop() {
                           setAvgRating(res.data.averageRating || 0);
                           setReviewCount(res.data.count || 0);
                           clearAllImages();
-              // mark clean
-              setInitialRating(myRating);
-              setInitialComment(myComment || '');
+                          setInitialRating(myRating);
+                          setInitialComment(myComment || '');
                         } catch (err: unknown) {
                           if (isAxiosError(err)) setReviewsError(err.response?.data?.message ?? err.message);
                           else if (isError(err)) setReviewsError(err.message);
@@ -1082,7 +1081,13 @@ export default function SelectShop() {
                       <h4 className="text-sm font-semibold mb-2">Ratings</h4>
                       <div className="flex items-center gap-2 text-yellow-400">
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <button type="button" key={i} onClick={() => setMyRating(i + 1)} aria-label={`Rate ${i + 1} star`} className="hover:scale-105">
+                          <button
+                            type="button"
+                            key={i}
+                            onClick={() => setMyRating(i + 1)}
+                            aria-label={`Rate ${i + 1} star`}
+                            className="hover:scale-105"
+                          >
                             {i < myRating ? <AiFillStar /> : <AiOutlineStar />}
                           </button>
                         ))}
@@ -1094,23 +1099,69 @@ export default function SelectShop() {
                         className="w-full rounded bg-transparent border border-white/20 px-3 py-2 text-sm"
                         rows={3}
                       />
-                      {/* Add photos (desktop) */}
-                      <div className="flex items-center gap-3">
+
+                      {/* Combined Add photo and Submit buttons container */}
+                      <div className="flex justify-between items-center gap-2">
+                        {/* Add photo button on the left */}
                         <button
                           type="button"
                           onClick={pickImages}
                           disabled={myImages.length >= 5}
-                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm ${myImages.length >= 5 ? 'bg-white/5 text-gray-400 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'}`}
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm ${
+                            myImages.length >= 5 ? 'bg-white/5 text-gray-400 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'
+                          }`}
                         >
                           <AiOutlineCamera />
                           <span>{myImages.length >= 5 ? 'Max 5 photos' : 'Add photo'}</span>
                         </button>
+
+                        {/* Submit and Delete buttons on the right */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="submit"
+                            className="rounded-full bg-green-600 hover:bg-green-700 text-white px-3 py-1 text-sm"
+                          >
+                            Submit
+                          </button>
+                          {myRating > 0 && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!selectedStore) return;
+                                try {
+                                  await api.delete(`/reviews/store/${selectedStore._id}/me`);
+                                  const res = await api.get(`/reviews/store/${selectedStore._id}`);
+                                  setReviews(res.data.reviews || []);
+                                  clearAllImages();
+                                  setAvgRating(res.data.averageRating || 0);
+                                  setReviewCount(res.data.count || 0);
+                                  setMyRating(0);
+                                  setMyComment('');
+                                  setInitialRating(0);
+                                  setInitialComment('');
+                                } catch (err: unknown) {
+                                  if (isAxiosError(err)) setReviewsError(err.response?.data?.message ?? err.message);
+                                  else if (isError(err)) setReviewsError(err.message);
+                                  else setReviewsError('Failed to delete review');
+                                }
+                              }}
+                              className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm"
+                            >
+                              Delete my review
+                            </button>
+                          )}
+                        </div>
                       </div>
+
                       {myImages.length > 0 && (
-                        <div className="mt-2 grid grid-cols-5 gap-2">
+                        <div className="mt-2 grid grid-cols-3 md:grid-cols-5 gap-2">
                           {myImages.map((it, idx) => (
                             <div key={idx} className="relative group">
-                              <img src={it.preview} alt={`Selected ${idx + 1}`} className="h-20 w-full object-cover rounded border border-white/10" />
+                              <img
+                                src={it.preview}
+                                alt={`Selected ${idx + 1}`}
+                                className="h-20 w-full object-cover rounded border border-white/10"
+                              />
                               <button
                                 type="button"
                                 className="absolute -top-2 -right-2 p-0.5 rounded-full bg-black/70 text-red-400 hover:text-red-500"
@@ -1123,36 +1174,6 @@ export default function SelectShop() {
                           ))}
                         </div>
                       )}
-                      <div className="flex justify-end items-center gap-2">
-                        <button type="submit" className="rounded-full bg-green-600 hover:bg-green-700 text-white px-3 py-1 text-sm">Submit</button>
-                        {myRating > 0 && (
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              if (!selectedStore) return;
-                              try {
-                                await api.delete(`/reviews/store/${selectedStore._id}/me`);
-                                const res = await api.get(`/reviews/store/${selectedStore._id}`);
-                                setReviews(res.data.reviews || []);
-                                clearAllImages();
-                                setAvgRating(res.data.averageRating || 0);
-                                setReviewCount(res.data.count || 0);
-                                setMyRating(0);
-                                setMyComment('');
-                                setInitialRating(0);
-                                setInitialComment('');
-                              } catch (err: unknown) {
-                                if (isAxiosError(err)) setReviewsError(err.response?.data?.message ?? err.message);
-                                else if (isError(err)) setReviewsError(err.message);
-                                else setReviewsError('Failed to delete review');
-                              }
-                            }}
-                            className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm"
-                          >
-                            Delete my review
-                          </button>
-                        )}
-                      </div>
                     </form>
                   )}
                 </div>
