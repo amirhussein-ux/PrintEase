@@ -8,6 +8,7 @@ import ServiceManagement from "./pages/Dashboard/Owner/ServiceManagement";
 import PrivateRoute from "./components/PrivateRoute";
 import DashboardLayout from "./pages/Dashboard/shared_components/DashboardLayout";
 import Inventory from "./pages/Dashboard/Owner/Inventory";
+import Profile from "./pages/Dashboard/Customer/Profile";
 
 function App() {
   return (
@@ -17,6 +18,16 @@ function App() {
         <Route path="/login" element={<Authentication />} />
         <Route path="/signup" element={<Authentication />} />
         <Route path="/forgot-password" element={<Authentication />} />
+
+        {/* Profile Page */}
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <Profile />
+            </PrivateRoute>
+          }
+        />
 
         {/* Protected Owner dashboard */}
         <Route
@@ -37,6 +48,7 @@ function App() {
             </PrivateRoute>
           }
         />
+
         {/* Customer: My Orders */}
         <Route
           path="/dashboard/my-orders"
@@ -46,6 +58,7 @@ function App() {
             </PrivateRoute>
           }
         />
+
         {/* Select shop picker for customers/guests */}
         <Route
           path="/customer/select-shop"
@@ -55,7 +68,8 @@ function App() {
             </PrivateRoute>
           }
         />
-        {/* Protected Create Print Store page*/}
+
+        {/* Protected Create Print Store page */}
         <Route
           path="/owner/create-shop"
           element={
@@ -85,7 +99,7 @@ function App() {
           }
         />
 
-        {/*Inventory (Owner) */}
+        {/* Inventory (Owner) */}
         <Route
           path="/dashboard/inventory"
           element={
