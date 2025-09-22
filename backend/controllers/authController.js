@@ -1,5 +1,6 @@
 const User = require("../models/userModel");
 const jwt = require("jsonwebtoken");
+const mongoose = require('mongoose');
 
 // Generate JWT
 const generateToken = (id, role) => {
@@ -145,6 +146,84 @@ exports.generateGuestToken = (req, res) => {
       },
       token,
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// UPDATE PROFILE (name, address, phone, optional avatar)
+exports.updateProfile = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { firstName, lastName, address, phone } = req.body;
+
+    const updates = {};
+    if (typeof firstName === 'string') updates.firstName = firstName;
+    if (typeof lastName === 'string') updates.lastName = lastName;
+    if (typeof address === 'string') updates.address = address;
+    if (typeof phone === 'string') updates.phone = phone;
+
+  // If avatar uploaded, store to GridFS
+  if (req.file && req.file.buffer) {
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+      const uploadStream = bucket.openUploadStream(`${userId}-avatar`, { contentType: req.file.mimetype });
+      uploadStream.end(req.file.buffer);
+
+      await new Promise((resolve, reject) => {
+        uploadStream.on('finish', () => resolve());
+        uploadStream.on('error', reject);
+      });
+
+      // If existing avatar exists, it could be cleaned up later; keep simple for now.
+      updates.avatarFileId = uploadStream.id;
+      updates.avatarMime = req.file.mimetype;
+    }
+    // if client passes avatar as empty string, treat as delete avatar
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'avatar') && req.body.avatar === '') {
+      updates.avatarFileId = undefined;
+      updates.avatarMime = undefined;
+    }
+
+    const user = await User.findByIdAndUpdate(userId, updates, { new: true }).select('-password');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    res.json({
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        address: user.address || '',
+        phone: user.phone || '',
+        avatarFileId: user.avatarFileId || null,
+        avatarMime: user.avatarMime || null,
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET avatar by id
+exports.getAvatarById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: 'Invalid id' });
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+    const _id = new mongoose.Types.ObjectId(id);
+
+    // Optionally set content type header by looking up file metadata
+    try {
+      const files = await bucket.find({ _id }).toArray();
+      if (files && files[0] && files[0].contentType) {
+        res.setHeader('Content-Type', files[0].contentType);
+      }
+    } catch {}
+
+    bucket.openDownloadStream(_id).on('error', () => res.status(404).end()).pipe(res);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

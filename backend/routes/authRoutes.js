@@ -1,8 +1,10 @@
 const express = require("express");
-const { registerUser, loginUser, generateGuestToken } = require("../controllers/authController");
+const { registerUser, loginUser, generateGuestToken, updateProfile, getAvatarById } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 const bcrypt = require("bcryptjs");
 const User = require("../models/userModel");
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
@@ -16,6 +18,12 @@ router.post("/guest", generateGuestToken);
 router.get("/profile", protect, (req, res) => {
     res.json(req.user);
 });
+
+// Update profile (with optional avatar)
+router.put('/profile', protect, upload.single('avatar'), updateProfile);
+
+// Get avatar by id
+router.get('/avatar/:id', getAvatarById);
 
 // One-time owner creation route (remove after use)
 router.post("/create-owner", async (req, res) => {

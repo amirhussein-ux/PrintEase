@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef, ChangeEvent } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AiOutlineEdit, AiOutlineDelete, AiOutlineArrowLeft } from 'react-icons/ai';
 import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
 import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
 import { useAuth } from '../../../context/useAuth';
+import api from '../../../lib/api';
 
 export default function Profile() {
   const { user, updateUser   } = useAuth();
@@ -18,6 +20,7 @@ export default function Profile() {
   // Avatar image state
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarDeleted, setAvatarDeleted] = useState<boolean>(false);
 
   // Edit mode toggle
   const [isEditing, setIsEditing] = useState(false);
@@ -39,6 +42,7 @@ export default function Profile() {
       setPhone(user?.phone || '');
       setAvatarFile(null);
       setAvatarPreview(null);
+  setAvatarDeleted(false);
       setError(null);
       setSuccessMsg(null);
     }
@@ -79,6 +83,7 @@ export default function Profile() {
   const onDeleteAvatar = () => {
     setAvatarFile(null);
     setAvatarPreview(null);
+  setAvatarDeleted(true);
   };
 
   // Save profile changes
@@ -95,8 +100,8 @@ export default function Profile() {
       formData.append('phone', phone);
       if (avatarFile) {
         formData.append('avatar', avatarFile);
-      } else {
-        // If avatar deleted, send empty or special flag if your API supports it
+      } else if (avatarDeleted) {
+        // Only send deletion flag if explicitly deleted
         formData.append('avatar', '');
       }
 
@@ -119,9 +124,17 @@ export default function Profile() {
 
   // Compute initials fallback
   const initials = `${(firstName[0] || 'C').toUpperCase()}${(lastName[0] || 'C').toUpperCase()}`;
+  const currentAvatarUrl = user?.avatarFileId
+    ? `${api.defaults.baseURL}/auth/avatar/${user.avatarFileId}`
+    : null;
+
+  // Match dashboard gradients by role
+  const gradientClass = user?.role === 'owner'
+    ? 'bg-gradient-to-r from-[#0f172a] via-[#1e3a8a]/90 to-white'
+    : 'bg-gradient-to-r from-blue-900 via-indigo-900 to-black';
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-blue-900 via-indigo-900 to-black text-white">
+    <div className={`min-h-screen ${gradientClass} text-white`}>
       {/* header */}
       <header className="w-full bg-white">
         <div className="max-w-8xl mx-auto px-6 py-4 flex items-center gap-4 justify-center lg:justify-start">
@@ -137,7 +150,7 @@ export default function Profile() {
           {/* Stylish Back button */}
           <button
             type="button"
-            onClick={() => navigate('/dashboard/customer')}
+            onClick={() => navigate(user?.role === 'owner' ? '/dashboard/owner' : '/dashboard/customer')}
             className="
               absolute -top-12 left-0 flex items-center gap-2
               bg-indigo-700 bg-opacity-70 hover:bg-opacity-90
@@ -180,6 +193,8 @@ export default function Profile() {
                 >
                   {avatarPreview ? (
                     <img src={avatarPreview} alt="Profile avatar preview" className="h-full w-full rounded-full object-cover" />
+                  ) : currentAvatarUrl ? (
+                    <img src={currentAvatarUrl} alt="Profile avatar" className="h-full w-full rounded-full object-cover" />
                   ) : (
                     initials
                   )}
@@ -206,7 +221,7 @@ export default function Profile() {
               </div>
 
               {/* Delete avatar button */}
-              {isEditing && (avatarPreview || avatarFile) && (
+              {isEditing && (avatarPreview || avatarFile || user?.avatarFileId) && (
                 <button
                   type="button"
                   onClick={onDeleteAvatar}
@@ -244,12 +259,15 @@ export default function Profile() {
                     type="text"
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                      isEditing ? 'border-white/20' : 'border-transparent cursor-default'
+                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none ${
+                      isEditing
+                        ? 'focus:ring-1 focus:ring-indigo-500 border-gray-500'
+                        : 'border-gray-700 cursor-default pointer-events-none select-none caret-transparent'
                     }`}
                     placeholder="First Name"
                     autoComplete="given-name"
                     readOnly={!isEditing}
+                    tabIndex={isEditing ? 0 : -1}
                   />
                 </div>
 
@@ -263,12 +281,15 @@ export default function Profile() {
                     type="text"
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
-                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                      isEditing ? 'border-white/20' : 'border-transparent cursor-default'
+                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none ${
+                      isEditing
+                        ? 'focus:ring-1 focus:ring-indigo-500 border-gray-500'
+                        : 'border-gray-700 cursor-default pointer-events-none select-none caret-transparent'
                     }`}
                     placeholder="Last Name"
                     autoComplete="family-name"
                     readOnly={!isEditing}
+                    tabIndex={isEditing ? 0 : -1}
                   />
                 </div>
 
@@ -281,12 +302,15 @@ export default function Profile() {
                     id="address"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 resize-none ${
-                      isEditing ? 'border-white/20' : 'border-transparent cursor-default'
+                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none resize-none ${
+                      isEditing
+                        ? 'focus:ring-1 focus:ring-indigo-500 border-gray-500'
+                        : 'border-gray-700 cursor-default pointer-events-none select-none caret-transparent'
                     }`}
                     placeholder="Address"
                     rows={3}
                     readOnly={!isEditing}
+                    tabIndex={isEditing ? 0 : -1}
                   />
                 </div>
 
@@ -300,12 +324,15 @@ export default function Profile() {
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${
-                      isEditing ? 'border-white/20' : 'border-transparent cursor-default'
+                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none ${
+                      isEditing
+                        ? 'focus:ring-1 focus:ring-indigo-500 border-gray-500'
+                        : 'border-gray-700 cursor-default pointer-events-none select-none caret-transparent'
                     }`}
                     placeholder="Phone Number"
                     autoComplete="tel"
                     readOnly={!isEditing}
+                    tabIndex={isEditing ? 0 : -1}
                   />
                 </div>
 

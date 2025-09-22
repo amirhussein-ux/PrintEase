@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import api from "../lib/api";
 import { AuthContext } from "./authContextCore";
-import type { User } from "./authContextCore";
+import type { User, AuthContextType } from "./authContextCore";
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
@@ -90,8 +90,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return userData;
   };
 
+  const updateUser: AuthContextType["updateUser"] = async (data) => {
+    let form: FormData;
+    if (data instanceof FormData) {
+      form = data;
+    } else {
+      form = new FormData();
+      if (data.firstName !== undefined) form.append('firstName', data.firstName);
+      if (data.lastName !== undefined) form.append('lastName', data.lastName);
+      if (data.address !== undefined) form.append('address', data.address);
+      if (data.phone !== undefined) form.append('phone', data.phone);
+      if (data.avatar instanceof File) form.append('avatar', data.avatar);
+      else if (data.avatar === '') form.append('avatar', '');
+    }
+
+    const res = await api.put('/auth/profile', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    const updated: User = res.data.user;
+    if (!updated) throw new Error('Failed updating profile');
+    setUser(updated);
+    // persist in storage matching where token currently is
+    if (localStorage.getItem('user')) localStorage.setItem('user', JSON.stringify(updated));
+    if (sessionStorage.getItem('user')) sessionStorage.setItem('user', JSON.stringify(updated));
+    return updated;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, signup, logout, continueAsGuest }}>
+    <AuthContext.Provider value={{ user, token, loading, login, signup, logout, continueAsGuest, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

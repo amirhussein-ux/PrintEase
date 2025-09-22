@@ -27,6 +27,12 @@ const userSchema = new mongoose.Schema({
         enum: ["customer", "owner", "guest"],
         default: "customer",
     },
+    // Optional profile fields
+    address: { type: String },
+    phone: { type: String },
+    // Avatar stored in GridFS
+    avatarFileId: { type: mongoose.Schema.Types.ObjectId },
+    avatarMime: { type: String },
 }, { timestamps: true });
 
 // hash password before save

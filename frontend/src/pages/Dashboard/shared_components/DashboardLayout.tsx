@@ -76,15 +76,13 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children, cente
             </button>
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1">
-                {role === "customer" && (
-                  <Link
-                    to="/profile"
-                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setProfileOpen(false)}
-                  >
-                    Edit Profile
-                  </Link>
-                )}
+                <Link
+                  to="/profile"
+                  className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => setProfileOpen(false)}
+                >
+                  Edit Profile
+                </Link>
                 {role === "owner" && (
                   <Link
                     to="/owner/create-shop"

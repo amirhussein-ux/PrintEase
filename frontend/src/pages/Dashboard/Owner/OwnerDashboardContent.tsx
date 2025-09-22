@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useMemo } from "react"
 import api from "../../../lib/api"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
@@ -16,10 +16,10 @@ import "@/assets/fonts/Roboto-Regular-normal"
 interface InventoryItem {
   name: string; expectedStock: number; currentStock: number; productType: string
 }
+// (Order type is derived inline where needed to keep this file lean)
 
 // Constants
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020]
-const PRODUCTS = ["MUGS", "SHIRTS", "DOCUMENTS", "TARPAULIN"]
 const COLORS = ["#1e3a8a", "#d1d5db"]
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 const FULL_MONTHS: Record<string,string> = {
@@ -47,28 +47,71 @@ const StatCard = ({ value, label }: { value: string; label: string }) => {
   )
 }
 
-// Product selector
-const ProductButtons = ({ selected, set }: { selected: string; set: (p: string) => void }) => (
-  <div className="flex flex-row lg:flex-col gap-2 mt-4 lg:mt-0 lg:ml-4 justify-center">
-    {PRODUCTS.map(p => (
-      <button key={p} onClick={() => set(p)}
-        className={`rounded-lg py-2 text-sm font-bold uppercase transition ${
-          selected === p ? "bg-gray-600 text-white" : "bg-gray-300 text-gray-900 hover:bg-gray-400"
-        }`}>{p}</button>
+type ServiceLite = { _id: string; name: string; active?: boolean }
+
+// Product selector (reflects real services; scrollable on large screens)
+const ProductButtons = ({
+  services,
+  selected,
+  set,
+}: {
+  services: ServiceLite[]
+  selected: string
+  set: (id: string) => void
+}) => (
+  <div
+    className="flex flex-col gap-2 mt-4 lg:mt-0 lg:ml-4 
+               overflow-y-auto w-full lg:w-56 
+               max-h-60 lg:max-h-[300px] p-2 
+               bg-transparent"
+    aria-label="Product filter"
+    style={{ scrollbarGutter: "stable" }}
+  >
+    <button
+      key="ALL"
+      onClick={() => set("ALL")}
+      className={`shrink-0 rounded-lg px-3 py-2 text-sm font-bold uppercase transition w-full text-left truncate whitespace-nowrap ${
+        selected === "ALL"
+          ? "bg-gray-600 text-white"
+          : "bg-gray-300 text-gray-900 hover:bg-gray-400"
+      }`}
+    >
+      All
+    </button>
+    {services.map((svc) => (
+      <button
+        key={svc._id}
+        onClick={() => set(svc._id)}
+        className={`shrink-0 rounded-lg px-3 py-2 text-sm font-bold uppercase transition w-full text-left truncate whitespace-nowrap ${
+          selected === svc._id
+            ? "bg-gray-600 text-white"
+            : "bg-gray-300 text-gray-900 hover:bg-gray-400"
+        }`}
+        title={svc.name}
+      >
+        {svc.name}
+      </button>
     ))}
   </div>
 )
 
 // Year selector
 const YearSelector = ({ selected, set }: { selected: number; set: (y: number) => void }) => (
-  <div className="w-32 bg-blue-900 rounded-xl shadow-md p-3">
-    <h3 className="text-white text-sm font-bold text-center mb-2">Year</h3>
-    <div className="grid grid-cols-2 gap-2">
+  <div className="w-40 bg-blue-900 rounded-xl shadow-md p-3 h-full flex flex-col">
+    <h3 className="text-white text-sm font-bold text-center mb-3">Year</h3>
+    <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
       {YEARS.map(y => (
-        <button key={y} onClick={() => set(y)}
-          className={`rounded-lg py-2 text-sm transition ${
-            selected === y ? "bg-gray-600 text-white" : "bg-gray-400 hover:bg-gray-500"
-          }`}>{y}</button>
+        <button
+          key={y}
+          onClick={() => set(y)}
+          className={`w-full rounded-lg py-2 text-sm transition ${
+            selected === y
+              ? "bg-gray-600 text-white"
+              : "bg-gray-400 hover:bg-gray-500"
+          }`}
+        >
+          {y}
+        </button>
       ))}
     </div>
   </div>
@@ -121,7 +164,7 @@ const InventoryPie = ({ items, type }: { items: InventoryItem[]; type: string })
 // Main dashboard
 const OwnerDashboardContent: React.FC = () => {
   const [year, setYear] = useState(2025)
-  const [product, setProduct] = useState("MUGS")
+  const [selectedServiceId, setSelectedServiceId] = useState<string>('ALL')
   const [showModal, setShowModal] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const reportRef = useRef<HTMLDivElement>(null)
@@ -129,22 +172,45 @@ const OwnerDashboardContent: React.FC = () => {
   const [salesDay, setSalesDay] = useState(0)
   const [salesMonth, setSalesMonth] = useState(0)
   const [salesYear, setSalesYear] = useState(0)
+  const [orders, setOrders] = useState<Array<{
+    _id: string
+    status?: string
+    paymentStatus?: string
+    createdAt?: string
+    items?: Array<{ service?: string; serviceName?: string; totalPrice?: number }>
+    subtotal?: number
+  }>>([])
+  const [services, setServices] = useState<ServiceLite[]>([])
 
-  // Sales data by month
-  const salesData = MONTHS.map((m, i) => ({
-    month: m,
-    sales: product === "MUGS" ? 200 + (i * 30) % 150 :
-           product === "SHIRTS" ? 250 + (i * 25) % 180 :
-           product === "DOCUMENTS" ? 150 + (i * 20) % 120 :
-           300 + (i * 35) % 200
-  }))
+  // Compute monthly sales for the selected service/year based on backend orders
+  const salesData = useMemo(() => {
+    const sums = new Array(12).fill(0)
+    for (const o of orders) {
+      const paid = o.paymentStatus === "paid" || o.status === "completed"
+      if (!paid) continue
+      const dt = o.createdAt ? new Date(o.createdAt) : null
+      if (!dt || dt.getFullYear() !== year) continue
+      const monthIdx = dt.getMonth()
+      const lineItems = Array.isArray(o.items) ? o.items : []
+      let add = 0
+      for (const it of lineItems) {
+        if (selectedServiceId === 'ALL' || (it.service && String(it.service) === String(selectedServiceId))) {
+          add += Number(it.totalPrice) || 0
+        }
+      }
+      // If no line items (legacy orders), attribute only when viewing ALL
+      if (add === 0 && lineItems.length === 0 && selectedServiceId === 'ALL') add = Number(o.subtotal) || 0
+      sums[monthIdx] += add
+    }
+    return MONTHS.map((m, i) => ({ month: m, sales: Math.round(sums[i]) }))
+  }, [orders, selectedServiceId, year])
 
   // Group inventory
   const grouped = INVENTORY.reduce((acc, i) => {
     (acc[i.productType] ||= []).push(i); return acc
   }, {} as Record<string, InventoryItem[]>)
 
-  // Load sales totals for day/month/year
+  // Load sales totals for day/month/year and services
   useEffect(() => {
     let cancelled = false
     async function loadSales() {
@@ -153,7 +219,16 @@ const OwnerDashboardContent: React.FC = () => {
         const sid: string | undefined = storeRes.data?._id
         if (!sid) return
         const ordRes = await api.get(`/orders/store/${sid}`)
-        const orders: Array<{ subtotal?: number; createdAt?: string; status?: string; paymentStatus?: string }> = Array.isArray(ordRes.data) ? ordRes.data : []
+        const ordersResp: Array<{ _id: string; subtotal?: number; createdAt?: string; status?: string; paymentStatus?: string; items?: Array<{ service?: string; serviceName?: string; totalPrice?: number }> }> = Array.isArray(ordRes.data) ? ordRes.data : []
+        // fetch services for owner store
+        const svcRes = await api.get('/services/mine')
+        const svcList: ServiceLite[] = Array.isArray(svcRes.data)
+          ? (svcRes.data as Array<{ _id: unknown; name: unknown; active?: unknown }>).map((s) => ({
+              _id: String(s._id as string),
+              name: String(s.name as string),
+              active: Boolean(s.active),
+            }))
+          : []
 
         const now = new Date()
         const startDay = new Date(now); startDay.setHours(0,0,0,0)
@@ -161,7 +236,7 @@ const OwnerDashboardContent: React.FC = () => {
         const startYear = new Date(now.getFullYear(), 0, 1)
 
         let d = 0, m = 0, y = 0
-        for (const o of orders) {
+        for (const o of ordersResp) {
           const amt = Number(o.subtotal) || 0
           if (amt <= 0) continue
           const paid = o.paymentStatus === 'paid' || o.status === 'completed'
@@ -176,6 +251,27 @@ const OwnerDashboardContent: React.FC = () => {
           setSalesDay(d)
           setSalesMonth(m)
           setSalesYear(y)
+          setOrders(
+            ordersResp.map((o) => ({
+              _id: o._id,
+              status: o.status,
+              paymentStatus: o.paymentStatus,
+              createdAt: o.createdAt,
+              items: Array.isArray(o.items)
+                ? o.items.map((it: { service?: unknown; serviceName?: string; totalPrice?: number }) => ({
+                    service: it.service ? String(it.service) : undefined,
+                    serviceName: it.serviceName,
+                    totalPrice: it.totalPrice,
+                  }))
+                 : [],
+              subtotal: o.subtotal,
+            }))
+          )
+          setServices(svcList)
+          // ensure selected service remains valid
+          if (selectedServiceId !== 'ALL' && !svcList.find((s) => s._id === selectedServiceId)) {
+            setSelectedServiceId('ALL')
+          }
         }
       } catch {
         // ignore
@@ -183,6 +279,8 @@ const OwnerDashboardContent: React.FC = () => {
     }
     loadSales()
     return () => { cancelled = true }
+    // selectedServiceId intentionally read only for validity reset; do not refetch on change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Download PDF
@@ -206,8 +304,9 @@ const OwnerDashboardContent: React.FC = () => {
       
       pdf.setFont("Roboto-Regular","normal").setFontSize(14)
         .text(`[SHOP NAME]`, pdfW/2,40,{ align:"center" })
+      const svcName = selectedServiceId === 'ALL' ? 'All Services' : (services.find((s) => s._id === selectedServiceId)?.name || 'Service')
       pdf.setFont("Roboto-Regular","normal").setFontSize(18)
-        .text(`Annual Sales Report - ${product}`, pdfW/2,50,{ align:"center" })
+        .text(`Annual Sales Report - ${svcName}`, pdfW/2,50,{ align:"center" })
       pdf.setFont("Roboto-Regular","normal").setFontSize(12)
         .text(`Year: ${year}`, pdfW/2,58,{ align:"center" })
 
@@ -235,7 +334,7 @@ const OwnerDashboardContent: React.FC = () => {
         headStyles:{ fillColor:[30,58,138] }
       })
 
-      pdf.save(`Annual_Sales_Report_${year}_${product}.pdf`)
+      pdf.save(`Annual_Sales_Report_${year}_${svcName.replace(/\s+/g,'_')}.pdf`)
     } catch(e) {
       console.error("PDF failed:", e)
     } finally {
@@ -244,10 +343,7 @@ const OwnerDashboardContent: React.FC = () => {
   }
 
   return (
-    <div
-      className="transition-all duration-300 font-crimson p-20 origin-top-left"
-      style={{ transform: "scale(0.8)", width: `${100 / 0.8}%` }}
-    >
+    <div className="transition-all duration-300 font-crimson p-6 sm:p-8">
       <div className="w-full max-w-7xl mx-auto space-y-6">
         {/* Stats */}
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -259,11 +355,13 @@ const OwnerDashboardContent: React.FC = () => {
         </div>
 
         {/* Sales */}
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="flex-1 bg-white/90 rounded-xl shadow-md p-4 flex flex-col lg:flex-row">
+        <div className="flex flex-col lg:flex-row gap-4">
+          <div className="flex-1 bg-white/90 rounded-xl shadow-md p-6 flex flex-col lg:flex-row">
             <div className="flex-1 cursor-pointer" onClick={() => setShowModal(true)}>
-              <h2 className="text-base font-bold mb-4">Product Sales</h2>
-              <ResponsiveContainer width="100%" height={220}>
+              <h2 className="text-lg font-bold mb-4">
+                Product Sales {selectedServiceId !== 'ALL' ? `- ${services.find((s) => s._id === selectedServiceId)?.name || ''}` : '(All Services)'}
+              </h2>
+              <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={salesData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" /><YAxis allowDecimals={false} />
@@ -272,7 +370,7 @@ const OwnerDashboardContent: React.FC = () => {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <ProductButtons selected={product} set={setProduct} />
+            <ProductButtons services={services} selected={selectedServiceId} set={setSelectedServiceId} />
           </div>
           <div className="flex justify-center lg:justify-start items-center mt-4 lg:mt-0">
             <YearSelector selected={year} set={setYear} />
@@ -280,7 +378,7 @@ const OwnerDashboardContent: React.FC = () => {
         </div>
 
         {/* Inventory */}
-        <div className="bg-white/90 rounded-xl shadow-md p-4 space-y-6">
+  <div className="bg-white/90 rounded-xl shadow-md p-6 space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
             <h2 className="text-base font-bold text-gray-800">Inventory Overview</h2>
             <div className="flex gap-4">
@@ -303,10 +401,7 @@ const OwnerDashboardContent: React.FC = () => {
               <h2 className="text-xl font-bold">PrintEase</h2>
               <p className="text-sm">Annual Sales Performance Analysis Report ({year})</p>
             </div>
-            <div
-              ref={reportRef}
-              className={`w-full h-[300px] ${downloading ? "pointer-events-none" : ""}`}
-            >
+            <div ref={reportRef} className={`w-full h-[320px] ${downloading ? "pointer-events-none" : ""}`}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={salesData}>
                   <CartesianGrid strokeDasharray="3 3" />

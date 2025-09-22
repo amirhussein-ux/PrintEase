@@ -7,6 +7,9 @@ export interface User {
   lastName?: string;
   email?: string | null;
   role: "owner" | "customer" | "guest";
+  address?: string;
+  phone?: string;
+  avatarFileId?: string | null;
 }
 
 export interface AuthContextType {
@@ -17,6 +20,7 @@ export interface AuthContextType {
   signup: (data: { firstName: string; lastName: string; email: string; password: string; confirmPassword: string; role: string }) => Promise<User>;
   logout: () => void;
   continueAsGuest: () => Promise<User>;
+  updateUser: (data: FormData | { firstName?: string; lastName?: string; address?: string; phone?: string; avatar?: File | string | null }) => Promise<User>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
