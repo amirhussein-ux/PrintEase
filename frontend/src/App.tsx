@@ -6,9 +6,8 @@ import TrackOrders from "./pages/Dashboard/Customer/TrackOrders";
 import SelectShop from "./pages/Dashboard/Customer/SelectShop";
 import ServiceManagement from "./pages/Dashboard/Owner/ServiceManagement";
 import PrivateRoute from "./components/PrivateRoute";
-import DashboardLayout from "./pages/Dashboard/shared_components/DashboardLayout";
 import Inventory from "./pages/Dashboard/Owner/Inventory";
-import Profile from "./pages/Dashboard/Customer/Profile";
+import Profile from "./pages/Dashboard/shared_components/Profile";
 
 function App() {
   return (
@@ -104,12 +103,12 @@ function App() {
           path="/dashboard/inventory"
           element={
             <PrivateRoute>
-              <DashboardLayout role="owner">
-                <Inventory />
-              </DashboardLayout>
+              <Inventory />
             </PrivateRoute>
           }
         />
+
+
       </Routes>
     </Router>
   );

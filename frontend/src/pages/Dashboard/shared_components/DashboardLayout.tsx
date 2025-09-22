@@ -38,7 +38,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children, cente
   return (
     <div className="min-h-screen relative flex flex-col">
       {/* Header */}
-  <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 fixed top-0 left-0 right-0 z-20">
+      <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 fixed top-0 left-0 right-0 z-20">
         <div className="flex items-center">
           {/* Sidebar toggle button */}
           <button
@@ -76,14 +76,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children, cente
             </button>
             {profileOpen && (
               <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1">
-                <Link
-                  to="/profile"
-                  className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => setProfileOpen(false)}
-                >
-                  Edit Profile
-                </Link>
-                {role === 'owner' && (
+                {role === "customer" && (
+                  <Link
+                    to="/profile"
+                    className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    Edit Profile
+                  </Link>
+                )}
+                {role === "owner" && (
                   <Link
                     to="/owner/create-shop"
                     className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
@@ -112,8 +114,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children, cente
         </div>
       </header>
 
-  {/* Background gradient (role-based) */}
-  <div className={`absolute inset-0 top-16 ${gradientClass}`} />
+      {/* Background gradient (role-based) */}
+      <div className={`absolute inset-0 top-16 ${gradientClass}`} />
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-col lg:fixed lg:top-1/2 lg:-translate-y-1/2 lg:left-0 lg:w-64 lg:z-30">
