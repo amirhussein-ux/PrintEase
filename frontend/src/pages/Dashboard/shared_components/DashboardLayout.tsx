@@ -25,14 +25,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children, cente
       : 'bg-gradient-to-r from-blue-900 via-indigo-900 to-black';
 
   if (!user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-blue-900 border-t-transparent border-solid rounded-full animate-spin mb-4"></div>
-          <p className="text-xl">Loading dashboard...</p>
-        </div>
-      </div>
-    );
+    // Avoid showing a loading page/spinner; render nothing while auth state resolves
+    return null;
   }
 
   return (

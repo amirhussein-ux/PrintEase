@@ -172,6 +172,10 @@ const OwnerDashboardContent: React.FC = () => {
   const [salesDay, setSalesDay] = useState(0)
   const [salesMonth, setSalesMonth] = useState(0)
   const [salesYear, setSalesYear] = useState(0)
+  const [loading, setLoading] = useState(true)
+  // UI transition helpers for smoother skeleton -> content
+  const [showSkeleton, setShowSkeleton] = useState(true)
+  const [contentReady, setContentReady] = useState(false)
   const [orders, setOrders] = useState<Array<{
     _id: string
     status?: string
@@ -215,6 +219,7 @@ const OwnerDashboardContent: React.FC = () => {
     let cancelled = false
     async function loadSales() {
       try {
+        if (!cancelled) setLoading(true)
         const storeRes = await api.get('/print-store/mine')
         const sid: string | undefined = storeRes.data?._id
         if (!sid) return
@@ -275,6 +280,8 @@ const OwnerDashboardContent: React.FC = () => {
         }
       } catch {
         // ignore
+      } finally {
+        if (!cancelled) setLoading(false)
       }
     }
     loadSales()
@@ -282,6 +289,18 @@ const OwnerDashboardContent: React.FC = () => {
     // selectedServiceId intentionally read only for validity reset; do not refetch on change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Crossfade skeleton -> content when loading completes
+  useEffect(() => {
+    if (loading) {
+      setContentReady(false)
+      setShowSkeleton(true)
+    } else {
+      setContentReady(true)
+      const t = setTimeout(() => setShowSkeleton(false), 250)
+      return () => clearTimeout(t)
+    }
+  }, [loading])
 
   // Download PDF
   const handleDownloadPDF = async () => {
@@ -345,36 +364,107 @@ const OwnerDashboardContent: React.FC = () => {
   return (
     <div className="transition-all duration-300 font-crimson p-6 sm:p-8">
       <div className="w-full max-w-7xl mx-auto space-y-6">
-        {/* Stats */}
-        <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {[
-            { label: 'Current Sales for this DAY', value: peso(salesDay) },
-            { label: 'Current Sales for this MONTH', value: peso(salesMonth) },
-            { label: 'Current Sales for this YEAR', value: peso(salesYear) },
-          ].map((s) => <StatCard key={s.label} {...s} />)}
-        </div>
-
-        {/* Sales */}
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 bg-white/90 rounded-xl shadow-md p-6 flex flex-col lg:flex-row">
-            <div className="flex-1 cursor-pointer" onClick={() => setShowModal(true)}>
-              <h2 className="text-lg font-bold mb-4">
-                Product Sales {selectedServiceId !== 'ALL' ? `- ${services.find((s) => s._id === selectedServiceId)?.name || ''}` : '(All Services)'}
-              </h2>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={salesData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" /><YAxis allowDecimals={false} />
-                  <Tooltip formatter={(v: number) => ["₱"+v,"Sales"]} />
-                  <Bar dataKey="sales" fill="#1e3a8a" radius={[6,6,0,0]} />
-                </BarChart>
-              </ResponsiveContainer>
+        {/* Overlayed skeleton + content wrapper to prevent layout shift */}
+        <div className="relative">
+          {/* Content block (kept in flow) */}
+          <div className={`space-y-6 transition-opacity duration-300 ${contentReady ? 'opacity-100' : 'opacity-0'}`}>
+            {/* Stats */}
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {[
+                { label: 'Current Sales for this DAY', value: peso(salesDay) },
+                { label: 'Current Sales for this MONTH', value: peso(salesMonth) },
+                { label: 'Current Sales for this YEAR', value: peso(salesYear) },
+              ].map((s) => <StatCard key={s.label} {...s} />)}
             </div>
-            <ProductButtons services={services} selected={selectedServiceId} set={setSelectedServiceId} />
+
+            {/* Sales */}
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1 bg-white/90 rounded-xl shadow-md p-6 flex flex-col lg:flex-row">
+                <div className="flex-1 cursor-pointer" onClick={() => setShowModal(true)}>
+                  <h2 className="text-lg font-bold mb-4">
+                    Product Sales {selectedServiceId !== 'ALL' ? `- ${services.find((s) => s._id === selectedServiceId)?.name || ''}` : '(All Services)'}
+                  </h2>
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={salesData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" /><YAxis allowDecimals={false} />
+                      <Tooltip formatter={(v: number) => ["₱"+v,"Sales"]} />
+                      <Bar dataKey="sales" fill="#1e3a8a" radius={[6,6,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <ProductButtons services={services} selected={selectedServiceId} set={setSelectedServiceId} />
+              </div>
+              <div className="flex justify-center lg:justify-start items-center mt-4 lg:mt-0">
+                <YearSelector selected={year} set={setYear} />
+              </div>
+            </div>
           </div>
-          <div className="flex justify-center lg:justify-start items-center mt-4 lg:mt-0">
-            <YearSelector selected={year} set={setYear} />
-          </div>
+
+          {/* Skeleton overlay (not in flow) */}
+          {showSkeleton && (
+            <div aria-busy="true" className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${contentReady ? 'opacity-0' : 'opacity-100'}`}>
+              <div className="space-y-6">
+                {/* Stats skeleton */}
+                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3 animate-pulse">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="bg-white/90 rounded-xl shadow-md p-4">
+                      <div className="h-6 w-24 bg-gray-300 rounded mb-2" />
+                      <div className="h-3 w-32 bg-gray-200 rounded" />
+                    </div>
+                  ))}
+                </div>
+                {/* Sales skeleton */}
+                <div className="flex flex-col lg:flex-row gap-4 animate-pulse">
+                  <div className="flex-1 bg-white/90 rounded-xl shadow-md p-6 flex flex-col lg:flex-row">
+                    <div className="flex-1">
+                      <div className="h-6 w-64 bg-gray-300 rounded mb-4" />
+                      <div className="h-[280px] w-full rounded bg-gray-200" />
+                    </div>
+                    <div className="flex flex-col gap-2 mt-4 lg:mt-0 lg:ml-4 w-full lg:w-56">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="h-10 w-full rounded bg-gray-200" />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex justify-center lg:justify-start items-center mt-4 lg:mt-0">
+                    <div className="w-40 h-full self-stretch rounded-xl bg-white/90 shadow-md p-3 flex flex-col">
+                      <div className="h-4 w-16 bg-gray-300 rounded mb-3" />
+                      <div className="flex flex-col gap-2 flex-1 overflow-hidden">
+                        {Array.from({ length: 6 }).map((_, i) => (
+                          <div key={i} className="h-8 w-full rounded bg-gray-200" />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {/* Inventory skeleton */}
+                <div className="bg-white/90 rounded-xl shadow-md p-6 space-y-6 mt-6">
+                  <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
+                    <div className="h-5 w-48 bg-gray-300 rounded" />
+                    <div className="flex gap-4">
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 bg-gray-300 rounded" />
+                        <div className="h-3 w-20 bg-gray-200 rounded" />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 bg-gray-300 rounded" />
+                        <div className="h-3 w-28 bg-gray-200 rounded" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="bg-white/90 rounded-xl shadow-inner p-4 flex flex-col items-center">
+                        <div className="h-5 w-24 bg-gray-300 rounded mb-3" />
+                        <div className="w-40 h-40 bg-gray-200 rounded-full" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Inventory */}

@@ -10,11 +10,8 @@ const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
-        <div className="w-12 h-12 border-4 border-blue-900 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+  // While auth is initializing, render nothing to avoid showing a loading page/spinner
+  return null;
   }
 
   if (!user) return <Navigate to="/login" replace />;

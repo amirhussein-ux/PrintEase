@@ -120,6 +120,9 @@ export default function ServiceManagement() {
   const [sortKey, setSortKey] = useState<"name" | "createdAt">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(false);
+  // UI transition helpers
+  const [showSkeleton, setShowSkeleton] = useState(true);
+  const [contentReady, setContentReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -143,6 +146,18 @@ export default function ServiceManagement() {
       cancelled = true;
     };
   }, []);
+
+  // Crossfade skeleton -> content
+  useEffect(() => {
+    if (loading) {
+      setContentReady(false);
+      setShowSkeleton(true);
+    } else {
+      setContentReady(true);
+      const t = setTimeout(() => setShowSkeleton(false), 250);
+      return () => clearTimeout(t);
+    }
+  }, [loading]);
 
   const filtered = useMemo(() => {
     const base = services.filter((s) => {
@@ -284,7 +299,7 @@ export default function ServiceManagement() {
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-semibold text-white">Filters</div>
                   <button
-                    className="text-xs text-gray-300 hover:text-white"
+                    className="text-xs px-3 py-1 rounded border border-white/10 text-gray-200 hover:bg-white/10"
                     onClick={() => setShowFilters(false)}
                   >
                     Close
@@ -376,12 +391,6 @@ export default function ServiceManagement() {
                     >
                       Clear
                     </button>
-                    <button
-                      className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-500"
-                      onClick={() => setShowFilters(false)}
-                    >
-                      Apply
-                    </button>
                   </div>
                 </div>
               </div>
@@ -393,11 +402,34 @@ export default function ServiceManagement() {
         {error && (
           <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-200 px-3 py-2 text-sm">{error}</div>
         )}
-        {loading && (
-          <div className="mb-3 text-sm text-gray-300">Loading services…</div>
+        {showSkeleton && (
+          <div aria-busy="true" className={`grid grid-cols-1 gap-4 mb-4 transition-opacity duration-300 ${contentReady ? 'opacity-0' : 'opacity-100'}`}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 p-4 animate-pulse flex items-center gap-4">
+                <div className="shrink-0 h-24 w-24 rounded-md bg-white/10" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-40 rounded bg-white/10" />
+                    <div className="h-4 w-16 rounded-full bg-white/10" />
+                  </div>
+                  <div className="mt-2 h-4 w-64 rounded bg-white/10" />
+                  <div className="mt-3 flex gap-3">
+                    <div className="h-3 w-32 rounded bg-white/10" />
+                    <div className="h-3 w-28 rounded bg-white/10" />
+                  </div>
+                  <div className="mt-2 h-3 w-48 rounded bg-white/10" />
+                </div>
+                <div className="flex flex-col gap-2 self-start w-28">
+                  <div className="h-9 w-full rounded-lg bg-white/10" />
+                  <div className="h-9 w-full rounded-lg bg-white/10" />
+                  <div className="h-9 w-full rounded-lg bg-white/10" />
+                </div>
+              </div>
+            ))}
+          </div>
         )}
-        <div className="grid grid-cols-1 gap-4">
-          {filtered.length === 0 && (
+  <div className={`grid grid-cols-1 gap-4 transition-all duration-300 ${contentReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
+          {!loading && filtered.length === 0 && (
             <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-300">No services found.</div>
           )}
           {filtered.map((s) => (

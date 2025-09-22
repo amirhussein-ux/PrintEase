@@ -90,6 +90,9 @@ export default function OrderManagement() {
 	const [storeId, setStoreId] = useState<string | null>(null);
 	const [orders, setOrders] = useState<Order[]>([]);
 	const [loading, setLoading] = useState(true);
+	// UI transition helpers
+	const [showSkeleton, setShowSkeleton] = useState(true);
+	const [contentReady, setContentReady] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [activeTab, setActiveTab] = useState<Exclude<OrderStatus, 'cancelled'>>('pending');
 	const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -133,6 +136,18 @@ export default function OrderManagement() {
 			cancelled = true;
 		};
 	}, []);
+
+	// Crossfade skeleton -> content
+	useEffect(() => {
+		if (loading) {
+			setContentReady(false);
+			setShowSkeleton(true);
+		} else {
+			setContentReady(true);
+			const t = setTimeout(() => setShowSkeleton(false), 250);
+			return () => clearTimeout(t);
+		}
+	}, [loading]);
 
 	const counts = useMemo(() => {
 		const map: Record<string, number> = {};
@@ -241,15 +256,45 @@ export default function OrderManagement() {
 				</div>
 
 				{/* Loading/Error */}
-				{loading && (
-					<div className="mb-3 text-sm text-gray-300">Loading orders…</div>
+				{showSkeleton && (
+					<div
+						aria-busy="true"
+						className={`grid grid-cols-1 gap-4 mb-4 transition-opacity duration-300 ${contentReady ? 'opacity-0' : 'opacity-100'}`}
+					>
+						{Array.from({ length: 6 }).map((_, i) => (
+							<div key={i} className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 p-4 animate-pulse">
+								<div className="flex flex-col sm:flex-row sm:items-start gap-3">
+									{/* Left skeleton section */}
+									<div className="flex-1 min-w-0">
+										<div className="flex items-center gap-2">
+											<div className="h-4 w-16 rounded bg-white/10" />
+											<div className="h-4 w-24 rounded-full bg-white/10" />
+										</div>
+										<div className="mt-1 h-3 w-40 rounded bg-white/10" />
+										<div className="mt-3 space-y-2">
+											<div className="h-4 w-48 rounded bg-white/10" />
+											<div className="h-3 w-32 rounded bg-white/10" />
+											<div className="h-3 w-56 rounded bg-white/10" />
+										</div>
+									</div>
+
+									{/* Right skeleton actions */}
+									<div className="sm:text-right w-40 shrink-0">
+										<div className="ml-auto h-5 w-24 rounded bg-white/10" />
+										<div className="mt-1 h-3 w-12 rounded bg-white/10 ml-auto" />
+										<div className="mt-3 h-8 w-28 rounded-lg bg-white/10 ml-auto" />
+									</div>
+								</div>
+							</div>
+						))}
+					</div>
 				)}
 				{error && (
 					<div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-200 px-3 py-2 text-sm">{error}</div>
 				)}
 
 				{/* Orders list */}
-				<div className="grid grid-cols-1 gap-4">
+				<div className={`grid grid-cols-1 gap-4 transition-all duration-300 ${contentReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
 					{!loading && filtered.length === 0 && (
 						<div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-300">No orders in this status.</div>
 					)}
