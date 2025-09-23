@@ -1,39 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AiOutlineEdit, AiOutlineDelete, AiOutlineArrowLeft } from 'react-icons/ai';
 import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
 import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
-import { useAuth } from '../../../context/useAuth';
+import { useAuth } from "../../../context/AuthContext";
 import api from '../../../lib/api';
 
 export default function Profile() {
-  const { user, updateUser   } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backPath = location.state?.from || (user?.role === 'owner' ? '/dashboard/owner' : '/dashboard/customer');
 
-  // Editable fields
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
   const [address, setAddress] = useState(user?.address || '');
   const [phone, setPhone] = useState(user?.phone || '');
-
-  // Avatar image state
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarDeleted, setAvatarDeleted] = useState<boolean>(false);
-
-  // Edit mode toggle
   const [isEditing, setIsEditing] = useState(false);
-
-  // Save/Delete state
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  // File input ref for avatar upload
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Reset form when user changes or edit mode toggled off
+  // Reset form on user change or cancel
   useEffect(() => {
     if (!isEditing) {
       setFirstName(user?.firstName || '');
@@ -48,36 +41,24 @@ export default function Profile() {
     }
   }, [user, isEditing]);
 
-  // Create preview URL when avatarFile changes
+  // Avatar preview
   useEffect(() => {
-    if (!avatarFile) {
-      setAvatarPreview(null);
-      return;
-    }
+    if (!avatarFile) return setAvatarPreview(null);
     const url = URL.createObjectURL(avatarFile);
     setAvatarPreview(url);
-    return () => {
-      URL.revokeObjectURL(url);
-    };
+    return () => URL.revokeObjectURL(url);
   }, [avatarFile]);
 
-  // Handle avatar icon click (open file picker)
-  const onAvatarClick = () => {
-    if (!isEditing) return;
-    fileInputRef.current?.click();
-  };
-
-  // Handle avatar file selection
+  const initials = `${(firstName[0] || 'C').toUpperCase()}${(lastName[0] || 'C').toUpperCase()}`;
+  const onAvatarClick = () => isEditing && fileInputRef.current?.click();
   const onAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file.');
-      return;
-    }
-    setAvatarFile(file);
-    setError(null);
+    if (!file.type.startsWith('image/')) return setError('Please select a valid image file.');
+    setAvatarFile(file); setError(null);
   };
+  const handleCancel = () => setIsEditing(false);
+
 
   // Delete avatar (reset to initials)
   const onDeleteAvatar = () => {
@@ -88,11 +69,9 @@ export default function Profile() {
 
   // Save profile changes
   const handleSave = async () => {
-    setError(null);
-    setSuccessMsg(null);
-    setSaving(true);
+    if (!updateUser) return;
+    setError(null); setSuccessMsg(null); setSaving(true);
     try {
-      // Prepare form data if avatarFile exists
       const formData = new FormData();
       formData.append('firstName', firstName);
       formData.append('lastName', lastName);
@@ -112,21 +91,15 @@ export default function Profile() {
       setIsEditing(false);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to update profile.');
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
-  // Cancel editing
-  const handleCancel = () => {
-    setIsEditing(false);
-  };
-
-  // Compute initials fallback
-  const initials = `${(firstName[0] || 'C').toUpperCase()}${(lastName[0] || 'C').toUpperCase()}`;
-  const currentAvatarUrl = user?.avatarFileId
-    ? `${api.defaults.baseURL}/auth/avatar/${user.avatarFileId}`
-    : null;
+  const fields = [
+    { id: 'firstName', label: 'First Name', value: firstName, setValue: setFirstName },
+    { id: 'lastName', label: 'Last Name', value: lastName, setValue: setLastName },
+    { id: 'phone', label: 'Phone Number', value: phone, setValue: setPhone, type: 'tel' },
+  ];
+  const currentAvatarUrl = user?.avatarUrl || null;
 
   // Match dashboard gradients by role
   const gradientClass = user?.role === 'owner'
@@ -135,52 +108,29 @@ export default function Profile() {
 
   return (
     <div className={`min-h-screen ${gradientClass} text-white`}>
-      {/* header */}
-      <header className="w-full bg-white">
-        <div className="max-w-8xl mx-auto px-6 py-4 flex items-center gap-4 justify-center lg:justify-start">
-          <Link to="/" aria-label="Go to landing page">
-            <img alt="PrintEase" src={PrintEaseLogoMobile} className="block lg:hidden h-10 w-auto" />
-            <img alt="PrintEase" src={PrintEaseLogo} className="hidden lg:block h-10 w-auto" />
-          </Link>
-        </div>
+      <header className="w-full bg-white px-6 py-4 flex items-center gap-4 justify-center lg:justify-start">
+        <Link to="/" aria-label="Go to landing page">
+          <img alt="PrintEase" src={PrintEaseLogoMobile} className="block lg:hidden h-10 w-auto" />
+          <img alt="PrintEase" src={PrintEaseLogo} className="hidden lg:block h-10 w-auto" />
+        </Link>
       </header>
 
       <main className="px-6 py-16 lg:px-10">
         <div className="max-w-3xl mx-auto mt-20 relative">
-          {/* Stylish Back button */}
-          <button
-            type="button"
-            onClick={() => navigate(user?.role === 'owner' ? '/dashboard/owner' : '/dashboard/customer')}
-            className="
-              absolute -top-12 left-0 flex items-center gap-2
-              bg-indigo-700 bg-opacity-70 hover:bg-opacity-90
-              text-white font-semibold text-sm
-              rounded-full px-4 py-2
-              shadow-md
-              transition duration-200 ease-in-out
-              focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1
-              select-none
-            "
-            aria-label="Go back to dashboard"
-          >
-            <AiOutlineArrowLeft size={20} />
-            Back
+          <button type="button" onClick={() => navigate(user?.role === 'owner' ? '/dashboard/owner' : backPath)}
+            className="absolute -top-12 left-0 flex items-center gap-2 bg-indigo-700 bg-opacity-70 hover:bg-opacity-90 text-white font-semibold text-sm rounded-full px-4 py-2 shadow-md">
+            <AiOutlineArrowLeft size={20} /> Back
           </button>
 
           <div className="border-2 border-white/90 rounded-lg p-6 bg-black">
-            <h1
-              className="text-xl lg:text-2xl uppercase tracking-wider font-medium mb-6"
-              style={{ fontFamily: "'Open Sans', sans-serif" }}
-            >
+            <h1 className="text-xl lg:text-2xl uppercase tracking-wider font-medium mb-6" style={{ fontFamily: "'Open Sans', sans-serif" }}>
               My Profile
             </h1>
 
             <div className="flex flex-col items-center gap-6">
-              {/* Avatar with edit overlay */}
+              {/* Avatar */}
               <div className="relative">
-                <div
-                  onClick={onAvatarClick}
-                  className={`h-24 w-24 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex items-center justify-center text-4xl font-bold text-white select-none cursor-${isEditing ? 'pointer' : 'default'}`}
+                <div onClick={onAvatarClick} className={`h-24 w-24 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex items-center justify-center text-4xl font-bold text-white select-none cursor-${isEditing ? 'pointer' : 'default'}`}
                   aria-label="Profile avatar"
                   role={isEditing ? 'button' : undefined}
                   tabIndex={isEditing ? 0 : undefined}
@@ -199,99 +149,29 @@ export default function Profile() {
                     initials
                   )}
                 </div>
-
-                {/* Pencil icon overlay in edit mode */}
-                {isEditing && (
-                  <div
-                    onClick={onAvatarClick}
-                    className="absolute bottom-0 right-0 bg-indigo-600 rounded-full p-1 cursor-pointer"
-                    title="Change avatar"
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onAvatarClick();
-                      }
-                    }}
-                  >
-                    <AiOutlineEdit className="text-white" size={18} />
-                  </div>
-                )}
+                {isEditing && <div onClick={onAvatarClick} className="absolute bottom-0 right-0 bg-indigo-600 rounded-full p-1 cursor-pointer" title="Change avatar"><AiOutlineEdit className="text-white" size={18} /></div>}
               </div>
 
-              {/* Delete avatar button */}
-              {isEditing && (avatarPreview || avatarFile || user?.avatarFileId) && (
-                <button
-                  type="button"
-                  onClick={onDeleteAvatar}
-                  className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm"
-                >
-                  <AiOutlineDelete />
-                  Delete Avatar
+              {isEditing && (avatarPreview || avatarFile || user?.avatarUrl) && (
+                <button type="button" onClick={onDeleteAvatar} className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm">
+                  <AiOutlineDelete /> Delete Avatar
                 </button>
               )}
 
-              {/* Hidden file input */}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={onAvatarChange}
-              />
+              <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={onAvatarChange} />
 
-              {/* Profile details form */}
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  await handleSave();
-                }}
-                className="w-full space-y-4"
-              >
-                {/* First Name */}
-                <div>
-                  <label htmlFor="firstName" className="block text-xs font-semibold mb-1 text-gray-300">
-                    First Name
-                  </label>
-                  <input
-                    id="firstName"
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none ${
-                      isEditing
-                        ? 'focus:ring-1 focus:ring-indigo-500 border-gray-500'
-                        : 'border-gray-700 cursor-default pointer-events-none select-none caret-transparent'
-                    }`}
-                    placeholder="First Name"
-                    autoComplete="given-name"
-                    readOnly={!isEditing}
-                    tabIndex={isEditing ? 0 : -1}
-                  />
-                </div>
-
-                {/* Last Name */}
-                <div>
-                  <label htmlFor="lastName" className="block text-xs font-semibold mb-1 text-gray-300">
-                    Last Name
-                  </label>
-                  <input
-                    id="lastName"
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none ${
-                      isEditing
-                        ? 'focus:ring-1 focus:ring-indigo-500 border-gray-500'
-                        : 'border-gray-700 cursor-default pointer-events-none select-none caret-transparent'
-                    }`}
-                    placeholder="Last Name"
-                    autoComplete="family-name"
-                    readOnly={!isEditing}
-                    tabIndex={isEditing ? 0 : -1}
-                  />
-                </div>
+              {/* Form */}
+              <form onSubmit={async e => { e.preventDefault(); await handleSave(); }} className="w-full space-y-4">
+                {fields.map(f => (
+                  <div key={f.id}>
+                    <label htmlFor={f.id} className="block text-xs font-semibold mb-1 text-gray-300">{f.label}</label>
+                    <input
+                      id={f.id} type={f.type || 'text'} value={f.value} onChange={e => f.setValue(e.target.value)}
+                      className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isEditing ? 'border-white/20' : 'border-transparent cursor-default'}`}
+                      placeholder={f.label} readOnly={!isEditing}
+                    />
+                  </div>
+                ))}
 
                 {/* Address */}
                 <div>
@@ -336,41 +216,16 @@ export default function Profile() {
                   />
                 </div>
 
-                {/* Error and success messages */}
                 {error && <p className="text-sm text-red-400">{error}</p>}
                 {successMsg && <p className="text-sm text-green-400">{successMsg}</p>}
 
-                {/* Buttons */}
                 <div className="flex justify-end items-center">
-                  {!isEditing && (
-                    <button
-                      type="button"
-                      onClick={() => setIsEditing(true)}
-                      className="rounded-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm"
-                    >
-                      Edit
-                    </button>
-                  )}
-
-                  {isEditing && (
+                  {!isEditing ? (
+                    <button type="button" onClick={() => setIsEditing(true)} className="rounded-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm">Edit</button>
+                  ) : (
                     <div className="flex gap-4">
-                      <button
-                        type="button"
-                        onClick={handleCancel}
-                        disabled={saving}
-                        className="rounded-full bg-white/10 hover:bg-white/20 text-white px-4 py-2 text-sm"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={saving}
-                        className={`rounded-full px-4 py-2 text-sm text-white ${
-                          saving ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
-                        }`}
-                      >
-                        {saving ? 'Saving...' : 'Save'}
-                      </button>
+                      <button type="button" onClick={handleCancel} disabled={saving} className="rounded-full bg-white/10 hover:bg-white/20 text-white px-4 py-2 text-sm">Cancel</button>
+                      <button type="submit" disabled={saving} className={`rounded-full px-4 py-2 text-sm text-white ${saving ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>{saving ? 'Saving...' : 'Save'}</button>
                     </div>
                   )}
                 </div>

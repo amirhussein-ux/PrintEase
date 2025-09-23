@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState, useEffect } from "react";
 import DashboardLayout from "../shared_components/DashboardLayout";
-import { useAuth } from "../../../context/useAuth";
+import { useAuth } from "../../../context/AuthContext";
 import { Dialog, DialogPanel, Transition } from "@headlessui/react";
 import {
   PlusIcon,
