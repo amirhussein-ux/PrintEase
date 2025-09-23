@@ -12,7 +12,7 @@ import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
 import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
 import api from '../../../lib/api';
 import { isAxiosError } from 'axios';
-import { useAuth } from '../../../context/useAuth';
+import { useAuth } from "../../../context/AuthContext";
 
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: markerIcon2x,

@@ -21,7 +21,7 @@ router.post('/', protect, upload.array('files', 10), createOrder);
 router.get('/mine', protect, getMyOrders);
 
 // List by store
-router.get('/store/:storeId', getOrdersForStore);
+router.get('/store/:storeId', protect, getOrdersForStore);
 
 // Get order by id
 router.get('/:id', protect, getOrderById);

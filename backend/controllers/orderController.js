@@ -3,6 +3,7 @@ const Order = require('../models/orderModel');
 const Service = require('../models/serviceModel');
 const PrintStore = require('../models/printStoreModel');
 const crypto = require('crypto');
+const Notification = require('../models/notificationModel');
 
 function computeUnitPrice(service, selectedOptions = []) {
   const base = Number(service.basePrice) || 0;
@@ -10,94 +11,120 @@ function computeUnitPrice(service, selectedOptions = []) {
   return base + deltas;
 }
 
-exports.createOrder = async (req, res) => {
-  try {
-  const userId = req.user?.id; // set by auth middleware
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+  exports.createOrder = async (req, res) => {
+    try {
+      const userId = req.user?.id; // set by auth middleware
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-  // multipart fields may be strings
-    let { storeId, serviceId, quantity, notes, selectedOptions, currency } = req.body;
-    if (!storeId || !serviceId) return res.status(400).json({ message: 'storeId and serviceId are required' });
+      let { storeId, serviceId, quantity, notes, selectedOptions, currency } = req.body;
+      if (!storeId || !serviceId) return res.status(400).json({ message: 'storeId and serviceId are required' });
 
-  // normalize
-    const qty = Number.parseInt(quantity, 10) || 1;
-    if (qty < 1) return res.status(400).json({ message: 'Quantity must be >= 1' });
+      const qty = Number.parseInt(quantity, 10) || 1;
+      if (qty < 1) return res.status(400).json({ message: 'Quantity must be >= 1' });
 
-    let options = [];
-    if (typeof selectedOptions === 'string') {
-      try { options = JSON.parse(selectedOptions); } catch { options = []; }
-    } else if (Array.isArray(selectedOptions)) {
-      options = selectedOptions;
-    }
+      let options = [];
+      if (typeof selectedOptions === 'string') {
+        try { options = JSON.parse(selectedOptions); } catch { options = []; }
+      } else if (Array.isArray(selectedOptions)) {
+        options = selectedOptions;
+      }
 
-    const store = await PrintStore.findById(storeId);
-    if (!store) return res.status(404).json({ message: 'Store not found' });
-    const service = await Service.findById(serviceId);
-    if (!service || String(service.store) !== String(store._id)) {
-      return res.status(404).json({ message: 'Service not found in store' });
-    }
+      const store = await PrintStore.findById(storeId).populate("owner"); // important: get store owner
+      if (!store) return res.status(404).json({ message: 'Store not found' });
 
-  // Add names/priceDeltas if only indexes
-    const enrichedOptions = (options || []).map((o) => {
-  // o: {label, optionIndex} or includes priceDelta/optionName
-      let optionName = o.optionName;
-      let priceDelta = o.priceDelta;
-      if ((priceDelta === undefined || optionName === undefined) && Array.isArray(service.variants)) {
-        const variant = service.variants.find((v) => v.label === o.label);
-        if (variant && Number.isInteger(o.optionIndex) && variant.options[o.optionIndex]) {
-          optionName = variant.options[o.optionIndex].name;
-          priceDelta = variant.options[o.optionIndex].priceDelta || 0;
+      const service = await Service.findById(serviceId);
+      if (!service || String(service.store) !== String(store._id)) {
+        return res.status(404).json({ message: 'Service not found in store' });
+      }
+
+      const enrichedOptions = (options || []).map((o) => {
+        let optionName = o.optionName;
+        let priceDelta = o.priceDelta;
+        if ((priceDelta === undefined || optionName === undefined) && Array.isArray(service.variants)) {
+          const variant = service.variants.find((v) => v.label === o.label);
+          if (variant && Number.isInteger(o.optionIndex) && variant.options[o.optionIndex]) {
+            optionName = variant.options[o.optionIndex].name;
+            priceDelta = variant.options[o.optionIndex].priceDelta || 0;
+          }
+        }
+        return { label: o.label, optionIndex: o.optionIndex, optionName, priceDelta: Number(priceDelta) || 0 };
+      });
+
+      const unitPrice = computeUnitPrice(service, enrichedOptions);
+      const total = unitPrice * qty;
+
+      const orderDoc = {
+        user: userId,
+        store: store._id,
+        items: [
+          {
+            service: service._id,
+            serviceName: service.name,
+            unit: service.unit,
+            currency: currency || service.currency || 'PHP',
+            quantity: qty,
+            unitPrice,
+            selectedOptions: enrichedOptions,
+            totalPrice: total,
+          },
+        ],
+        notes: notes || '',
+        subtotal: total,
+        currency: currency || service.currency || 'PHP',
+      };
+
+      // Handle file uploads
+      const filesMeta = [];
+      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+        const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+        for (const f of req.files) {
+          const uploadStream = bucket.openUploadStream(f.originalname, { contentType: f.mimetype });
+          uploadStream.end(f.buffer);
+          const fileId = await new Promise((resolve, reject) => {
+            uploadStream.on('finish', () => resolve(uploadStream.id));
+            uploadStream.on('error', reject);
+          });
+          filesMeta.push({ fileId, filename: f.originalname, mimeType: f.mimetype, size: f.size });
         }
       }
-      return { label: o.label, optionIndex: o.optionIndex, optionName, priceDelta: Number(priceDelta) || 0 };
-    });
+      orderDoc.files = filesMeta;
 
-    const unitPrice = computeUnitPrice(service, enrichedOptions);
-    const total = unitPrice * qty;
+      const order = await Order.create(orderDoc);
 
-    const orderDoc = {
-      user: userId,
-      store: store._id,
-      items: [
-        {
-          service: service._id,
-          serviceName: service.name,
-          unit: service.unit,
-          currency: currency || service.currency || 'PHP',
-          quantity: qty,
-          unitPrice,
-          selectedOptions: enrichedOptions,
-          totalPrice: total,
-        },
-      ],
-      notes: notes || '',
-      subtotal: total,
-      currency: currency || service.currency || 'PHP',
-    };
+      // ------------------------------
+      // Real-time notification section (and save to DB)
+      // ------------------------------
+      try {
+        const io = req.app.get("io");
+        const onlineUsers = req.app.get("onlineUsers");
 
-  // Upload files (multer memoryStorage)
-    const filesMeta = [];
-    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
-      for (const f of req.files) {
-        const uploadStream = bucket.openUploadStream(f.originalname, { contentType: f.mimetype });
-        uploadStream.end(f.buffer);
-        const fileId = await new Promise((resolve, reject) => {
-          uploadStream.on('finish', () => resolve(uploadStream.id));
-          uploadStream.on('error', reject);
-        });
-        filesMeta.push({ fileId, filename: f.originalname, mimeType: f.mimetype, size: f.size });
+        const ownerId = store.owner?._id?.toString();
+        if (ownerId) {
+          const notificationPayload = {
+            user: store.owner._id,
+            type: "owner",
+            title: "New Order",
+            description: `A new order was placed for ${service.name} (x${qty}).`,
+          };
+
+          // Save notification in database
+          const notificationDoc = await Notification.create(notificationPayload);
+
+          // Emit to owner if online
+          if (onlineUsers[ownerId]) {
+            io.to(onlineUsers[ownerId]).emit("newNotification", notificationDoc);
+          }
+        }
+      } catch (notifyErr) {
+        console.error("Notification emit error:", notifyErr);
       }
-    }
-    orderDoc.files = filesMeta;
 
-    const order = await Order.create(orderDoc);
-    res.status(201).json(order);
-  } catch (err) {
-    console.error('createOrder error:', err);
-    res.status(500).json({ message: err.message });
-  }
-};
+      res.status(201).json(order);
+    } catch (err) {
+      console.error('createOrder error:', err);
+      res.status(500).json({ message: err.message });
+    }
+  };
 
 exports.getMyOrders = async (req, res) => {
   try {
@@ -135,27 +162,58 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status, paymentStatus } = req.body || {};
-    const order = await Order.findById(id);
-    if (!order) return res.status(404).json({ message: 'Order not found' });
+    const order = await Order.findById(id).populate("store");
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    // --- Update status ---
     if (status) {
       order.status = status;
-  // 'ready': create pickup token (48h)
-      if (status === 'ready') {
-        order.pickupToken = crypto.randomBytes(16).toString('hex');
+
+      // 'ready': create pickup token (48h validity)
+      if (status === "ready") {
+        order.pickupToken = crypto.randomBytes(16).toString("hex");
         order.pickupTokenExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
         order.pickupVerifiedAt = undefined;
       }
-  // 'completed': clear token
-      if (status === 'completed') {
+
+      // 'completed': clear token
+      if (status === "completed") {
         order.pickupToken = undefined;
         order.pickupTokenExpires = undefined;
         if (!order.pickupVerifiedAt) order.pickupVerifiedAt = new Date();
       }
     }
+
     if (paymentStatus) order.paymentStatus = paymentStatus;
+
     await order.save();
+
+    // --- Notify customer only ---
+    try {
+      const io = req.app.get("io");
+      const onlineUsers = req.app.get("onlineUsers");
+      const customerId = order.user.toString();
+
+      if (customerId) {
+        const customerNotif = await Notification.create({
+          user: customerId,
+          type: "customer", 
+          title: `Order #${order._id} status updated`,
+          description: `Your order is now marked as "${order.status}".`,
+        });
+
+        // Emit in real-time if online
+        if (onlineUsers[customerId]) {
+          io.to(onlineUsers[customerId]).emit("newNotification", customerNotif);
+        }
+      }
+    } catch (notifyErr) {
+      console.error("Notification emit error:", notifyErr);
+    }
+
     res.json(order);
   } catch (err) {
+    console.error("updateOrderStatus error:", err);
     res.status(500).json({ message: err.message });
   }
 };

@@ -1,7 +1,7 @@
 import { FcGoogle } from "react-icons/fc";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
-import { useAuth } from "../../../context/useAuth";
+import { useAuth } from "../../../context/AuthContext";
 
 
 

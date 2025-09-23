@@ -1,22 +1,21 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
-import DashboardLayout from '../shared_components/DashboardLayout'
-import api from '../../../lib/api'
-import OrderPage from './OrderPage'
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import DashboardLayout from '../shared_components/DashboardLayout';
+import api from '../../../lib/api';
+import OrderPage from './OrderPage';
+import toast, { Toaster } from 'react-hot-toast';
 
 const Customer: React.FC = () => {
   const location = useLocation() as { state?: { storeId?: string } };
   const navigate = useNavigate();
-  const [store, setStore] = useState<{
-    _id: string;
-    name: string;
-    logoFileId?: unknown;
-  } | null>(null);
+
+  const [store, setStore] = useState<{ _id: string; name: string; logoFileId?: unknown } | null>(null);
   const [centerMenuOpen, setCenterMenuOpen] = useState(false);
   const centerRef = useRef<HTMLDivElement | null>(null);
 
   const storeId = location.state?.storeId;
 
+  // Load store
   useEffect(() => {
     let active = true;
     const load = async () => {
@@ -26,12 +25,15 @@ const Customer: React.FC = () => {
         const stores = (res.data || []) as Array<{ _id: string; name: string; logoFileId?: unknown }>;
         const found = stores.find((s) => s._id === storeId) || null;
         if (active) setStore(found);
-      } catch {
+      } catch (err) {
         if (active) setStore(null);
+        toast.error('Failed to load store list');
       }
     };
     load();
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [storeId]);
 
   // Close dropdown on outside click
@@ -48,21 +50,24 @@ const Customer: React.FC = () => {
 
   const centerContent = useMemo(() => {
     if (!store) return null;
-    // Extract logo id robustly
+
     let logoId: string | undefined;
     const raw = store.logoFileId as unknown;
-    if (typeof raw === 'string') logoId = raw;
-    else if (raw && typeof raw === 'object') {
+    if (typeof raw === 'string') {
+      logoId = raw;
+    } else if (raw && typeof raw === 'object') {
       const maybe = raw as { _id?: unknown; toString?: () => string };
       if (typeof maybe._id === 'string') logoId = maybe._id;
       else if (typeof maybe.toString === 'function') logoId = maybe.toString();
     }
+
     const initials = store.name
       .split(' ')
       .map((s) => s[0])
       .slice(0, 2)
       .join('')
       .toUpperCase();
+
     return (
       <div ref={centerRef} className="relative">
         <button
@@ -72,17 +77,19 @@ const Customer: React.FC = () => {
           title="Selected shop"
         >
           {logoId ? (
-              <img
-                src={`${api.defaults.baseURL}/print-store/logo/${logoId}`}
-                alt={`${store.name} logo`}
-                className="h-10 rounded-full object-cover border border-gray-200"
-              />
+            <img
+              src={`${api.defaults.baseURL}/print-store/logo/${logoId}`}
+              alt={`${store.name} logo`}
+              className="h-10 rounded-full object-cover border border-gray-200"
+            />
           ) : (
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex items-center justify-center text-white text-xs font-semibold">
               {initials}
             </div>
           )}
-          <span className="text-gray-900 font-semibold text-xl truncate max-w-[50vw]">{store.name}</span>
+          <span className="text-gray-900 font-semibold text-xl truncate max-w-[50vw]">
+            {store.name}
+          </span>
         </button>
 
         {centerMenuOpen && (
@@ -104,7 +111,8 @@ const Customer: React.FC = () => {
 
   return (
     <DashboardLayout role="customer" centerContent={centerContent}>
-  <OrderPage />
+      <OrderPage />
+      <Toaster position="top-right" reverseOrder={false} />
     </DashboardLayout>
   );
 };

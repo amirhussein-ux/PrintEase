@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import DashboardLayout from '../shared_components/DashboardLayout';
 import OwnerDashboardContent from './OwnerDashboardContent';
-import { useAuth } from '../../../context/useAuth';
+import { useAuth } from "../../../context/AuthContext";
 import api from '../../../lib/api';
 import { useNavigate } from 'react-router-dom';
 

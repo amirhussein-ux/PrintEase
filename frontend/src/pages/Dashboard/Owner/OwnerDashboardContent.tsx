@@ -2,10 +2,7 @@ import React, { useState, useRef, useEffect } from "react"
 import api from "../../../lib/api"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell
-} from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import logo from "/src/assets/PrintEase-Logo-Dark.png"
@@ -13,9 +10,8 @@ import autoTable from "jspdf-autotable"
 import "@/assets/fonts/Roboto-Regular-normal"
 
 // Types
-interface InventoryItem {
-  name: string; expectedStock: number; currentStock: number; productType: string
-}
+interface VariantItem { variant: string; expectedStock: number; currentStock: number }
+interface InventoryItem { name: string; unit: string; variants: VariantItem[] }
 
 // Constants
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020]
@@ -23,20 +19,39 @@ const PRODUCTS = ["MUGS", "SHIRTS", "DOCUMENTS", "TARPAULIN"]
 const COLORS = ["#1e3a8a", "#d1d5db"]
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 const FULL_MONTHS: Record<string,string> = {
-  Jan: "January", Feb: "February", Mar: "March", Apr: "April",
-  May: "May", Jun: "June", Jul: "July", Aug: "August",
-  Sep: "September", Oct: "October", Nov: "November", Dec: "December"
+  Jan: "January", Feb: "February", Mar: "March", Apr: "April", May: "May", Jun: "June",
+  Jul: "July", Aug: "August", Sep: "September", Oct: "October", Nov: "November", Dec: "December"
 }
 
-// Dynamic sales cards are computed in component state
-
 const INVENTORY: InventoryItem[] = [
-  { name: "Bond Paper", expectedStock: 500, currentStock: 120, productType: "BOND PAPER" },
-  { name: "Shirts", expectedStock: 200, currentStock: 50, productType: "SHIRTS" },
-  { name: "Ink", expectedStock: 100, currentStock: 40, productType: "INK" }
+  {
+    name: "Bond Paper", unit: "reams",
+    variants: [
+      { variant: "A4", expectedStock: 50, currentStock: 20 },
+      { variant: "Legal", expectedStock: 30, currentStock: 10 },
+      { variant: "Letter", expectedStock: 40, currentStock: 25 }
+    ]
+  },
+  {
+    name: "Shirts", unit: "pcs",
+    variants: [
+      { variant: "Small", expectedStock: 60, currentStock: 15 },
+      { variant: "Medium", expectedStock: 70, currentStock: 20 },
+      { variant: "Large", expectedStock: 70, currentStock: 15 }
+    ]
+  },
+  {
+    name: "Ink", unit: "ml",
+    variants: [
+      { variant: "Black", expectedStock: 1000, currentStock: 400 },
+      { variant: "Cyan", expectedStock: 800, currentStock: 300 },
+      { variant: "Magenta", expectedStock: 800, currentStock: 250 },
+      { variant: "Yellow", expectedStock: 800, currentStock: 280 }
+    ]
+  }
 ]
 
-// Statistic card
+// Components
 const StatCard = ({ value, label }: { value: string; label: string }) => {
   const parts = label.split(" "), last = parts.pop(), rest = parts.join(" ")
   return (
@@ -47,7 +62,6 @@ const StatCard = ({ value, label }: { value: string; label: string }) => {
   )
 }
 
-// Product selector
 const ProductButtons = ({ selected, set }: { selected: string; set: (p: string) => void }) => (
   <div className="flex flex-row lg:flex-col gap-2 mt-4 lg:mt-0 lg:ml-4 justify-center">
     {PRODUCTS.map(p => (
@@ -59,7 +73,6 @@ const ProductButtons = ({ selected, set }: { selected: string; set: (p: string) 
   </div>
 )
 
-// Year selector
 const YearSelector = ({ selected, set }: { selected: number; set: (y: number) => void }) => (
   <div className="w-32 bg-blue-900 rounded-xl shadow-md p-3">
     <h3 className="text-white text-sm font-bold text-center mb-2">Year</h3>
@@ -74,46 +87,38 @@ const YearSelector = ({ selected, set }: { selected: number; set: (y: number) =>
   </div>
 )
 
-// Inventory pie
-const InventoryPie = ({ items, type }: { items: InventoryItem[]; type: string }) => {
+const Accordion = ({ item, open, onToggle }: { item: InventoryItem; open: boolean; onToggle: () => void }) => (
+  <div className="border rounded-xl shadow-sm bg-white/90">
+    <button onClick={onToggle} className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800">
+      <span>{item.name}</span><span>{open ? "−" : "+"}</span>
+    </button>
+    {open && (
+      <div className="p-4 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {item.variants.map((v) => (
+          <InventoryPie key={v.variant} type={`${item.name} - ${v.variant}`} items={[v]} unit={item.unit} />
+        ))}
+      </div>
+    )}
+  </div>
+)
+
+const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; currentStock: number }[]; type: string; unit: string }) => {
   const totalExpected = items.reduce((s, i) => s + i.expectedStock, 0)
   const totalCurrent = items.reduce((s, i) => s + i.currentStock, 0)
-
-  const pieData = type === "INK"
-    ? [{ name: "Used", value: 100 - totalCurrent }, { name: "Remaining", value: totalCurrent }]
-    : [{ name: "Remaining", value: totalCurrent }, { name: "Decreased", value: totalExpected - totalCurrent }]
-
+  const pieData = [{ name: "Remaining", value: totalCurrent }, { name: "Decreased", value: totalExpected - totalCurrent }]
   const restock = totalCurrent < totalExpected * 0.3
 
   return (
     <div className={`bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center ${restock ? "animate-pulse shadow-[0_0_20px_#f87171]" : ""}`}>
-      <h3 className="text-base font-bold uppercase mb-2">{type}</h3>
-      <ResponsiveContainer width="100%" height={220}>
+      <h3 className="text-sm font-bold uppercase mb-2">{type}</h3>
+      <ResponsiveContainer width="100%" height={180}>
         <PieChart>
-          <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={40} outerRadius={80} labelLine={false}
-            label={(props: { cx?: number | string; cy?: number | string; midAngle?: number; innerRadius?: number; outerRadius?: number; index?: number }) => {
-              const { cx, cy, midAngle, innerRadius, outerRadius, index } = props || {}
-              if (midAngle === undefined || index === undefined) return null
-              const RAD = Math.PI / 180
-              const ir = Number(innerRadius) || 0
-              const or = Number(outerRadius) || 0
-              const r = ir + (or - ir) / 2
-              const x = (Number(cx) || 0) + r * Math.cos(-midAngle * RAD)
-              const y = (Number(cy) || 0) + r * Math.sin(-midAngle * RAD)
-              const slice = pieData[index]
-              return (
-                <text x={x} y={y} textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight="bold"
-                  fill={type === "INK"
-                    ? (slice.name === "Remaining" ? "#4b5563" : "#fff")
-                    : (slice.name !== "Remaining" ? "#4b5563" : "#fff")}>
-                  {type === "INK" && slice.name === "Remaining" ? `${slice.value}%` : slice.value}
-                </text>
-              )
-            }}>
+          <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={30} outerRadius={60} labelLine={false}>
             {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
         </PieChart>
       </ResponsiveContainer>
+      <p className="text-xs text-gray-600 mt-1">{totalCurrent}/{totalExpected} {unit}</p>
     </div>
   )
 }
@@ -129,6 +134,7 @@ const OwnerDashboardContent: React.FC = () => {
   const [salesDay, setSalesDay] = useState(0)
   const [salesMonth, setSalesMonth] = useState(0)
   const [salesYear, setSalesYear] = useState(0)
+  const [openIndex, setOpenIndex] = useState<number>(-1)
 
   // Sales data by month
   const salesData = MONTHS.map((m, i) => ({
@@ -139,12 +145,7 @@ const OwnerDashboardContent: React.FC = () => {
            300 + (i * 35) % 200
   }))
 
-  // Group inventory
-  const grouped = INVENTORY.reduce((acc, i) => {
-    (acc[i.productType] ||= []).push(i); return acc
-  }, {} as Record<string, InventoryItem[]>)
-
-  // Load sales totals for day/month/year
+  // Load sales totals
   useEffect(() => {
     let cancelled = false
     async function loadSales() {
@@ -172,14 +173,8 @@ const OwnerDashboardContent: React.FC = () => {
           if (dt >= startMonth) m += amt
           if (dt >= startDay) d += amt
         }
-        if (!cancelled) {
-          setSalesDay(d)
-          setSalesMonth(m)
-          setSalesYear(y)
-        }
-      } catch {
-        // ignore
-      }
+        if (!cancelled) { setSalesDay(d); setSalesMonth(m); setSalesYear(y) }
+      } catch {}
     }
     loadSales()
     return () => { cancelled = true }
@@ -220,10 +215,8 @@ const OwnerDashboardContent: React.FC = () => {
 
       const tableData = [
         ...salesData.map(d => [FULL_MONTHS[d.month], peso(d.sales)]),
-        ["Total", peso(total)],
-        ["Average", peso(avg)],
-        ["Highest", peso(Math.max(...vals))],
-        ["Lowest", peso(Math.min(...vals))]
+        ["Total", peso(total)], ["Average", peso(avg)],
+        ["Highest", peso(Math.max(...vals))], ["Lowest", peso(Math.min(...vals))]
       ]
 
       autoTable(pdf,{
@@ -244,10 +237,7 @@ const OwnerDashboardContent: React.FC = () => {
   }
 
   return (
-    <div
-      className="transition-all duration-300 font-crimson p-20 origin-top-left"
-      style={{ transform: "scale(0.8)", width: `${100 / 0.8}%` }}
-    >
+    <div className="transition-all duration-300 font-crimson p-20 origin-top-left" style={{ transform: "scale(0.8)", width: `${100 / 0.8}%` }}>
       <div className="w-full max-w-7xl mx-auto space-y-6">
         {/* Stats */}
         <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -280,55 +270,52 @@ const OwnerDashboardContent: React.FC = () => {
         </div>
 
         {/* Inventory */}
-        <div className="bg-white/90 rounded-xl shadow-md p-4 space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
-            <h2 className="text-base font-bold text-gray-800">Inventory Overview</h2>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#1e3a8a]" /> Remaining</div>
-              <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#d1d5db]" /> Decreased/Used</div>
-            </div>
+        <div className="bg-white/90 rounded-xl shadow-md p-4 space-y-4">
+          <h2 className="text-base font-bold text-gray-800 mb-2">Inventory Overview</h2>
+          <div className="flex gap-4 mb-3">
+            <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#1e3a8a]" /> Remaining</div>
+            <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#d1d5db]" /> Decreased/Used</div>
           </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            {Object.entries(grouped).map(([t,i]) => <InventoryPie key={t} type={t} items={i} />)}
+          <div className="space-y-3">
+            {INVENTORY.map((item, idx) => (
+              <Accordion key={item.name} item={item} open={openIndex === idx} onToggle={() => setOpenIndex(openIndex === idx ? -1 : idx)} />
+            ))}
           </div>
         </div>
-      </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl p-6 relative">
-            <button className="absolute top-3 right-3 cursor-pointer" onClick={() => setShowModal(false)}>✕</button>
-            <div className="text-center mb-4">
-              <h2 className="text-xl font-bold">PrintEase</h2>
-              <p className="text-sm">Annual Sales Performance Analysis Report ({year})</p>
-            </div>
-            <div
-              ref={reportRef}
-              className={`w-full h-[300px] ${downloading ? "pointer-events-none" : ""}`}
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={salesData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip formatter={(v: number) => ["₱" + v, "Sales"]} />
-                  <Bar dataKey="sales" fill="#1e3a8a" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-6 flex flex-col items-center gap-2">
-              <button onClick={handleDownloadPDF} disabled={downloading}
-                className={`px-6 py-2 rounded-lg shadow cursor-pointer ${downloading ? "bg-gray-400 text-gray-700" : "bg-blue-900 text-white hover:bg-blue-800"}`}>
-                {downloading ? "Preparing PDF..." : "Download as PDF"}
-              </button>
-              {downloading && <p className="text-xs text-gray-500">Please wait, your report is being generated.</p>}
+        {/* Modal */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl p-6 relative">
+              <button className="absolute top-3 right-3 cursor-pointer" onClick={() => setShowModal(false)}>✕</button>
+              <div className="text-center mb-4">
+                <h2 className="text-xl font-bold">PrintEase</h2>
+                <p className="text-sm">Annual Sales Performance Analysis Report ({year})</p>
+              </div>
+              <div ref={reportRef} className={`w-full h-[300px] ${downloading ? "pointer-events-none" : ""}`}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={salesData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(v: number) => ["₱" + v, "Sales"]} />
+                    <Bar dataKey="sales" fill="#1e3a8a" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="mt-6 flex flex-col items-center gap-2">
+                <button onClick={handleDownloadPDF} disabled={downloading}
+                  className={`px-6 py-2 rounded-lg shadow cursor-pointer ${downloading ? "bg-gray-400 text-gray-700" : "bg-blue-900 text-white hover:bg-blue-800"}`}>
+                  {downloading ? "Preparing PDF..." : "Download as PDF"}
+                </button>
+                {downloading && <p className="text-xs text-gray-500">Please wait, your report is being generated.</p>}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
 
-export default OwnerDashboardContent;
+export default OwnerDashboardContent

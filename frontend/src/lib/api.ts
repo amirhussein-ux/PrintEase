@@ -1,4 +1,5 @@
 import axios from "axios";
+import axiosRetry from "axios-retry";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api",
@@ -12,6 +13,25 @@ api.interceptors.request.use((config) => {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
+});
+
+// Add retry logic with TypeScript-safe check
+axiosRetry(api, {
+  retries: 3,
+  retryDelay: axiosRetry.exponentialDelay,
+  shouldResetTimeout: true,
+  retryCondition: (error) => {
+    // Retry on network errors or 5xx server errors
+    if (axiosRetry.isNetworkOrIdempotentRequestError(error)) {
+      return true;
+    }
+
+    if (error.response && error.response.status >= 500) {
+      return true;
+    }
+
+    return false;
+  },
 });
 
 export default api;
