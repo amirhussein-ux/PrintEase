@@ -3,6 +3,7 @@ import api from "../../../lib/api"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import logo from "/src/assets/PrintEase-Logo-Dark.png"
@@ -12,7 +13,6 @@ import "@/assets/fonts/Roboto-Regular-normal"
 // Types
 interface VariantItem { variant: string; expectedStock: number; currentStock: number }
 interface InventoryItem { name: string; unit: string; variants: VariantItem[] }
-// (Order type is derived inline where needed to keep this file lean)
 
 // Constants
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020]
@@ -481,7 +481,7 @@ const OwnerDashboardContent: React.FC = () => {
           </div>
         </div>
 
-      {/* Modal (single instance) */}
+        {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl p-6 relative">
@@ -490,7 +490,7 @@ const OwnerDashboardContent: React.FC = () => {
                 <h2 className="text-xl font-bold">PrintEase</h2>
                 <p className="text-sm">Annual Sales Performance Analysis Report ({year})</p>
               </div>
-              <div ref={reportRef} className={`w-full h-[320px] ${downloading ? "pointer-events-none" : ""}`}>
+              <div ref={reportRef} className={`w-full h-[300px] ${downloading ? "pointer-events-none" : ""}`}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={salesData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -511,7 +511,6 @@ const OwnerDashboardContent: React.FC = () => {
             </div>
           </div>
         )}
-
       </div>
     </div>
   )
