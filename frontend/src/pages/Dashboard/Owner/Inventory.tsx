@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { PencilSquareIcon, TrashIcon, FunnelIcon } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
 
 import { BanknotesIcon, ChartBarIcon, ArrowTrendingDownIcon, UsersIcon } from "@heroicons/react/24/outline";
+import api from "../../../lib/api";
+import { isAxiosError } from "axios";
 
 const mockSummary = {
 	stockPrice: 120000,
@@ -11,15 +13,41 @@ const mockSummary = {
 	expenses: 75000,
 	employees: 12,
 };
-const mockProducts = [
-	{ product: "Mug", amount: 120, minAmount: 10, entryPrice: 50, price: 80 },
-	{ product: "T-shirt", amount: 80, minAmount: 5, entryPrice: 100, price: 150 },
-	{ product: "Sticker", amount: 200, minAmount: 20, entryPrice: 10, price: 25 },
-];
+type ApiInventoryItem = {
+	_id: string;
+	name: string;
+	amount: number;
+	minAmount: number;
+	entryPrice: number;
+	price: number;
+	currency?: string;
+};
+
+type InventoryItem = {
+	id: string;
+	product: string;
+	amount: number;
+	minAmount: number;
+	entryPrice: number;
+	price: number;
+	currency?: string;
+};
 
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020];
 // PRODUCTS will be derived from products state
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function mapFromApi(i: ApiInventoryItem): InventoryItem {
+	return {
+		id: i._id,
+		product: i.name,
+		amount: i.amount ?? 0,
+		minAmount: i.minAmount ?? 0,
+		entryPrice: i.entryPrice ?? 0,
+		price: i.price ?? 0,
+		currency: i.currency,
+	};
+}
 
 const ProductButtons = ({ selected, set, products }: { selected: string; set: (p: string) => void, products: Array<{ product: string }> }) => (
 	<div className="flex flex-row lg:flex-col gap-2 mt-4 lg:mt-0 lg:ml-4 justify-center">
@@ -50,10 +78,34 @@ const Inventory: React.FC = () => {
 	const [showModal, setShowModal] = useState(false);
 	const [form, setForm] = useState({ product: "", amount: "", minAmount: "", entryPrice: "", price: "" });
 	const [errors, setErrors] = useState<{ [key: string]: string }>({});
-	const [products, setProducts] = useState(mockProducts);
+	const [products, setProducts] = useState<InventoryItem[]>([]);
 	const [year, setYear] = useState(2025);
-	const [product, setProduct] = useState(products.length > 0 ? products[0].product : "");
+	const [product, setProduct] = useState("");
 	const [editIndex, setEditIndex] = useState<number | null>(null);
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	useEffect(() => {
+		let cancel = false;
+		async function load() {
+			try {
+				setLoading(true);
+				setError(null);
+				const res = await api.get("/inventory/mine");
+				if (cancel) return;
+				const list: InventoryItem[] = (res.data || []).map(mapFromApi);
+				setProducts(list);
+				setProduct(list.length ? list[0].product : "");
+			} catch (e: unknown) {
+				const msg = isAxiosError(e) ? (e.response?.data?.message || e.message) : (e as Error)?.message || "Failed to load inventory";
+				if (!cancel) setError(msg);
+			} finally {
+				if (!cancel) setLoading(false);
+			}
+		}
+		load();
+		return () => { cancel = true; };
+	}, []);
 
 	   // Sales data by month (mock, similar to OwnerDashboardContent)
 	   const stockAmountData = MONTHS.map((m, i) => ({
@@ -87,35 +139,38 @@ const Inventory: React.FC = () => {
 		return newErrors;
 	};
 
-	const handleSave = () => {
+	const handleSave = async () => {
 		const newErrors = validateFields();
 		setErrors(newErrors);
 		if (Object.keys(newErrors).length > 0) return;
-		if (editIndex !== null) {
-			// Edit existing product
-			const updated = [...products];
-			updated[editIndex] = {
-				product: form.product,
-				amount: Number(form.amount),
-				minAmount: Number(form.minAmount),
-				entryPrice: Number(form.entryPrice),
-				price: Number(form.price),
-			};
-			setProducts(updated);
-			setEditIndex(null);
-			setProduct(form.product); // select edited product
-		} else {
-			// Add new product
-			setProducts([...products, {
-				product: form.product,
-				amount: Number(form.amount),
-				minAmount: Number(form.minAmount),
-				entryPrice: Number(form.entryPrice),
-				price: Number(form.price),
-			}]);
-			setProduct(form.product); // select new product
+		const payload = {
+			name: form.product,
+			amount: Number(form.amount),
+			minAmount: Number(form.minAmount),
+			entryPrice: Number(form.entryPrice),
+			price: Number(form.price),
+		};
+		try {
+			setError(null);
+			if (editIndex !== null) {
+				const id = products[editIndex]?.id;
+				if (!id) return;
+				const res = await api.put(`/inventory/${id}`, payload);
+				const updated = mapFromApi(res.data);
+				setProducts(prev => prev.map((p, i) => (i === editIndex ? updated : p)));
+				setEditIndex(null);
+				setProduct(updated.product);
+			} else {
+				const res = await api.post(`/inventory`, payload);
+				const created = mapFromApi(res.data);
+				setProducts(prev => [...prev, created]);
+				setProduct(created.product);
+			}
+			setShowModal(false);
+		} catch (e: unknown) {
+			const msg = isAxiosError(e) ? (e.response?.data?.message || e.message) : (e as Error)?.message || "Failed to save item";
+			setError(msg);
 		}
-		setShowModal(false);
 	};
 
 	const handleEdit = (idx: number) => {
@@ -132,12 +187,20 @@ const Inventory: React.FC = () => {
 		setErrors({});
 	};
 
-	const handleDelete = (idx: number) => {
-		const updated = products.filter((_, i) => i !== idx);
-		setProducts(updated);
-		// If deleted product was selected, select first product or empty
-		if (products[idx].product === product) {
-			setProduct(updated.length > 0 ? updated[0].product : "");
+	const handleDelete = async (idx: number) => {
+		const item = products[idx];
+		if (!item) return;
+		try {
+			setError(null);
+			await api.delete(`/inventory/${item.id}`);
+			const updated = products.filter((_, i) => i !== idx);
+			setProducts(updated);
+			if (item.product === product) {
+				setProduct(updated.length > 0 ? updated[0].product : "");
+			}
+		} catch (e: unknown) {
+			const msg = isAxiosError(e) ? (e.response?.data?.message || e.message) : (e as Error)?.message || "Failed to delete item";
+			setError(msg);
 		}
 	};
 	const handleCancel = () => setShowModal(false);
@@ -230,6 +293,9 @@ const Inventory: React.FC = () => {
 						{/* Products Table */}
 						<div className="bg-white/90 rounded-xl shadow-md p-6">
 							<div className="font-bold text-2xl text-center mb-4">PRODUCTS</div>
+							{error && (
+								<div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-700 px-3 py-2 text-sm">{error}</div>
+							)}
 							<div className="overflow-x-auto">
 								<table className="w-full border-collapse">
 									<thead>
@@ -242,8 +308,14 @@ const Inventory: React.FC = () => {
 											<td className="py-2 text-center">Actions</td>
 										</tr>
 									</thead>
-									<tbody>
-										{products.map((p, i) => (
+										<tbody>
+											{loading && (
+												<tr><td colSpan={6} className="py-4 text-center text-gray-500">Loading…</td></tr>
+											)}
+											{!loading && products.length === 0 && (
+												<tr><td colSpan={6} className="py-4 text-center text-gray-500">No products yet.</td></tr>
+											)}
+											{!loading && products.map((p, i) => (
 											<tr key={i} className="text-lg border-b border-gray-200 last:border-0 hover:bg-gray-50">
 												<td className="py-2">{p.product}</td>
 												<td className="py-2">{p.amount}</td>
@@ -267,7 +339,7 @@ const Inventory: React.FC = () => {
 													</button>
 												</td>
 											</tr>
-										))}
+											))}
 									</tbody>
 								</table>
 							</div>

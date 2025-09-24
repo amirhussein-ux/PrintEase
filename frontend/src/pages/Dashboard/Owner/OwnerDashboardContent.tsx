@@ -10,7 +10,7 @@ import autoTable from "jspdf-autotable"
 import "@/assets/fonts/Roboto-Regular-normal"
 
 // Types
-interface VariantItem { variant: string; expectedStock: number; currentStock: number }
+interface VariantItem { variant: string; expectedStock: number; currentStock: number; minAmount?: number }
 interface InventoryItem { name: string; unit: string; variants: VariantItem[] }
 
 // Constants
@@ -22,33 +22,8 @@ const FULL_MONTHS: Record<string,string> = {
   Jul: "July", Aug: "August", Sep: "September", Oct: "October", Nov: "November", Dec: "December"
 }
 
-const INVENTORY: InventoryItem[] = [
-  {
-    name: "Bond Paper", unit: "reams",
-    variants: [
-      { variant: "A4", expectedStock: 50, currentStock: 20 },
-      { variant: "Legal", expectedStock: 30, currentStock: 10 },
-      { variant: "Letter", expectedStock: 40, currentStock: 25 }
-    ]
-  },
-  {
-    name: "Shirts", unit: "pcs",
-    variants: [
-      { variant: "Small", expectedStock: 60, currentStock: 15 },
-      { variant: "Medium", expectedStock: 70, currentStock: 20 },
-      { variant: "Large", expectedStock: 70, currentStock: 15 }
-    ]
-  },
-  {
-    name: "Ink", unit: "ml",
-    variants: [
-      { variant: "Black", expectedStock: 1000, currentStock: 400 },
-      { variant: "Cyan", expectedStock: 800, currentStock: 300 },
-      { variant: "Magenta", expectedStock: 800, currentStock: 250 },
-      { variant: "Yellow", expectedStock: 800, currentStock: 280 }
-    ]
-  }
-]
+// Inventory items will be fetched from backend and normalized into this shape
+const EMPTY_INVENTORY: InventoryItem[] = []
 
 // Components
 const StatCard = ({ value, label }: { value: string; label: string }) => {
@@ -145,11 +120,17 @@ const Accordion = ({ item, open, onToggle }: { item: InventoryItem; open: boolea
   </div>
 )
 
-const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; currentStock: number }[]; type: string; unit: string }) => {
-  const totalExpected = items.reduce((s, i) => s + i.expectedStock, 0)
-  const totalCurrent = items.reduce((s, i) => s + i.currentStock, 0)
-  const pieData = [{ name: "Remaining", value: totalCurrent }, { name: "Decreased", value: totalExpected - totalCurrent }]
-  const restock = totalCurrent < totalExpected * 0.3
+const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; currentStock: number; minAmount?: number }[]; type: string; unit: string }) => {
+  const totalExpected = items.reduce((s, i) => s + Math.max(i.expectedStock, 0), 0)
+  const totalCurrent = items.reduce((s, i) => s + Math.max(i.currentStock, 0), 0)
+  const decreased = Math.max(totalExpected - totalCurrent, 0)
+  const pieData = [
+    { name: "Remaining", value: totalCurrent },
+    { name: "Decreased", value: decreased }
+  ]
+  // Restock indicator: prefer minAmount threshold when provided, otherwise fall back to percentage rule
+  const hasThresholdBreach = items.some(i => typeof i.minAmount === 'number' && i.currentStock <= (i.minAmount ?? 0))
+  const restock = hasThresholdBreach || (totalExpected > 0 && totalCurrent < totalExpected * 0.3)
 
   return (
     <div className={`bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center ${restock ? "animate-pulse shadow-[0_0_20px_#f87171]" : ""}`}>
@@ -161,7 +142,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
           </Pie>
         </PieChart>
       </ResponsiveContainer>
-      <p className="text-xs text-gray-600 mt-1">{totalCurrent}/{totalExpected} {unit}</p>
+  <p className="text-xs text-gray-600 mt-1">{totalCurrent}/{totalExpected} {unit}</p>
     </div>
   )
 }
@@ -179,6 +160,7 @@ const OwnerDashboardContent: React.FC = () => {
   const [salesYear, setSalesYear] = useState(0)
   const [openIndex, setOpenIndex] = useState<number>(-1)
   const [loading, setLoading] = useState(true)
+  const [inventory, setInventory] = useState<InventoryItem[]>(EMPTY_INVENTORY)
   // UI transition helpers for smoother skeleton -> content
   const [showSkeleton, setShowSkeleton] = useState(true)
   const [contentReady, setContentReady] = useState(false)
@@ -235,6 +217,26 @@ const OwnerDashboardContent: React.FC = () => {
               active: Boolean(s.active),
             }))
           : []
+        // fetch inventory items for owner store
+        const invRes = await api.get('/inventory/mine')
+        const invList: Array<{ _id: string; name: string; amount?: number; minAmount?: number }> = Array.isArray(invRes.data) ? invRes.data : []
+        const normalizedInventory: InventoryItem[] = invList.map((it) => {
+          const amt = Math.max(Number(it.amount) || 0, 0)
+          const minAmt = Math.max(Number(it.minAmount) || 0, 0)
+          const expected = Math.max(amt, minAmt)
+          return {
+            name: it.name,
+            unit: 'units',
+            variants: [
+              {
+                variant: 'Stock',
+                expectedStock: expected,
+                currentStock: amt,
+                minAmount: minAmt,
+              },
+            ],
+          }
+        })
 
         const now = new Date()
         const startDay = new Date(now); startDay.setHours(0,0,0,0)
@@ -274,6 +276,7 @@ const OwnerDashboardContent: React.FC = () => {
             }))
           )
           setServices(svcList)
+          setInventory(normalizedInventory)
           // ensure selected service remains valid
           if (selectedServiceId !== 'ALL' && !svcList.find((s) => s._id === selectedServiceId)) {
             setSelectedServiceId('ALL')
@@ -398,6 +401,24 @@ const OwnerDashboardContent: React.FC = () => {
                 <YearSelector selected={year} set={setYear} />
               </div>
             </div>
+
+            {/* Inventory (moved inside crossfade container to avoid bleed-through during skeleton) */}
+            <div className="bg-white/90 rounded-xl shadow-md p-6 space-y-4">
+              <h2 className="text-base font-bold text-gray-800 mb-2">Inventory Overview</h2>
+              <div className="flex gap-4 mb-3">
+                <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#1e3a8a]" /> Remaining</div>
+                <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#d1d5db]" /> Decreased/Used</div>
+              </div>
+              <div className="space-y-3">
+                {inventory.length === 0 ? (
+                  <p className="text-sm text-gray-600">No inventory items yet.</p>
+                ) : (
+                  inventory.map((item: InventoryItem, idx: number) => (
+                    <Accordion key={`${item.name}-${idx}`} item={item} open={openIndex === idx} onToggle={() => setOpenIndex(openIndex === idx ? -1 : idx)} />
+                  ))
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Skeleton overlay (not in flow) */}
@@ -438,7 +459,7 @@ const OwnerDashboardContent: React.FC = () => {
                   </div>
                 </div>
                 {/* Inventory skeleton */}
-                <div className="bg-white/90 rounded-xl shadow-md p-6 space-y-6 mt-6">
+                <div className="bg-white/90 rounded-xl shadow-md p-6 space-y-6 mt-6 animate-pulse">
                   <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
                     <div className="h-5 w-48 bg-gray-300 rounded" />
                     <div className="flex gap-4">
@@ -464,20 +485,6 @@ const OwnerDashboardContent: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Inventory */}
-  <div className="bg-white/90 rounded-xl shadow-md p-6 space-y-4">
-          <h2 className="text-base font-bold text-gray-800 mb-2">Inventory Overview</h2>
-          <div className="flex gap-4 mb-3">
-            <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#1e3a8a]" /> Remaining</div>
-            <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#d1d5db]" /> Decreased/Used</div>
-          </div>
-          <div className="space-y-3">
-            {INVENTORY.map((item, idx) => (
-              <Accordion key={item.name} item={item} open={openIndex === idx} onToggle={() => setOpenIndex(openIndex === idx ? -1 : idx)} />
-            ))}
-          </div>
         </div>
 
         {/* Modal */}

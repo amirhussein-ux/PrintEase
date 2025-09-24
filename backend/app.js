@@ -10,6 +10,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const printStoreRoutes = require("./routes/printStoreRoutes");
 const serviceRoutes = require("./routes/serviceRoutes");
+const inventoryRoutes = require("./routes/inventoryRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
@@ -45,6 +46,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/print-store", printStoreRoutes);
 app.use("/api/services", serviceRoutes);
+app.use("/api/inventory", inventoryRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
