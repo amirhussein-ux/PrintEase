@@ -149,14 +149,18 @@ export default function ServiceManagement() {
 
   // Crossfade skeleton -> content
   useEffect(() => {
+  let timeout: ReturnType<typeof setTimeout>;
     if (loading) {
-      setContentReady(false);
       setShowSkeleton(true);
+      setContentReady(false);
     } else {
-      setContentReady(true);
-      const t = setTimeout(() => setShowSkeleton(false), 250);
-      return () => clearTimeout(t);
+      // Wait for skeleton fade out, then show content
+      timeout = setTimeout(() => {
+        setShowSkeleton(false);
+        setContentReady(true);
+      }, 250);
     }
+    return () => clearTimeout(timeout);
   }, [loading]);
 
   const filtered = useMemo(() => {
@@ -403,7 +407,7 @@ export default function ServiceManagement() {
           <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-200 px-3 py-2 text-sm">{error}</div>
         )}
         {showSkeleton && (
-          <div aria-busy="true" className={`grid grid-cols-1 gap-4 mb-4 transition-opacity duration-300 ${contentReady ? 'opacity-0' : 'opacity-100'}`}>
+          <div aria-busy="true" className={`grid grid-cols-1 gap-4 mb-4 transition-opacity duration-300 ${showSkeleton && !contentReady ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 p-4 animate-pulse flex items-center gap-4">
                 <div className="shrink-0 h-24 w-24 rounded-md bg-white/10" />
@@ -428,7 +432,7 @@ export default function ServiceManagement() {
             ))}
           </div>
         )}
-  <div className={`grid grid-cols-1 gap-4 transition-all duration-300 ${contentReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
+        <div className={`grid grid-cols-1 gap-4 transition-all duration-300 ${contentReady ? 'opacity-100 translate-y-0' : 'opacity-0 pointer-events-none translate-y-1'}`}>
           {!loading && filtered.length === 0 && (
             <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-300">No services found.</div>
           )}
