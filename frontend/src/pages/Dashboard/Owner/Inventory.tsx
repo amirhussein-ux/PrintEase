@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { PencilSquareIcon, TrashIcon, FunnelIcon } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
 
+import { BanknotesIcon, ChartBarIcon, ArrowTrendingDownIcon, UsersIcon } from "@heroicons/react/24/outline";
+
 const mockSummary = {
-	stockPrize: 120000,
+	stockPrice: 120000,
 	profit: 45000,
 	expenses: 75000,
 	employees: 12,
@@ -140,142 +142,226 @@ const Inventory: React.FC = () => {
 	};
 	const handleCancel = () => setShowModal(false);
 
-	return (
-		<DashboardLayout role="owner">
-			<div className="transition-all duration-300 font-crimson p-20">
-				<div className="w-full max-w-7xl mx-auto space-y-6">
-					{/* Summary Cards */}
-					<div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-						<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
-							<span className="text-2xl bg-white rounded-full p-2">🅿️</span>
-							<div className="text-xl font-bold text-gray-900">P {mockSummary.stockPrize.toLocaleString()}</div>
-							<div className="text-gray-800 text-xs uppercase">Stock <b>Prize</b></div>
-						</div>
-						<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
-							<span className="text-2xl bg-white rounded-full p-2">💰</span>
-							<div className="text-xl font-bold text-gray-900">P {mockSummary.profit.toLocaleString()}</div>
-							<div className="text-gray-800 text-xs uppercase">Profit</div>
-						</div>
-						<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
-							<span className="text-2xl bg-white rounded-full p-2">💸</span>
-							<div className="text-xl font-bold text-gray-900">P {mockSummary.expenses.toLocaleString()}</div>
-							<div className="text-gray-800 text-xs uppercase">Expenses</div>
-						</div>
-						<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
-							<span className="text-2xl bg-white rounded-full p-2">👥</span>
-							<div className="text-xl font-bold text-gray-900">{mockSummary.employees}</div>
-							<div className="text-gray-800 text-xs uppercase">Employees</div>
-						</div>
-					</div>
+		return (
+			<DashboardLayout role="owner">
+				<div className="transition-all duration-300 font-crimson p-6 sm:p-8">
+					<div className="w-full max-w-7xl mx-auto space-y-6">
+						{/* Summary Cards */}
+									<div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+										<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
+											<span className="bg-white rounded-full p-2 flex items-center justify-center"><BanknotesIcon className="h-7 w-7 text-blue-900" /></span>
+											<div className="text-xl font-bold text-gray-900">P {mockSummary.stockPrice.toLocaleString()}</div>
+											<div className="text-gray-800 text-xs uppercase">Stock <b>Price</b></div>
+										</div>
+										<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
+											<span className="bg-white rounded-full p-2 flex items-center justify-center"><ChartBarIcon className="h-7 w-7 text-green-700" /></span>
+											<div className="text-xl font-bold text-gray-900">P {mockSummary.profit.toLocaleString()}</div>
+											<div className="text-gray-800 text-xs uppercase">Profit</div>
+										</div>
+										<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
+											<span className="bg-white rounded-full p-2 flex items-center justify-center"><ArrowTrendingDownIcon className="h-7 w-7 text-red-600" /></span>
+											<div className="text-xl font-bold text-gray-900">P {mockSummary.expenses.toLocaleString()}</div>
+											<div className="text-gray-800 text-xs uppercase">Expenses</div>
+										</div>
+										<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
+											<span className="bg-white rounded-full p-2 flex items-center justify-center"><UsersIcon className="h-7 w-7 text-gray-700" /></span>
+											<div className="text-xl font-bold text-gray-900">{mockSummary.employees}</div>
+											<div className="text-gray-800 text-xs uppercase">Employees</div>
+										</div>
+									</div>
 
-					{/* Stock Amount & Stock Prize Graphs with selectors on right */}
-					<div className="flex flex-col lg:flex-row gap-3 mb-8">
-						<div className="flex-1 flex flex-col gap-3">
-							<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col">
-								<h2 className="text-base font-bold mb-4">Stock Amount</h2>
-								<ResponsiveContainer width="100%" height={220}>
-									<BarChart data={stockAmountData}>
-										<CartesianGrid strokeDasharray="3 3" />
-										<XAxis dataKey="month" /><YAxis allowDecimals={false} />
-										<Tooltip formatter={(v: number) => [v,"Amount"]} />
-										<Bar dataKey="amount" fill="#2563eb" radius={[6,6,0,0]} />
-									</BarChart>
-								</ResponsiveContainer>
-							</div>
-							<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col">
-								<h2 className="text-base font-bold mb-4">Stock Prize</h2>
-								<ResponsiveContainer width="100%" height={220}>
-									<BarChart data={stockPrizeData}>
-										<CartesianGrid strokeDasharray="3 3" />
-										<XAxis dataKey="month" /><YAxis allowDecimals={false} />
-										<Tooltip formatter={(v: number) => ["₱"+v,"Prize"]} />
-										<Bar dataKey="prize" fill="#1e3a8a" radius={[6,6,0,0]} />
-									</BarChart>
-								</ResponsiveContainer>
-							</div>
-						</div>
-						<div className="flex flex-col gap-4 lg:ml-6 items-end justify-start min-w-[180px]">
-							<ProductButtons selected={product} set={setProduct} products={products} />
-							<YearSelector selected={year} set={setYear} />
-						</div>
-					</div>
-
-					{/* Search and Create Bar */}
-					<div className="flex gap-4 mb-6">
-						<input type="text" placeholder="Search Product" className="flex-1 px-4 py-2 rounded-lg border border-gray-400 text-lg bg-gray-800 text-white" />
-						<button className="bg-blue-900 text-white rounded-lg px-6 py-2 font-bold text-lg flex items-center gap-2">🔍 Search</button>
-						<button className="bg-green-400 text-black rounded-lg px-6 py-2 font-bold text-lg" onClick={handleCreate}>+ Create</button>
-					</div>
-
-					{/* Products Table */}
-					<div className="bg-white/90 rounded-xl shadow-md p-4">
-						<div className="font-bold text-2xl text-center mb-4">PRODUCTS</div>
-						<table className="w-full border-collapse">
-							<thead>
-								<tr className="font-bold text-lg border-b-2 border-gray-400">
-									<td>Product</td>
-									<td>Amount</td>
-									<td>Min. Amount</td>
-									<td>Entry Price</td>
-									<td>Price</td>
-								</tr>
-							</thead>
-							<tbody>
-								{products.map((p, i) => (
-									<tr key={i} className="text-lg">
-										<td>{p.product}</td>
-										<td>{p.amount}</td>
-										<td>{p.minAmount}</td>
-										<td>{p.entryPrice}</td>
-										<td>{p.price}</td>
-										<td className="flex gap-2 items-center justify-center">
-											<button
-												className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
-												title="Edit"
-												onClick={() => handleEdit(i)}
-											>
-												<PencilSquareIcon className="w-5 h-5" />
-											</button>
-											<button
-												className="p-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-600"
-												title="Delete"
-												onClick={() => handleDelete(i)}
-											>
-												<TrashIcon className="w-5 h-5" />
-											</button>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-
-					{/* Modal for Create Product */}
-					{showModal && (
-						<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-							<div className="bg-white rounded-xl shadow-lg w-full max-w-xs p-6 relative">
-								<button className="absolute top-3 right-3 cursor-pointer" onClick={handleCancel}>✕</button>
-								<div className="font-bold text-xl text-center mb-2">{editIndex !== null ? "Edit Product" : "Add Product"}</div>
-								<input className="rounded-lg px-4 py-2 bg-gray-400 text-black mb-1" placeholder="Product" value={form.product} onChange={e => setForm(f => ({ ...f, product: e.target.value }))} />
-								{errors.product && <div className="text-red-500 text-xs mb-2">{errors.product}</div>}
-								<input className="rounded-lg px-4 py-2 bg-gray-400 text-black mb-1" placeholder="Amount" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
-								{errors.amount && <div className="text-red-500 text-xs mb-2">{errors.amount}</div>}
-								<input className="rounded-lg px-4 py-2 bg-gray-400 text-black mb-1" placeholder="Min. Amount" value={form.minAmount} onChange={e => setForm(f => ({ ...f, minAmount: e.target.value }))} />
-								{errors.minAmount && <div className="text-red-500 text-xs mb-2">{errors.minAmount}</div>}
-								<input className="rounded-lg px-4 py-2 bg-gray-400 text-black mb-1" placeholder="Entry Price" value={form.entryPrice} onChange={e => setForm(f => ({ ...f, entryPrice: e.target.value }))} />
-								{errors.entryPrice && <div className="text-red-500 text-xs mb-2">{errors.entryPrice}</div>}
-								<input className="rounded-lg px-4 py-2 bg-gray-400 text-black mb-1" placeholder="Price" value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))} />
-								{errors.price && <div className="text-red-500 text-xs mb-2">{errors.price}</div>}
-								<div className="flex gap-4 mt-2">
-									<button className="bg-red-400 text-white rounded-lg px-6 py-2 font-bold flex-1" onClick={handleCancel}>✖ Cancel</button>
-									<button className="bg-green-400 text-white rounded-lg px-6 py-2 font-bold flex-1" onClick={handleSave}>✔ Save</button>
+						{/* Stock Amount & Stock Prize Graphs with selectors on right */}
+						<div className="flex flex-col lg:flex-row gap-3 mb-8">
+							<div className="flex-1 flex flex-col gap-3">
+								<div className="bg-white/90 rounded-xl shadow-md p-6 flex flex-col">
+									<h2 className="text-base font-bold mb-4">Stock Amount</h2>
+									<ResponsiveContainer width="100%" height={220}>
+										<BarChart data={stockAmountData}>
+											<CartesianGrid strokeDasharray="3 3" />
+											<XAxis dataKey="month" /><YAxis allowDecimals={false} />
+											<Tooltip formatter={(v: number) => [v,"Amount"]} />
+											<Bar dataKey="amount" fill="#2563eb" radius={[6,6,0,0]} />
+										</BarChart>
+									</ResponsiveContainer>
+								</div>
+								<div className="bg-white/90 rounded-xl shadow-md p-6 flex flex-col">
+									<h2 className="text-base font-bold mb-4">Stock Prize</h2>
+									<ResponsiveContainer width="100%" height={220}>
+										<BarChart data={stockPrizeData}>
+											<CartesianGrid strokeDasharray="3 3" />
+											<XAxis dataKey="month" /><YAxis allowDecimals={false} />
+											<Tooltip formatter={(v: number) => ["₱"+v,"Prize"]} />
+											<Bar dataKey="prize" fill="#1e3a8a" radius={[6,6,0,0]} />
+										</BarChart>
+									</ResponsiveContainer>
 								</div>
 							</div>
+							<div className="flex flex-col gap-4 lg:ml-6 items-end justify-start min-w-[180px]">
+								<ProductButtons selected={product} set={setProduct} products={products} />
+								<YearSelector selected={year} set={setYear} />
+							</div>
 						</div>
-					)}
+
+									{/* Search and Create Bar */}
+									<div className="w-full flex flex-col sm:flex-row gap-3 items-stretch sm:items-center mb-6">
+										<input
+											type="text"
+											placeholder="Search products"
+											className="flex-1 rounded-lg px-4 py-2 bg-gray-900/60 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
+										/>
+										<div className="relative flex items-center gap-2">
+											<button
+												// onClick={...} // Add filter logic if needed
+												className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg border border-white/10 hover:bg-gray-700 transition"
+												aria-haspopup="true"
+												aria-expanded="false"
+											>
+												<FunnelIcon className="h-5 w-5" /> Filter
+											</button>
+											<button
+												className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg border border-blue-600 hover:bg-blue-500 transition"
+												onClick={handleCreate}
+											>
+												+ Create
+											</button>
+										</div>
+									</div>
+
+						{/* Products Table */}
+						<div className="bg-white/90 rounded-xl shadow-md p-6">
+							<div className="font-bold text-2xl text-center mb-4">PRODUCTS</div>
+							<div className="overflow-x-auto">
+								<table className="w-full border-collapse">
+									<thead>
+										<tr className="font-bold text-lg border-b-2 border-gray-400">
+											<td className="py-2">Product</td>
+											<td className="py-2">Amount</td>
+											<td className="py-2">Min. Amount</td>
+											<td className="py-2">Entry Price</td>
+											<td className="py-2">Price</td>
+											<td className="py-2 text-center">Actions</td>
+										</tr>
+									</thead>
+									<tbody>
+										{products.map((p, i) => (
+											<tr key={i} className="text-lg border-b border-gray-200 last:border-0 hover:bg-gray-50">
+												<td className="py-2">{p.product}</td>
+												<td className="py-2">{p.amount}</td>
+												<td className="py-2">{p.minAmount}</td>
+												<td className="py-2">{p.entryPrice}</td>
+												<td className="py-2">{p.price}</td>
+												<td className="py-2 flex gap-2 items-center justify-center">
+													<button
+														className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
+														title="Edit"
+														onClick={() => handleEdit(i)}
+													>
+														<PencilSquareIcon className="w-5 h-5" />
+													</button>
+													<button
+														className="p-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-600"
+														title="Delete"
+														onClick={() => handleDelete(i)}
+													>
+														<TrashIcon className="w-5 h-5" />
+													</button>
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						</div>
+
+									{/* Modal for Create/Edit Product - styled like ServiceManagement */}
+									{showModal && (
+										<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+											<div className="bg-gray-900 text-white rounded-xl border border-white/10 shadow-xl w-full max-w-2xl p-0 relative">
+												<div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">
+													<div className="text-lg font-semibold">{editIndex !== null ? "Edit Product" : "Add Product"}</div>
+													<button onClick={handleCancel} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+														<span className="text-xl">✕</span>
+													</button>
+												</div>
+												<form onSubmit={e => { e.preventDefault(); handleSave(); }} className="p-4 sm:p-5 space-y-4">
+													<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+														<div>
+															<label className="block text-xs text-gray-300 mb-1">Product name</label>
+															<input
+																value={form.product}
+																onChange={e => setForm(f => ({ ...f, product: e.target.value }))}
+																required
+																className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+																placeholder="e.g. Custom Mug"
+															/>
+															{errors.product && <div className="text-red-400 text-xs mt-1">{errors.product}</div>}
+														</div>
+														<div>
+															<label className="block text-xs text-gray-300 mb-1">Amount</label>
+															<input
+																type="number"
+																min={0}
+																value={form.amount}
+																onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
+																className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+																placeholder="0"
+															/>
+															{errors.amount && <div className="text-red-400 text-xs mt-1">{errors.amount}</div>}
+														</div>
+													</div>
+													<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+														<div>
+															<label className="block text-xs text-gray-300 mb-1">Min. Amount</label>
+															<input
+																type="number"
+																min={0}
+																value={form.minAmount}
+																onChange={e => setForm(f => ({ ...f, minAmount: e.target.value }))}
+																className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+																placeholder="0"
+															/>
+															{errors.minAmount && <div className="text-red-400 text-xs mt-1">{errors.minAmount}</div>}
+														</div>
+														<div>
+															<label className="block text-xs text-gray-300 mb-1">Entry Price</label>
+															<input
+																type="number"
+																min={0}
+																value={form.entryPrice}
+																onChange={e => setForm(f => ({ ...f, entryPrice: e.target.value }))}
+																className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+																placeholder="0"
+															/>
+															{errors.entryPrice && <div className="text-red-400 text-xs mt-1">{errors.entryPrice}</div>}
+														</div>
+													</div>
+													<div>
+														<label className="block text-xs text-gray-300 mb-1">Price</label>
+														<input
+															type="number"
+															min={0}
+															value={form.price}
+															onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+															className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+															placeholder="0"
+														/>
+														{errors.price && <div className="text-red-400 text-xs mt-1">{errors.price}</div>}
+													</div>
+													<div className="pt-2 flex justify-end gap-2">
+														<button type="button" onClick={handleCancel} className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10">
+															Cancel
+														</button>
+														<button type="submit" className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold">
+															{editIndex !== null ? "Save changes" : "Create product"}
+														</button>
+													</div>
+												</form>
+											</div>
+										</div>
+									)}
+					</div>
 				</div>
-			</div>
-		</DashboardLayout>
+			</DashboardLayout>
 		);
 };
 

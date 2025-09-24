@@ -6,6 +6,7 @@ import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
 import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
 import { useAuth } from "../../../context/AuthContext";
 import api from '../../../lib/api';
+import CropperModal from '../../../components/CropperModal';
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
@@ -25,6 +26,7 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [cropperSrc, setCropperSrc] = useState<string | null>(null);
 
   // Reset form on user change or cancel
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) return setError('Please select a valid image file.');
-    setAvatarFile(file); setError(null);
+  setAvatarFile(file); setError(null); setAvatarDeleted(false);
   };
   const handleCancel = () => setIsEditing(false);
 
@@ -65,6 +67,16 @@ export default function Profile() {
     setAvatarFile(null);
     setAvatarPreview(null);
   setAvatarDeleted(true);
+  };
+
+  // Open cropper using preview or current avatar; otherwise prompt upload
+  const openCropper = () => {
+    const src = avatarPreview || currentAvatarUrl;
+    if (src) {
+      setCropperSrc(src);
+    } else if (isEditing) {
+      fileInputRef.current?.click();
+    }
   };
 
   // Save profile changes
@@ -122,12 +134,18 @@ export default function Profile() {
             <AiOutlineArrowLeft size={20} /> Back
           </button>
 
-          <div className="border-2 border-white/90 rounded-lg p-6 bg-black">
-            <h1 className="text-xl lg:text-2xl uppercase tracking-wider font-medium mb-6" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-              My Profile
-            </h1>
+          {/* Card styled to match Service Add/Edit modal */}
+          <div className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">
+              <h1 className="text-lg sm:text-xl font-semibold">My Profile</h1>
+              {!isEditing && (
+                <button type="button" onClick={() => setIsEditing(true)} className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg border border-blue-600 hover:bg-blue-500 transition">
+                  <AiOutlineEdit className="h-5 w-5" /> Edit
+                </button>
+              )}
+            </div>
 
-            <div className="flex flex-col items-center gap-6">
+            <div className="p-4 sm:p-5 flex flex-col items-center gap-6">
               {/* Avatar */}
               <div className="relative">
                 <div onClick={onAvatarClick} className={`h-24 w-24 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex items-center justify-center text-4xl font-bold text-white select-none cursor-${isEditing ? 'pointer' : 'default'}`}
@@ -149,12 +167,26 @@ export default function Profile() {
                     initials
                   )}
                 </div>
-                {isEditing && <div onClick={onAvatarClick} className="absolute bottom-0 right-0 bg-indigo-600 rounded-full p-1 cursor-pointer" title="Change avatar"><AiOutlineEdit className="text-white" size={18} /></div>}
+                {isEditing && (
+                  <div
+                    onClick={openCropper}
+                    className="absolute bottom-0 right-0 bg-indigo-600 rounded-full p-1 cursor-pointer"
+                    title="Crop avatar"
+                  >
+                    <AiOutlineEdit className="text-white" size={18} />
+                  </div>
+                )}
               </div>
 
               {isEditing && (avatarPreview || avatarFile || user?.avatarUrl) && (
-                <button type="button" onClick={onDeleteAvatar} className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm">
-                  <AiOutlineDelete /> Delete Avatar
+                <button
+                  type="button"
+                  onClick={onDeleteAvatar}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-white/10 text-red-300 hover:bg-white/10 hover:text-red-200 text-xs"
+                  title="Remove current avatar"
+                >
+                  <AiOutlineDelete size={16} />
+                  <span>Remove photo</span>
                 </button>
               )}
 
@@ -162,55 +194,41 @@ export default function Profile() {
 
               {/* Form */}
               <form onSubmit={async e => { e.preventDefault(); await handleSave(); }} className="w-full space-y-4">
-                {fields.map(f => (
-                  <div key={f.id}>
-                    <label htmlFor={f.id} className="block text-xs font-semibold mb-1 text-gray-300">{f.label}</label>
-                    <input
-                      id={f.id} type={f.type || 'text'} value={f.value} onChange={e => f.setValue(e.target.value)}
-                      className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 ${isEditing ? 'border-white/20' : 'border-transparent cursor-default'}`}
-                      placeholder={f.label} readOnly={!isEditing}
-                    />
-                  </div>
-                ))}
+                {fields.map(f => {
+                  const baseInput = "w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-white placeholder-gray-400 focus:outline-none";
+                  const activeInput = `${baseInput} focus:ring-2 focus:ring-blue-600`;
+                  const inertInput = `${baseInput} cursor-default select-none caret-transparent pointer-events-none focus:ring-0`;
+                  return (
+                    <div key={f.id}>
+                      <label htmlFor={f.id} className="block text-xs text-gray-300 mb-1">{f.label}</label>
+                      <input
+                        id={f.id}
+                        type={f.type || 'text'}
+                        value={f.value}
+                        onChange={e => f.setValue(e.target.value)}
+                        className={isEditing ? activeInput : inertInput}
+                        placeholder={f.label}
+                        readOnly={!isEditing}
+                        tabIndex={isEditing ? 0 : -1}
+                      />
+                    </div>
+                  );
+                })}
 
                 {/* Address */}
                 <div>
-                  <label htmlFor="address" className="block text-xs font-semibold mb-1 text-gray-300">
-                    Address
-                  </label>
+                  <label htmlFor="address" className="block text-xs text-gray-300 mb-1">Address</label>
                   <textarea
                     id="address"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none resize-none ${
+                    className={
                       isEditing
-                        ? 'focus:ring-1 focus:ring-indigo-500 border-gray-500'
-                        : 'border-gray-700 cursor-default pointer-events-none select-none caret-transparent'
-                    }`}
+                        ? "w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none"
+                        : "w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-0 resize-none cursor-default select-none caret-transparent pointer-events-none"
+                    }
                     placeholder="Address"
                     rows={3}
-                    readOnly={!isEditing}
-                    tabIndex={isEditing ? 0 : -1}
-                  />
-                </div>
-
-                {/* Phone Number */}
-                <div>
-                  <label htmlFor="phone" className="block text-xs font-semibold mb-1 text-gray-300">
-                    Phone Number
-                  </label>
-                  <input
-                    id="phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={`w-full rounded bg-transparent border px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none ${
-                      isEditing
-                        ? 'focus:ring-1 focus:ring-indigo-500 border-gray-500'
-                        : 'border-gray-700 cursor-default pointer-events-none select-none caret-transparent'
-                    }`}
-                    placeholder="Phone Number"
-                    autoComplete="tel"
                     readOnly={!isEditing}
                     tabIndex={isEditing ? 0 : -1}
                   />
@@ -219,21 +237,34 @@ export default function Profile() {
                 {error && <p className="text-sm text-red-400">{error}</p>}
                 {successMsg && <p className="text-sm text-green-400">{successMsg}</p>}
 
-                <div className="flex justify-end items-center">
-                  {!isEditing ? (
-                    <button type="button" onClick={() => setIsEditing(true)} className="rounded-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-sm">Edit</button>
-                  ) : (
-                    <div className="flex gap-4">
-                      <button type="button" onClick={handleCancel} disabled={saving} className="rounded-full bg-white/10 hover:bg-white/20 text-white px-4 py-2 text-sm">Cancel</button>
-                      <button type="submit" disabled={saving} className={`rounded-full px-4 py-2 text-sm text-white ${saving ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}>{saving ? 'Saving...' : 'Save'}</button>
-                    </div>
-                  )}
+                <div className="pt-2 flex justify-end gap-2">
+                  {isEditing ? (
+                    <>
+                      <button type="button" onClick={handleCancel} disabled={saving} className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10">Cancel</button>
+                      <button type="submit" disabled={saving} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold disabled:opacity-70 disabled:cursor-not-allowed">
+                        {saving ? 'Saving…' : 'Save'}
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               </form>
             </div>
           </div>
         </div>
       </main>
+      {cropperSrc && (
+        <CropperModal
+          src={cropperSrc}
+          aspect={1}
+          theme="dark"
+          onCancel={() => setCropperSrc(null)}
+          onApply={(file) => {
+            setAvatarFile(file);
+            setAvatarDeleted(false);
+            setCropperSrc(null);
+          }}
+        />
+      )}
     </div>
   );
 }

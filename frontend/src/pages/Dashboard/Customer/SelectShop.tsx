@@ -8,6 +8,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import { CiLocationArrow1 } from "react-icons/ci";
 import { AiFillStar, AiOutlineStar, AiOutlineCamera, AiOutlineCloseCircle } from 'react-icons/ai';
+import { XMarkIcon } from '@heroicons/react/24/outline';
 import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
 import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
 import api from '../../../lib/api';
@@ -365,7 +366,7 @@ export default function SelectShop() {
   });
 
   return (
-    <div className="min-h-screen bg-gradient-to-r from-blue-900 via-indigo-900 to-black text-white">
+  <div className="min-h-screen bg-gradient-to-r from-blue-900 via-indigo-900 to-black text-white">
       {/* header */}
       <header className="w-full bg-white">
         <div className="max-w-8xl mx-auto px-6 py-4 flex items-center gap-4 justify-center lg:justify-start">
@@ -381,10 +382,10 @@ export default function SelectShop() {
           <div className="lg:flex lg:items-stretch lg:gap-6 lg:justify-center">
             {/* Left: list/card */}
             <div className="flex-1 lg:w-auto lg:h-[640px]">
-              <div className="border-2 border-white/90 rounded-lg p-6 bg-black h-full">
-                <div className="rounded-md bg-black p-6 h-full flex flex-col">
+              <div className="border border-white/10 rounded-xl p-0 bg-gray-900 h-full">
+                <div className="rounded-xl bg-gray-900 p-6 h-full flex flex-col">
                   <div className="mb-6 text-center">
-                    <h1 className="text-xl lg:text-2xl uppercase tracking-wider font-medium" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                    <h1 className="text-xl lg:text-2xl font-bold text-white" style={{ fontFamily: "'Open Sans', sans-serif" }}>
                       Select Your Store
                     </h1>
                   </div>
@@ -400,7 +401,7 @@ export default function SelectShop() {
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
                           placeholder="Search print shops or address"
-                          className="w-full h-10 text-sm rounded-full bg-transparent border border-white/30 px-4 py-2 text-white placeholder:text-gray-400 focus:outline-none focus:ring-0"
+                          className="w-full h-11 text-sm rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                         />
                       </div>
                     </div>
@@ -470,7 +471,7 @@ export default function SelectShop() {
                             return (
                               <li
                                 key={store._id}
-                                className={`flex items-center justify-between gap-x-6 py-3 px-3 hover:bg:white/5 hover:bg-white/5 rounded cursor-pointer ${selectedStore?._id === store._id ? 'bg-white/10' : ''}`}
+                                className={`flex items-center justify-between gap-x-6 py-3 px-3 rounded-lg cursor-pointer border transition ${selectedStore?._id === store._id ? 'border-blue-500/40 bg-blue-500/10' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}
                                 role="button"
                                 tabIndex={0}
                                 onClick={handleSelect}
@@ -493,7 +494,7 @@ export default function SelectShop() {
                                     if (logoId) {
                                       const src = `${api.defaults.baseURL}/print-store/logo/${logoId}`;
                                       return (
-                                        <div className="h-12 w-12 rounded-full overflow-hidden flex-shrink-0 bg-white/5 flex items-center justify-center">
+                                        <div className="h-12 w-12 rounded-full overflow-hidden flex-shrink-0 bg-white flex items-center justify-center border border-white/10">
                                           <img src={src} alt={`${store.name} logo`} className="h-full w-full object-cover" />
                                         </div>
                                       );
@@ -505,7 +506,7 @@ export default function SelectShop() {
                                     );
                                   })()}
                                   <div className="min-w-0">
-                                    <p className="text-sm font-semibold">{store.name}</p>
+                                    <p className="text-sm font-semibold text-white">{store.name}</p>
                                     <p className="mt-1 text-xs text-gray-300 break-words">{addressParts || 'No address provided'}</p>
                                     {store.mobile && <p className="mt-1 text-xs text-gray-300">Contact Number: {store.mobile}</p>}
                                     {userLocation && store.address?.location && (
@@ -518,7 +519,7 @@ export default function SelectShop() {
                                   <button
                                     type="button"
                                     aria-label="View store details"
-                                    className="p-1 rounded hover:bg-white/10"
+                                    className="p-1 rounded-lg hover:bg-white/10"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedStore(store);
@@ -604,8 +605,8 @@ export default function SelectShop() {
       {selectedStore && isMobile && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/60" onClick={() => requestClose('mobile')} />
-          <div className="relative max-w-3xl w-full mx-4 bg-black border border-white/10 rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+          <div className="relative max-w-3xl w-full mx-4 bg-gray-900 border border-white/10 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
               <div className="flex items-center gap-3">
                 {(() => {
                   const raw = selectedStore?.logoFileId as unknown;
@@ -619,7 +620,7 @@ export default function SelectShop() {
                   }
                   if (logoId) {
                     const src = `${api.defaults.baseURL}/print-store/logo/${logoId}`;
-                    return <img src={src} alt={`${selectedStore.name} logo`} className="h-10 w-10 object-cover rounded" />;
+                    return <img src={src} alt={`${selectedStore.name} logo`} className="h-10 w-10 object-cover rounded bg-white border border-white/10" />;
                   }
                   return null;
                 })()}
@@ -653,10 +654,10 @@ export default function SelectShop() {
                 <button
                   type="button"
                   onClick={() => requestClose('mobile')}
-                  className="rounded-full bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-sm"
+                  className="p-2 hover:bg-white/10 rounded-lg"
                   aria-label="Close store details"
                 >
-                  Close
+                  <XMarkIcon className="h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -708,7 +709,7 @@ export default function SelectShop() {
                 </div>
               </div>
               {/* mobile action */}
-              <div className="m-auto flex justify-end">
+        <div className="m-auto flex justify-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -716,7 +717,7 @@ export default function SelectShop() {
                     // navigate to customer dashboard and include selected store id in state
                     navigate('/dashboard/customer', { state: { storeId: selectedStore._id } });
                   }}
-                  className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm"
+          className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white border border-blue-600 px-3 py-2 text-sm"
                 >
                   Select this store
                 </button>
@@ -832,7 +833,7 @@ export default function SelectShop() {
                         value={myComment}
                         onChange={(e) => setMyComment(e.target.value)}
                         placeholder="Leave a comment (optional)"
-                        className="w-full rounded bg-transparent border border-white/20 px-3 py-2 text-sm"
+                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                         rows={3}
                       />
                       {/* Add photos (mobile) */}
@@ -841,7 +842,7 @@ export default function SelectShop() {
                           type="button"
                           onClick={pickImages}
                           disabled={myImages.length >= 5}
-                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm ${myImages.length >= 5 ? 'bg-white/5 text-gray-400 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'}`}
+                          className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm ${myImages.length >= 5 ? 'bg-white/5 text-gray-400 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'}`}
                         >
                           <AiOutlineCamera />
                           <span>{myImages.length >= 5 ? 'Max 5 photos' : 'Add photo'}</span>
@@ -865,7 +866,7 @@ export default function SelectShop() {
                         </div>
                       )}
                       <div className="flex justify-end items-center gap-2">
-                        <button type="submit" className="rounded-full bg-green-600 hover:bg-green-700 text-white px-3 py-1 text-sm">Submit</button>
+                        <button type="submit" className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white border border-blue-600 px-3 py-1.5 text-sm">Submit</button>
                         {myRating > 0 && (
                           <button
                             type="button"
@@ -890,7 +891,7 @@ export default function SelectShop() {
                                 else setReviewsError('Failed to delete review');
                               }
                             }}
-                            className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm"
+                            className="rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-sm border border-white/10"
                           >
                             Delete my review
                           </button>
@@ -909,7 +910,7 @@ export default function SelectShop() {
     {selectedStore && showDetails && !isMobile && (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/70" onClick={() => requestClose('desktop')} />
-          <div className="relative w-full max-w-3xl mx-4 bg-black border-2 border-white/40 rounded-lg overflow-hidden flex flex-col max-h-[85vh]">
+          <div className="relative w-full max-w-3xl mx-4 bg-gray-900 border border-white/10 rounded-xl overflow-hidden flex flex-col max-h-[85vh]">
             <div className="p-4 border-b border-white/10 flex items-center justify-between">
               <div className="flex items-center gap-3 min-w-0">
                 {(() => {
@@ -923,7 +924,7 @@ export default function SelectShop() {
                   }
                   if (logoId) {
                     const src = `${api.defaults.baseURL}/print-store/logo/${logoId}`;
-                    return <img src={src} alt={`${selectedStore.name} logo`} className="h-10 w-10 rounded object-cover" />;
+                    return <img src={src} alt={`${selectedStore.name} logo`} className="h-10 w-10 rounded object-cover bg-white border border-white/10" />;
                   }
                   return null;
                 })()}
@@ -946,7 +947,9 @@ export default function SelectShop() {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button className="rounded-full bg-red-500 hover:bg-red-600 text-white px-3 py-1 text-sm" onClick={() => requestClose('desktop')}>Close</button>
+                <button className="p-2 hover:bg-white/10 rounded-lg" onClick={() => requestClose('desktop')} aria-label="Close">
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
               </div>
             </div>
 
@@ -973,11 +976,11 @@ export default function SelectShop() {
                 )}
               </div>
 
-              <div>
+        <div>
                 <button
                   type="button"
                   onClick={() => navigate('/dashboard/customer', { state: { storeId: selectedStore._id } })}
-                  className="w-full rounded bg-white/10 hover:bg-white/20 px-3 py-2 text-sm"
+          className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-sm text-white border border-blue-600"
                 >
                   Select this store
                 </button>
@@ -1096,7 +1099,7 @@ export default function SelectShop() {
                         value={myComment}
                         onChange={(e) => setMyComment(e.target.value)}
                         placeholder="Leave a comment (optional)"
-                        className="w-full rounded bg-transparent border border-white/20 px-3 py-2 text-sm"
+                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                         rows={3}
                       />
 
@@ -1107,7 +1110,7 @@ export default function SelectShop() {
                           type="button"
                           onClick={pickImages}
                           disabled={myImages.length >= 5}
-                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm ${
+                          className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm ${
                             myImages.length >= 5 ? 'bg-white/5 text-gray-400 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20'
                           }`}
                         >
@@ -1119,7 +1122,7 @@ export default function SelectShop() {
                         <div className="flex items-center gap-2">
                           <button
                             type="submit"
-                            className="rounded-full bg-green-600 hover:bg-green-700 text-white px-3 py-1 text-sm"
+                            className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-sm border border-blue-600"
                           >
                             Submit
                           </button>
@@ -1145,7 +1148,7 @@ export default function SelectShop() {
                                   else setReviewsError('Failed to delete review');
                                 }
                               }}
-                              className="rounded-full bg-white/5 hover:bg-white/10 px-3 py-1 text-sm"
+                              className="rounded-lg bg-white/5 hover:bg-white/10 px-3 py-1.5 text-sm border border-white/10"
                             >
                               Delete my review
                             </button>
@@ -1187,12 +1190,12 @@ export default function SelectShop() {
       {showDiscardConfirm && (
         <div className="fixed inset-0 z-[100000] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/70" onClick={cancelDiscard} />
-          <div className="relative w-full max-w-sm mx-4 bg-[#0b0b0b] border border-white/15 rounded-lg p-4 shadow-xl">
+          <div className="relative w-full max-w-sm mx-4 bg-gray-900 border border-white/10 rounded-xl p-4 shadow-xl">
             <h5 className="text-sm font-semibold mb-2">Discard changes?</h5>
             <p className="text-xs text-gray-300 mb-4">You have unsaved changes in your review. Are you sure you want to discard them?</p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={cancelDiscard} className="rounded bg-white/10 hover:bg-white/20 px-3 py-1 text-sm">Cancel</button>
-              <button type="button" onClick={confirmDiscard} className="rounded bg-red-600 hover:bg-red-700 px-3 py-1 text-sm">Discard</button>
+              <button type="button" onClick={cancelDiscard} className="px-3 py-1.5 text-sm rounded-lg border border-white/10 hover:bg-white/10">Cancel</button>
+              <button type="button" onClick={confirmDiscard} className="px-3 py-1.5 text-sm rounded-lg bg-red-600 hover:bg-red-500 text-white border border-red-600">Discard</button>
             </div>
           </div>
         </div>
