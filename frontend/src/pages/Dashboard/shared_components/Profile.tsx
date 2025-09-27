@@ -28,7 +28,6 @@ export default function Profile() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [cropperSrc, setCropperSrc] = useState<string | null>(null);
 
-  // Reset form on user change or cancel
   useEffect(() => {
     if (!isEditing) {
       setFirstName(user?.firstName || '');
@@ -37,13 +36,12 @@ export default function Profile() {
       setPhone(user?.phone || '');
       setAvatarFile(null);
       setAvatarPreview(null);
-  setAvatarDeleted(false);
+      setAvatarDeleted(false);
       setError(null);
       setSuccessMsg(null);
     }
   }, [user, isEditing]);
 
-  // Avatar preview
   useEffect(() => {
     if (!avatarFile) return setAvatarPreview(null);
     const url = URL.createObjectURL(avatarFile);
@@ -57,19 +55,16 @@ export default function Profile() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) return setError('Please select a valid image file.');
-  setAvatarFile(file); setError(null); setAvatarDeleted(false);
+    setAvatarFile(file); setError(null); setAvatarDeleted(false);
   };
   const handleCancel = () => setIsEditing(false);
 
-
-  // Delete avatar (reset to initials)
   const onDeleteAvatar = () => {
     setAvatarFile(null);
     setAvatarPreview(null);
-  setAvatarDeleted(true);
+    setAvatarDeleted(true);
   };
 
-  // Open cropper using preview or current avatar; otherwise prompt upload
   const openCropper = () => {
     const src = avatarPreview || currentAvatarUrl;
     if (src) {
@@ -79,7 +74,6 @@ export default function Profile() {
     }
   };
 
-  // Save profile changes
   const handleSave = async () => {
     if (!updateUser) return;
     setError(null); setSuccessMsg(null); setSaving(true);
@@ -92,12 +86,10 @@ export default function Profile() {
       if (avatarFile) {
         formData.append('avatar', avatarFile);
       } else if (avatarDeleted) {
-        // Only send deletion flag if explicitly deleted
         formData.append('avatar', '');
       }
 
-      // Assuming updateUser   accepts FormData or adapt accordingly
-      await updateUser  (formData);
+      await updateUser(formData);
 
       setSuccessMsg('Profile updated successfully.');
       setIsEditing(false);
@@ -113,7 +105,6 @@ export default function Profile() {
   ];
   const currentAvatarUrl = user?.avatarUrl || null;
 
-  // Match dashboard gradients by role
   const gradientClass = user?.role === 'owner'
     ? 'bg-gradient-to-r from-[#0f172a] via-[#1e3a8a]/90 to-white'
     : 'bg-gradient-to-r from-blue-900 via-indigo-900 to-black';
@@ -129,12 +120,14 @@ export default function Profile() {
 
       <main className="px-6 py-16 lg:px-10">
         <div className="max-w-3xl mx-auto mt-20 relative">
-          <button type="button" onClick={() => navigate(user?.role === 'owner' ? '/dashboard/owner' : backPath)}
-            className="absolute -top-12 left-0 flex items-center gap-2 bg-indigo-700 bg-opacity-70 hover:bg-opacity-90 text-white font-semibold text-sm rounded-full px-4 py-2 shadow-md">
+          <button
+            type="button"
+            onClick={() => navigate(user?.role === 'owner' ? '/dashboard/owner' : backPath)}
+            className="absolute -top-12 left-0 flex items-center gap-2 bg-indigo-700 bg-opacity-70 text-white font-semibold text-sm rounded-full px-4 py-2 shadow-md transition-transform duration-200 hover:bg-opacity-90 hover:scale-105"
+          >
             <AiOutlineArrowLeft size={20} /> Back
           </button>
 
-          {/* Card styled to match Service Add/Edit modal */}
           <div className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
             <div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">
               <h1 className="text-lg sm:text-xl font-semibold">My Profile</h1>
@@ -146,9 +139,10 @@ export default function Profile() {
             </div>
 
             <div className="p-4 sm:p-5 flex flex-col items-center gap-6">
-              {/* Avatar */}
               <div className="relative">
-                <div onClick={onAvatarClick} className={`h-24 w-24 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex items-center justify-center text-4xl font-bold text-white select-none cursor-${isEditing ? 'pointer' : 'default'}`}
+                <div
+                  onClick={onAvatarClick}
+                  className={`h-24 w-24 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex items-center justify-center text-4xl font-bold text-white select-none cursor-${isEditing ? 'pointer' : 'default'}`}
                   aria-label="Profile avatar"
                   role={isEditing ? 'button' : undefined}
                   tabIndex={isEditing ? 0 : undefined}
@@ -192,7 +186,6 @@ export default function Profile() {
 
               <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={onAvatarChange} />
 
-              {/* Form */}
               <form onSubmit={async e => { e.preventDefault(); await handleSave(); }} className="w-full space-y-4">
                 {fields.map(f => {
                   const baseInput = "w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 text-white placeholder-gray-400 focus:outline-none";
@@ -215,7 +208,6 @@ export default function Profile() {
                   );
                 })}
 
-                {/* Address */}
                 <div>
                   <label htmlFor="address" className="block text-xs text-gray-300 mb-1">Address</label>
                   <textarea

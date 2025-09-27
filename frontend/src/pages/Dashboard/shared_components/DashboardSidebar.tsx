@@ -7,6 +7,7 @@ import {
   Cog6ToothIcon,
   CubeIcon,
   ShoppingBagIcon,
+  ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline"
 
 interface DashboardSidebarProps {
@@ -17,16 +18,21 @@ interface DashboardSidebarProps {
 }
 
 export default function DashboardSidebar({ role, className, closeSidebar, centered }: DashboardSidebarProps) {
+  // Owner links
   const adminLinks = [
     { name: "Dashboard", href: "/dashboard/owner", icon: <HomeIcon className="h-5 w-5" /> },
     { name: "Order Management", href: "/dashboard/orders", icon: <ClipboardDocumentListIcon className="h-5 w-5" /> },
     { name: "Service Management", href: "/dashboard/services", icon: <Cog6ToothIcon className="h-5 w-5" /> },
     { name: "Inventory", href: "/dashboard/inventory", icon: <CubeIcon className="h-5 w-5" /> },
+    { name: "Chat", href: "/dashboard/chat-owner", icon: <ChatBubbleLeftRightIcon className="h-5 w-5" /> },
   ]
 
+  // Customer links
   const customerLinks = [
     { name: "Services", href: "/dashboard/customer", icon: <ClipboardDocumentListIcon className="h-5 w-5" /> },
     { name: "My Orders", href: "/dashboard/my-orders", icon: <ShoppingBagIcon className="h-5 w-5" /> },
+    { name: "Customize", href: "/dashboard/customize", icon: <CubeIcon className="h-5 w-5" /> },
+    { name: "Chat", href: "/dashboard/chat-customer", icon: <ChatBubbleLeftRightIcon className="h-5 w-5" /> },
   ]
 
   const links = role === "owner" ? adminLinks : customerLinks

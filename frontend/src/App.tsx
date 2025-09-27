@@ -5,20 +5,28 @@ import OrderManagement from "./pages/Dashboard/Owner/OrderManagement";
 import TrackOrders from "./pages/Dashboard/Customer/TrackOrders";
 import SelectShop from "./pages/Dashboard/Customer/SelectShop";
 import ServiceManagement from "./pages/Dashboard/Owner/ServiceManagement";
-import PrivateRoute from "./components/PrivateRoute";
 import Inventory from "./pages/Dashboard/Owner/Inventory";
 import Profile from "./pages/Dashboard/shared_components/Profile";
+import PrivateRoute from "./components/PrivateRoute";
+
+// Customer Pages
+import Customize from "./pages/Dashboard/Customer/Customize";
+import ChatCustomer from "./pages/Dashboard/Customer/ChatCustomer";
+
+// Owner Pages
+import ChatOwner from "./pages/Dashboard/Owner/ChatOwner";
 
 function App() {
   return (
     <Router>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Authentication />} />
         <Route path="/signup" element={<Authentication />} />
         <Route path="/forgot-password" element={<Authentication />} />
 
-        {/* Profile Page */}
+        {/* Profile */}
         <Route
           path="/profile"
           element={
@@ -28,7 +36,7 @@ function App() {
           }
         />
 
-        {/* Protected Owner dashboard */}
+        {/* Owner Dashboard */}
         <Route
           path="/dashboard/owner"
           element={
@@ -37,38 +45,38 @@ function App() {
             </PrivateRoute>
           }
         />
-
-        {/* Protected Customer dashboard */}
         <Route
-          path="/dashboard/customer"
+          path="/dashboard/orders"
           element={
             <PrivateRoute>
-              <Customer />
+              <OrderManagement />
             </PrivateRoute>
           }
         />
-
-        {/* Customer: My Orders */}
         <Route
-          path="/dashboard/my-orders"
+          path="/dashboard/services"
           element={
             <PrivateRoute>
-              <TrackOrders />
+              <ServiceManagement />
             </PrivateRoute>
           }
         />
-
-        {/* Select shop picker for customers/guests */}
         <Route
-          path="/customer/select-shop"
+          path="/dashboard/inventory"
           element={
             <PrivateRoute>
-              <SelectShop />
+              <Inventory />
             </PrivateRoute>
           }
         />
-
-        {/* Protected Create Print Store page */}
+        <Route
+          path="/dashboard/chat-owner"
+          element={
+            <PrivateRoute>
+              <ChatOwner />
+            </PrivateRoute>
+          }
+        />
         <Route
           path="/owner/create-shop"
           element={
@@ -78,37 +86,47 @@ function App() {
           }
         />
 
-        {/* Service Management */}
+        {/* Customer Dashboard */}
         <Route
-          path="/dashboard/services"
+          path="/dashboard/customer"
           element={
             <PrivateRoute>
-              <ServiceManagement />
+              <Customer />
             </PrivateRoute>
           }
         />
-
-        {/* Order Management (Owner) */}
         <Route
-          path="/dashboard/orders"
+          path="/dashboard/my-orders"
           element={
             <PrivateRoute>
-              <OrderManagement />
+              <TrackOrders />
             </PrivateRoute>
           }
         />
-
-        {/* Inventory (Owner) */}
         <Route
-          path="/dashboard/inventory"
+          path="/dashboard/customize"
           element={
             <PrivateRoute>
-              <Inventory />
+              <Customize />
             </PrivateRoute>
           }
         />
-
-
+        <Route
+          path="/dashboard/chat-customer"
+          element={
+            <PrivateRoute>
+              <ChatCustomer />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/customer/select-shop"
+          element={
+            <PrivateRoute>
+              <SelectShop />
+            </PrivateRoute>
+          }
+        />
       </Routes>
     </Router>
   );

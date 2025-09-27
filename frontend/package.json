@@ -13,11 +13,13 @@
     "@fontsource/crimson-pro": "^5.2.6",
     "@headlessui/react": "^2.2.7",
     "@heroicons/react": "^2.2.0",
+    "@react-three/drei": "^10.7.6",
+    "@react-three/fiber": "^9.3.0",
     "@tailwindcss/vite": "^4.1.11",
     "axios": "^1.11.0",
     "axios-retry": "^4.5.0",
     "embla-carousel-react": "^8.6.0",
-    "framer-motion": "^12.23.12",
+    "framer-motion": "^12.23.22",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.2",
     "jspdf-autotable": "^5.0.2",
@@ -32,7 +34,8 @@
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.8.0",
     "recharts": "^3.1.2",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
