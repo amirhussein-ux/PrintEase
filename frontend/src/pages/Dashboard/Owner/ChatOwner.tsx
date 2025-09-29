@@ -2,14 +2,19 @@ import React, { useState, useRef, useEffect } from "react";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import { AiOutlineSend } from "react-icons/ai";
 import { initSocket, getSocket } from "../../../lib/socket";
-import { useAuth } from "../../../context/AuthContext";
+
+// Using your actual IDs
+const OWNER_ID = "68bfea82a2abdc3113746741";
 
 interface Message {
-  _id: string;
-  text: string;
+  _id?: string;
+  text?: string;
   senderId: string;
   createdAt: string;
   senderName?: string;
+  conversationId: string;
+  fileName?: string;
+  fileUrl?: string;
 }
 
 interface Customer {
@@ -19,104 +24,119 @@ interface Customer {
 }
 
 const ChatOwner: React.FC = () => {
-  const { user } = useAuth();
-  const ownerId = user?._id;
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loadingMessages, setLoadingMessages] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const [socketReady, setSocketReady] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState<{ [conversationId: string]: number }>({});
 
-  // Scroll to bottom when messages change
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const currentConversationIdRef = useRef<string | undefined>(undefined);
+
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // Initialize socket
   useEffect(() => {
-    if (!ownerId) return;
+    const socket = initSocket(OWNER_ID, "owner", { transports: ["websocket"] });
 
-    const socket = initSocket(ownerId, "owner");
+    socket.on("connect", () => {
+      console.log("✅ Socket connected:", socket.id);
+      setSocketReady(true);
+      socket.emit("register", { userId: OWNER_ID, role: "owner" });
+    });
 
     socket.on("newConversation", (customer: Customer) => {
-      setCustomers((prev) => {
-        const exists = prev.find((c) => c.id === customer.id);
-        if (exists) return prev;
+      setCustomers(prev => {
+        if (prev.find(c => c.conversationId === customer.conversationId)) return prev;
         return [...prev, customer];
       });
     });
 
     socket.on("receiveMessage", (msg: Message) => {
-      if (selectedCustomer && msg.senderId === selectedCustomer.id) {
-        setMessages((prev) => [...prev, { ...msg, senderName: msg.senderName || "Customer" }]);
+      // Add customer if missing
+      setCustomers(prev => {
+        if (!prev.find(c => c.conversationId === msg.conversationId)) {
+          return [...prev, { id: msg.senderId, name: "Customer", conversationId: msg.conversationId }];
+        }
+        return prev;
+      });
+
+      if (msg.conversationId === currentConversationIdRef.current) {
+        // Active conversation → show directly
+        setMessages(prev => [...prev, { ...msg, senderName: msg.senderId === OWNER_ID ? "You" : "Customer" }]);
+        setUnreadMessages(prev => ({ ...prev, [msg.conversationId]: 0 }));
+      } else {
+        // Increment unread count
+        setUnreadMessages(prev => ({
+          ...prev,
+          [msg.conversationId]: (prev[msg.conversationId] || 0) + 1,
+        }));
       }
     });
 
     socket.on("messageSent", (msg: Message) => {
-      setMessages((prev) =>
-        prev.map((m) => (m.text === msg.text && !m._id ? { ...m, _id: msg._id } : m))
+      setMessages(prev =>
+        prev.map(m => (m._id === msg._id || (!m._id && m.text === msg.text) ? { ...msg, senderName: "You" } : m))
       );
     });
 
     socket.on("error", ({ message }: { message: string }) => {
-      alert(message);
+      console.error("❌ Socket error:", message);
     });
 
     return () => {
-      socket.off("newConversation");
-      socket.off("receiveMessage");
-      socket.off("messageSent");
-      socket.off("error");
+      socket.disconnect();
+      setSocketReady(false);
     };
-  }, [ownerId, selectedCustomer]);
+  }, []);
 
-  // Load customers
+  // Load conversations
   useEffect(() => {
-    if (!ownerId) return;
-
     const loadCustomers = async () => {
       try {
-        const response = await fetch(`http://localhost:8000/api/chat/conversations?ownerId=${ownerId}`);
-        if (!response.ok) throw new Error("Failed to load conversations");
-        const conversations: any[] = await response.json();
+        const res = await fetch(`http://localhost:8000/api/chat/conversations?ownerId=${OWNER_ID}`);
+        if (!res.ok) throw new Error("Failed to load conversations");
+        const data: any[] = await res.json();
 
-        const customerList: Customer[] = conversations
-          .map((conv) => {
-            const customer = conv.participants.find((p: any) => p._id !== ownerId);
-            return customer
-              ? { id: customer._id, name: customer.firstName || "Customer", conversationId: conv._id }
-              : null;
+        const customerList: Customer[] = data
+          .map(conv => {
+            const cust = conv.participants.find((p: string) => p !== OWNER_ID);
+            return cust ? { id: cust, name: "Customer", conversationId: conv._id } : null;
           })
           .filter(Boolean) as Customer[];
 
         setCustomers(customerList);
+
+        // Auto-select first customer
+        if (customerList.length > 0) handleSelectCustomer(customerList[0]);
       } catch (err) {
-        console.error("Error loading customers:", err);
+        console.error(err);
       }
     };
-
     loadCustomers();
-  }, [ownerId]);
+  }, []);
 
-  // Load messages when a customer is selected
+  // Load messages when customer selected
   useEffect(() => {
     if (!selectedCustomer) return;
+
+    currentConversationIdRef.current = selectedCustomer.conversationId;
 
     const loadMessages = async () => {
       setLoadingMessages(true);
       try {
-        const response = await fetch(
-          `http://localhost:8000/api/chat/messages/${selectedCustomer.conversationId}`
-        );
-        if (!response.ok) throw new Error("Failed to load messages");
-        const data: Message[] = await response.json();
+        const res = await fetch(`http://localhost:8000/api/chat/messages/${selectedCustomer.conversationId}`);
+        if (!res.ok) throw new Error("Failed to load messages");
+        const data: Message[] = await res.json();
         setMessages(
-          data.map((msg) => ({
-            ...msg,
-            senderName: msg.senderId === ownerId ? "You" : msg.senderName || "Customer",
-          }))
+          data.map(msg => ({ ...msg, senderName: msg.senderId === OWNER_ID ? "You" : "Customer" }))
         );
+        setUnreadMessages(prev => ({ ...prev, [selectedCustomer.conversationId]: 0 }));
       } catch (err) {
         console.error(err);
         setMessages([]);
@@ -126,32 +146,58 @@ const ChatOwner: React.FC = () => {
     };
 
     loadMessages();
-  }, [selectedCustomer, ownerId]);
+  }, [selectedCustomer]);
 
   const handleSelectCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
+    setMessages([]);
+    currentConversationIdRef.current = customer.conversationId;
+    setUnreadMessages(prev => ({ ...prev, [customer.conversationId]: 0 }));
   };
 
-  const handleSend = () => {
-    if (!newMessage.trim() || !selectedCustomer || !ownerId) return;
+  const handleSend = async () => {
+    if (!newMessage.trim() || !selectedCustomer || !socketReady) return;
 
     const tempMsg: Message = {
-      _id: "",
       text: newMessage,
-      senderId: ownerId!,
+      senderId: OWNER_ID,
       createdAt: new Date().toISOString(),
+      senderName: "You",
+      conversationId: selectedCustomer.conversationId,
     };
 
-    setMessages((prev) => [...prev, tempMsg]);
+    setMessages(prev => [...prev, tempMsg]);
     setNewMessage("");
 
-    const socket = getSocket();
-    socket.emit("sendMessage", {
-      conversationId: selectedCustomer.conversationId,
-      senderId: ownerId,
-      receiverId: selectedCustomer.id,
-      text: newMessage,
-    });
+    try {
+      // Save to backend
+      const res = await fetch("http://localhost:8000/api/chat/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: selectedCustomer.conversationId,
+          senderId: OWNER_ID,
+          receiverId: selectedCustomer.id,
+          text: tempMsg.text,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to send message");
+      const savedMsg: Message = await res.json();
+
+      // Update with saved message
+      setMessages(prev =>
+        prev.map(m =>
+          m === tempMsg ? { ...savedMsg, senderName: "You" } : m
+        )
+      );
+
+      // Emit socket for real-time
+      const socket = getSocket();
+      socket?.emit("sendMessage", savedMsg);
+
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -166,28 +212,33 @@ const ChatOwner: React.FC = () => {
             {customers.length === 0 ? (
               <li className="p-3 text-gray-400">No conversations yet.</li>
             ) : (
-              customers.map((customer) => (
+              customers.map(c => (
                 <li
-                  key={customer.id}
+                  key={c.conversationId}
                   className={`p-3 cursor-pointer hover:bg-gray-700 transition ${
-                    selectedCustomer?.id === customer.id
+                    selectedCustomer?.conversationId === c.conversationId
                       ? "bg-blue-600 text-white font-semibold"
                       : "text-gray-300"
                   }`}
-                  onClick={() => handleSelectCustomer(customer)}
+                  onClick={() => handleSelectCustomer(c)}
                 >
-                  {customer.name}
+                  {c.name}
+                  {unreadMessages[c.conversationId] > 0 && (
+                    <span className="ml-2 text-xs bg-red-600 px-2 rounded-full">
+                      {unreadMessages[c.conversationId]}
+                    </span>
+                  )}
                 </li>
               ))
             )}
           </ul>
         </div>
 
-        {/* Messages */}
+        {/* Chat Window */}
         <div className="flex-1 flex flex-col">
           <div className="p-4 border-b border-gray-700">
             <h1 className="text-white font-semibold text-xl">
-              {selectedCustomer ? `Chat with ${selectedCustomer.name}` : "Select a customer to start chat"}
+              {selectedCustomer ? `Chat with ${selectedCustomer.name}` : "Select a customer"}
             </h1>
           </div>
 
@@ -196,36 +247,41 @@ const ChatOwner: React.FC = () => {
               <div className="flex-1 flex items-center justify-center text-gray-400">
                 Loading messages...
               </div>
-            ) : selectedCustomer ? (
-              messages.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-gray-400">
-                  No messages yet. Say hello!
-                </div>
-              ) : (
-                messages.map((msg) => (
-                  <div
-                    key={msg._id || msg.createdAt}
-                    className={`flex mb-2 ${msg.senderId === ownerId ? "justify-end" : "justify-start"}`}
-                  >
-                    <div
-                      className={`px-4 py-2 rounded-xl max-w-xs break-words ${
-                        msg.senderId === ownerId
-                          ? "bg-blue-600 text-white rounded-br-none"
-                          : "bg-gray-700 text-white rounded-bl-none"
-                      }`}
-                    >
-                      <p className="text-sm">{msg.text}</p>
-                      <span className="text-xs text-gray-300 block text-right mt-1">
-                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                    </div>
-                  </div>
-                ))
-              )
-            ) : (
+            ) : messages.length === 0 ? (
               <div className="flex-1 flex items-center justify-center text-gray-400">
-                Select a customer from the left to start chatting
+                No messages yet. Say hello!
               </div>
+            ) : (
+              messages.map((msg, idx) => (
+                <div
+                  key={msg._id || idx}
+                  className={`flex mb-2 ${msg.senderId === OWNER_ID ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`px-4 py-2 rounded-xl max-w-xs break-words ${
+                      msg.senderId === OWNER_ID
+                        ? "bg-blue-600 text-white rounded-br-none"
+                        : "bg-gray-700 text-white rounded-bl-none"
+                    }`}
+                  >
+                    {msg.fileName ? (
+                      <a
+                        href={msg.fileUrl || "#"}
+                        className="underline text-sm"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {msg.fileName}
+                      </a>
+                    ) : (
+                      <p className="text-sm">{msg.text}</p>
+                    )}
+                    <span className="text-xs text-gray-300 block text-right mt-1">
+                      {new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                </div>
+              ))
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -238,12 +294,17 @@ const ChatOwner: React.FC = () => {
                 className="flex-1 rounded-lg bg-gray-800 border border-white/20 px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
                 placeholder="Type a message..."
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleSend()}
+                onChange={e => setNewMessage(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
               />
               <button
                 onClick={handleSend}
-                disabled={!newMessage.trim() || !selectedCustomer}
+                disabled={!newMessage.trim() || !socketReady}
                 className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center justify-center"
               >
                 <AiOutlineSend className="h-5 w-5" />

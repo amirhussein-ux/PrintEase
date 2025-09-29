@@ -6,17 +6,24 @@ let socket: Socket | null = null;
 export const initSocket = (userId: string, role: string): Socket => {
   if (!socket) {
     socket = io("http://localhost:8000", {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"], // allow fallback
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      withCredentials: true,
     });
 
-    // Register user only once when connected
     socket.on("connect", () => {
-      console.log("✅ Connected to socket server with id:", socket?.id);
-      socket?.emit("register", { userId, role });
+      console.log("✅ Connected to socket server with id:", socket.id);
+      socket.emit("register", { userId, role });
     });
 
-    socket.on("disconnect", () => {
-      console.log("⚡ Disconnected from socket server");
+    socket.on("disconnect", (reason) => {
+      console.log("⚡ Disconnected from socket server:", reason);
+    });
+
+    socket.on("connect_error", (err) => {
+      console.error("❌ Socket connection error:", err.message);
     });
   }
 
@@ -24,8 +31,6 @@ export const initSocket = (userId: string, role: string): Socket => {
 };
 
 export const getSocket = (): Socket => {
-  if (!socket) {
-    throw new Error("Socket not initialized. Call initSocket first.");
-  }
+  if (!socket) throw new Error("Socket not initialized. Call initSocket first.");
   return socket;
 };
