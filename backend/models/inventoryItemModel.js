@@ -4,6 +4,7 @@ const inventoryItemSchema = new mongoose.Schema(
   {
     store: { type: mongoose.Schema.Types.ObjectId, ref: 'PrintStore', required: true },
     name: { type: String, required: true, trim: true },
+  category: { type: String, trim: true },
     amount: { type: Number, default: 0, min: 0 },
     minAmount: { type: Number, default: 0, min: 0 },
     entryPrice: { type: Number, default: 0, min: 0 },

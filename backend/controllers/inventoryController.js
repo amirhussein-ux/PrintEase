@@ -20,15 +20,16 @@ exports.createItem = async (req, res) => {
   try {
     const store = await getOwnerStore(req.user.id);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
-    const { name, amount = 0, minAmount = 0, entryPrice = 0, price = 0, currency = 'PHP' } = req.body;
+  const { name, amount = 0, minAmount = 0, entryPrice = 0, price = 0, currency = 'PHP', category } = req.body;
     const doc = await InventoryItem.create({
       store: store._id,
       name: (name || '').trim(),
-      amount: Number(amount) || 0,
+  amount: Number(amount) || 0,
       minAmount: Number(minAmount) || 0,
       entryPrice: Number(entryPrice) || 0,
       price: Number(price) || 0,
       currency,
+  category: category ? String(category).trim() : undefined,
     });
     res.status(201).json(doc);
   } catch (err) {
@@ -47,13 +48,14 @@ exports.updateItem = async (req, res) => {
     const item = await InventoryItem.findOne({ _id: id, store: store._id });
     if (!item) return res.status(404).json({ message: 'Item not found' });
 
-    const { name, amount, minAmount, entryPrice, price, currency } = req.body;
+  const { name, amount, minAmount, entryPrice, price, currency, category } = req.body;
     if (name !== undefined) item.name = String(name).trim();
     if (amount !== undefined) item.amount = Number(amount) || 0;
     if (minAmount !== undefined) item.minAmount = Number(minAmount) || 0;
     if (entryPrice !== undefined) item.entryPrice = Number(entryPrice) || 0;
     if (price !== undefined) item.price = Number(price) || 0;
     if (currency !== undefined) item.currency = currency;
+  if (category !== undefined) item.category = String(category).trim() || undefined;
 
     await item.save();
     res.json(item);
