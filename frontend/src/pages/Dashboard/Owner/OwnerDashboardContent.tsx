@@ -12,6 +12,15 @@ import "@/assets/fonts/Roboto-Regular-normal"
 // Types
 interface VariantItem { variant: string; expectedStock: number; currentStock: number; minAmount?: number }
 interface InventoryItem { name: string; unit: string; variants: VariantItem[] }
+interface BackendInventoryItem { 
+  _id: string; 
+  name: string; 
+  amount: number; 
+  minAmount: number; 
+  price: number; 
+  currency: string; 
+  createdAt: string; 
+}
 
 // Constants
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020]
@@ -133,7 +142,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
   const restock = hasThresholdBreach || (totalExpected > 0 && totalCurrent < totalExpected * 0.3)
 
   return (
-    <div className={`bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center ${restock ? "animate-pulse shadow-[0_0_20px_#f87171]" : ""}`}>
+    <div className={`bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center ${restock ? "animate-pulse shadow-[0_0_20px_#f87171] border-2 border-red-500" : ""}`}>
       <h3 className="text-sm font-bold uppercase mb-2">{type}</h3>
       <ResponsiveContainer width="100%" height={180}>
         <PieChart>
@@ -142,7 +151,10 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
           </Pie>
         </PieChart>
       </ResponsiveContainer>
-  <p className="text-xs text-gray-600 mt-1">{totalCurrent}/{totalExpected} {unit}</p>
+      <p className="text-xs text-gray-600 mt-1">{totalCurrent}/{totalExpected} {unit}</p>
+      {restock && (
+        <p className="text-xs text-red-600 font-bold mt-1">⚠️ LOW STOCK</p>
+      )}
     </div>
   )
 }
@@ -219,7 +231,7 @@ const OwnerDashboardContent: React.FC = () => {
           : []
         // fetch inventory items for owner store
         const invRes = await api.get('/inventory/mine')
-        const invList: Array<{ _id: string; name: string; amount?: number; minAmount?: number }> = Array.isArray(invRes.data) ? invRes.data : []
+        const invList: BackendInventoryItem[] = Array.isArray(invRes.data) ? invRes.data : []
         const normalizedInventory: InventoryItem[] = invList.map((it) => {
           const amt = Math.max(Number(it.amount) || 0, 0)
           const minAmt = Math.max(Number(it.minAmount) || 0, 0)

@@ -1,18 +1,53 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { PencilSquareIcon, TrashIcon, UserPlusIcon } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
+import api from "../../../lib/api";
+import { isAxiosError } from "axios";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// Types
+interface InventoryItem {
+    _id: string;
+    name: string;
+    amount: number;
+    minAmount: number;
+    entryPrice: number;
+    price: number;
+    currency: string;
+    createdAt: string;
+}
+
+interface Employee {
+    _id: string;
+    fullName: string;
+    role: string;
+    email?: string;
+    phone?: string;
+    active: boolean;
+    createdAt: string;
+}
+
+function toErrorMessage(e: unknown, fallback: string): string {
+    if (isAxiosError(e)) {
+        const data = e.response?.data as { message?: string } | undefined;
+        return data?.message || e.message || fallback;
+    }
+    if (e instanceof Error) return e.message || fallback;
+    return fallback;
+}
 
 const Inventory: React.FC = () => {
     // Product state
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState({ product: "", quantity: "", minQuantity: "", unitPrice: "" });
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
-    const [products, setProducts] = useState<any[]>([]);
+    const [products, setProducts] = useState<InventoryItem[]>([]);
     const [product, setProduct] = useState("");
-    const [editIndex, setEditIndex] = useState<number | null>(null);
+    const [editIndex, setEditIndex] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [productStatusFilter, setProductStatusFilter] = useState<"ALL" | "LOW" | "OK">("ALL");
@@ -21,7 +56,7 @@ const Inventory: React.FC = () => {
     const [showProductFilters, setShowProductFilters] = useState(false);
 
     // Employee state
-    const [employees, setEmployees] = useState<any[]>([]);
+    const [employees, setEmployees] = useState<Employee[]>([]);
     const [showEmployeeModal, setShowEmployeeModal] = useState(false);
     const [employeeForm, setEmployeeForm] = useState({ fullName: "", role: "" });
     const [employeeErrors, setEmployeeErrors] = useState<{ [key: string]: string }>({});
@@ -30,20 +65,56 @@ const Inventory: React.FC = () => {
     const [employeeSortKey, setEmployeeSortKey] = useState<"fullName" | "role">("fullName");
     const [employeeSortDir, setEmployeeSortDir] = useState<"asc" | "desc">("asc");
     const [showEmployeeFilters, setShowEmployeeFilters] = useState(false);
-    const [editEmployeeIndex, setEditEmployeeIndex] = useState<number | null>(null);
+    const [editEmployeeIndex, setEditEmployeeIndex] = useState<string | null>(null);
+
+    // Load data from backend
+    useEffect(() => {
+        let cancelled = false;
+        async function loadData() {
+            try {
+                setLoading(true);
+                setError(null);
+                
+                // Load inventory items
+                const inventoryRes = await api.get("/inventory/mine");
+                if (cancelled) return;
+                const inventoryItems: InventoryItem[] = inventoryRes.data || [];
+                setProducts(inventoryItems);
+                
+                // Load employees
+                const employeeRes = await api.get("/employees/mine");
+                if (cancelled) return;
+                const employeeList: Employee[] = employeeRes.data || [];
+                setEmployees(employeeList);
+                
+                // Set first product as selected if available
+                if (inventoryItems.length > 0 && !product) {
+                    setProduct(inventoryItems[0].name);
+                }
+            } catch (e: unknown) {
+                if (!cancelled) setError(toErrorMessage(e, "Failed to load data"));
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        }
+        loadData();
+        return () => {
+            cancelled = true;
+        };
+    }, [product]);
 
     // Graph data: aggregate by month for selected product
     const stockAmountData = MONTHS.map((month, idx) => ({
         month,
         amount: products
-            .filter(p => p.product === product && new Date(p.createdAt).getMonth() === idx)
-            .reduce((sum, p) => sum + Number(p.quantity), 0)
+            .filter(p => p.name === product && new Date(p.createdAt).getMonth() === idx)
+            .reduce((sum, p) => sum + Number(p.amount), 0)
     }));
     const stockPrizeData = MONTHS.map((month, idx) => ({
         month,
         prize: products
-            .filter(p => p.product === product && new Date(p.createdAt).getMonth() === idx)
-            .reduce((sum, p) => sum + Number(p.unitPrice), 0)
+            .filter(p => p.name === product && new Date(p.createdAt).getMonth() === idx)
+            .reduce((sum, p) => sum + Number(p.price), 0)
     }));
 
     // Product handlers
@@ -67,55 +138,68 @@ const Inventory: React.FC = () => {
         return "P-" + Date.now().toString(36) + "-" + Math.floor(Math.random() * 10000);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const newErrors = validateFields();
         setErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
-        const now = new Date();
-        if (editIndex !== null) {
-            const updated = [...products];
-            updated[editIndex] = {
-                ...updated[editIndex],
-                product: form.product,
-                quantity: Number(form.quantity),
-                minQuantity: Number(form.minQuantity),
-                unitPrice: Number(form.unitPrice),
-                createdAt: updated[editIndex].createdAt || now.toISOString(),
-            };
-            setProducts(updated);
-            setProduct(form.product);
-        } else {
-            setProducts([...products, {
-                productId: generateProductId(),
-                product: form.product,
-                quantity: Number(form.quantity),
-                minQuantity: Number(form.minQuantity),
-                unitPrice: Number(form.unitPrice),
-                createdAt: now.toISOString(),
-            }]);
-            setProduct(form.product);
+        
+        try {
+            setError(null);
+            if (editIndex !== null) {
+                // Update existing item
+                const res = await api.put(`/inventory/${editIndex}`, {
+                    name: form.product,
+                    amount: Number(form.quantity),
+                    minAmount: Number(form.minQuantity),
+                    price: Number(form.unitPrice),
+                });
+                const updated = res.data;
+                setProducts(prev => prev.map(p => p._id === editIndex ? updated : p));
+                setProduct(form.product);
+            } else {
+                // Create new item
+                const res = await api.post("/inventory", {
+                    name: form.product,
+                    amount: Number(form.quantity),
+                    minAmount: Number(form.minQuantity),
+                    price: Number(form.unitPrice),
+                });
+                const created = res.data;
+                setProducts(prev => [created, ...prev]);
+                setProduct(form.product);
+            }
+            setShowModal(false);
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to save product"));
         }
-        setShowModal(false);
     };
 
-    const handleEdit = (idx: number) => {
-        const p = products[idx];
+    const handleEdit = (id: string) => {
+        const p = products.find(prod => prod._id === id);
+        if (!p) return;
         setForm({
-            product: p.product,
-            quantity: String(p.quantity),
-            minQuantity: String(p.minQuantity),
-            unitPrice: String(p.unitPrice),
+            product: p.name,
+            quantity: String(p.amount),
+            minQuantity: String(p.minAmount),
+            unitPrice: String(p.price),
         });
-        setEditIndex(idx);
+        setEditIndex(id);
         setShowModal(true);
         setErrors({});
     };
 
-    const handleDelete = (idx: number) => {
-        const updated = products.filter((_, i) => i !== idx);
-        setProducts(updated);
-        if (products[idx].product === product) {
-            setProduct(updated.length > 0 ? updated[0].product : "");
+    const handleDelete = async (id: string) => {
+        try {
+            setError(null);
+            await api.delete(`/inventory/${id}`);
+            const updated = products.filter(p => p._id !== id);
+            setProducts(updated);
+            const deletedProduct = products.find(p => p._id === id);
+            if (deletedProduct && deletedProduct.name === product) {
+                setProduct(updated.length > 0 ? updated[0].name : "");
+            }
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to delete product"));
         }
     };
 
@@ -125,18 +209,18 @@ const Inventory: React.FC = () => {
     const filteredProducts = useMemo(() => {
         let base = products.filter(p => {
             const qOK =
-                p.product.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (p.productId && p.productId.toLowerCase().includes(searchTerm.toLowerCase()));
+                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (p._id && p._id.toLowerCase().includes(searchTerm.toLowerCase()));
             let statusOK = true;
-            if (productStatusFilter === "LOW") statusOK = Number(p.quantity) <= Number(p.minQuantity);
-            if (productStatusFilter === "OK") statusOK = Number(p.quantity) > Number(p.minQuantity);
+            if (productStatusFilter === "LOW") statusOK = Number(p.amount) <= Number(p.minAmount);
+            if (productStatusFilter === "OK") statusOK = Number(p.amount) > Number(p.minAmount);
             return qOK && statusOK;
         });
         let sorted = [...base].sort((a, b) => {
             let cmp = 0;
-            if (productSortKey === "product") cmp = a.product.localeCompare(b.product);
-            else if (productSortKey === "quantity") cmp = Number(a.quantity) - Number(b.quantity);
-            else if (productSortKey === "unitPrice") cmp = Number(a.unitPrice) - Number(b.unitPrice);
+            if (productSortKey === "product") cmp = a.name.localeCompare(b.name);
+            else if (productSortKey === "quantity") cmp = Number(a.amount) - Number(b.amount);
+            else if (productSortKey === "unitPrice") cmp = Number(a.price) - Number(b.price);
             return productSortDir === "asc" ? cmp : -cmp;
         });
         return sorted;
@@ -176,34 +260,51 @@ const Inventory: React.FC = () => {
         return newErrors;
     };
 
-    const handleSaveEmployee = () => {
+    const handleSaveEmployee = async () => {
         const newErrors = validateEmployeeFields();
         setEmployeeErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
-        if (editEmployeeIndex !== null) {
-            const updated = [...employees];
-            updated[editEmployeeIndex] = { ...employeeForm };
-            setEmployees(updated);
-        } else {
-            setEmployees([...employees, { ...employeeForm }]);
+        
+        try {
+            setError(null);
+            if (editEmployeeIndex !== null) {
+                // Update existing employee
+                const res = await api.put(`/employees/${editEmployeeIndex}`, employeeForm);
+                const updated = res.data;
+                setEmployees(prev => prev.map(e => e._id === editEmployeeIndex ? updated : e));
+            } else {
+                // Create new employee
+                const res = await api.post("/employees", employeeForm);
+                const created = res.data;
+                setEmployees(prev => [created, ...prev]);
+            }
+            setShowEmployeeModal(false);
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to save employee"));
         }
-        setShowEmployeeModal(false);
     };
 
-    const handleEditEmployee = (idx: number) => {
-        const e = employees[idx];
+    const handleEditEmployee = (id: string) => {
+        const e = employees.find(emp => emp._id === id);
+        if (!e) return;
         setEmployeeForm({
             fullName: e.fullName,
             role: e.role,
         });
-        setEditEmployeeIndex(idx);
+        setEditEmployeeIndex(id);
         setShowEmployeeModal(true);
         setEmployeeErrors({});
     };
 
-    const handleDeleteEmployee = (idx: number) => {
-        const updated = employees.filter((_, i) => i !== idx);
-        setEmployees(updated);
+    const handleDeleteEmployee = async (id: string) => {
+        try {
+            setError(null);
+            await api.delete(`/employees/${id}`);
+            const updated = employees.filter(e => e._id !== id);
+            setEmployees(updated);
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to delete employee"));
+        }
     };
 
     const handleCancelEmployee = () => setShowEmployeeModal(false);
@@ -217,7 +318,7 @@ const Inventory: React.FC = () => {
                         <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
                             <span className="text-lg bg-white rounded-full p-1">🅿️</span>
                             <div className="text-base font-bold text-gray-900">
-                                P {products.reduce((sum, p) => sum + (p.unitPrice * p.quantity), 0)}
+                                P {products.reduce((sum, p) => sum + (p.price * p.amount), 0)}
                             </div>
                             <div className="text-gray-800 text-[0.7rem] uppercase">Stock <b>Prize</b></div>
                         </div>
@@ -237,6 +338,11 @@ const Inventory: React.FC = () => {
                             <div className="text-gray-800 text-[0.7rem] uppercase">Employees</div>
                         </div>
                     </div>
+
+                    {/* Error Display */}
+                    {error && (
+                        <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-200 px-3 py-2 text-sm">{error}</div>
+                    )}
 
                     {/* Merged Graphs & Product Selection */}
                     <div className="flex flex-col gap-4 mb-4">
@@ -271,21 +377,21 @@ const Inventory: React.FC = () => {
                             </div>
                             {/* Product selection styled and inside merged graph border */}
                             <div className="flex flex-col gap-1 ml-4 justify-center min-w-[120px]">
-                                {products.map((p, idx) => (
+                                {products.map((p) => (
                                     <button
-                                        key={p.productId}
-                                        onClick={() => setProduct(p.product)}
+                                        key={p._id}
+                                        onClick={() => setProduct(p.name)}
                                         className={`rounded-lg py-1 px-2 text-[0.85rem] font-bold uppercase transition text-left
-                                            ${product === p.product
+                                            ${product === p.name
                                                 ? "bg-gray-600 text-white"
                                                 : "bg-gray-300 text-gray-900 hover:bg-gray-400"
                                             }`}
                                         style={{
-                                            border: product === p.product ? "2px solid #3b4a6b" : "2px solid transparent",
-                                            boxShadow: product === p.product ? "0 2px 8px #3b4a6b22" : undefined,
+                                            border: product === p.name ? "2px solid #3b4a6b" : "2px solid transparent",
+                                            boxShadow: product === p.name ? "0 2px 8px #3b4a6b22" : undefined,
                                         }}
                                     >
-                                        {p.product}
+                                        {p.name}
                                     </button>
                                 ))}
                             </div>
@@ -401,25 +507,25 @@ const Inventory: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredProducts.map((p, i) => (
-                                    <tr key={p.productId} className="text-[0.95rem]">
-                                        <td>{p.productId}</td>
-                                        <td>{p.product}</td>
-                                        <td>{p.quantity}</td>
-                                        <td>{p.minQuantity}</td>
-                                        <td>{p.unitPrice}</td>
+                                {filteredProducts.map((p) => (
+                                    <tr key={p._id} className="text-[0.95rem]">
+                                        <td>{p._id.slice(-6).toUpperCase()}</td>
+                                        <td>{p.name}</td>
+                                        <td>{p.amount}</td>
+                                        <td>{p.minAmount}</td>
+                                        <td>{p.price}</td>
                                         <td className="flex gap-1 items-center justify-center">
                                             <button
                                                 className="p-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
                                                 title="Edit"
-                                                onClick={() => handleEdit(i)}
+                                                onClick={() => handleEdit(p._id)}
                                             >
                                                 <PencilSquareIcon className="w-4 h-4" />
                                             </button>
                                             <button
                                                 className="p-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600"
                                                 title="Delete"
-                                                onClick={() => handleDelete(i)}
+                                                onClick={() => handleDelete(p._id)}
                                             >
                                                 <TrashIcon className="w-4 h-4" />
                                             </button>
@@ -569,22 +675,22 @@ const Inventory: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredEmployees.map((e, i) => (
-                                    <tr key={i} className="text-[0.95rem]">
+                                {filteredEmployees.map((e) => (
+                                    <tr key={e._id} className="text-[0.95rem]">
                                         <td>{e.fullName}</td>
                                         <td>{e.role}</td>
                                         <td className="flex gap-1 items-center justify-center">
                                             <button
                                                 className="p-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
                                                 title="Edit"
-                                                onClick={() => handleEditEmployee(i)}
+                                                onClick={() => handleEditEmployee(e._id)}
                                             >
                                                 <PencilSquareIcon className="w-4 h-4" />
                                             </button>
                                             <button
                                                 className="p-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600"
                                                 title="Delete"
-                                                onClick={() => handleDeleteEmployee(i)}
+                                                onClick={() => handleDeleteEmployee(e._id)}
                                             >
                                                 <TrashIcon className="w-4 h-4" />
                                             </button>

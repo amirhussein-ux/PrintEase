@@ -29,6 +29,9 @@ const serviceSchema = new mongoose.Schema(
   // optional image stored in GridFS
   imageFileId: { type: mongoose.Schema.Types.ObjectId },
   imageMime: { type: String },
+  // inventory requirements
+  requiredInventory: { type: mongoose.Schema.Types.ObjectId, ref: 'InventoryItem' },
+  inventoryQuantityPerUnit: { type: Number, default: 1, min: 0 },
   },
   { timestamps: true }
 );

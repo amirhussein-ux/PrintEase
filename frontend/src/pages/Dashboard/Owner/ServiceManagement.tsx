@@ -55,6 +55,15 @@ interface ServiceItem {
   variants?: ServiceVariant[];
   createdAt: string; // ISO string for sorting/display
   imageUrl?: string; // derived from backend image endpoint
+  requiredInventory?: string; // inventory item ID
+  inventoryQuantityPerUnit?: number;
+  canEnable?: boolean;
+  inventoryStatus?: {
+    name: string;
+    amount: number;
+    minAmount: number;
+    isLowStock: boolean;
+  };
 }
 
 type ServiceDraft = {
@@ -67,7 +76,18 @@ type ServiceDraft = {
   variants?: ServiceVariant[];
   imageFile?: File | null;
   removeImage?: boolean;
+  requiredInventory?: string;
+  inventoryQuantityPerUnit?: number;
 };
+
+interface InventoryItem {
+  _id: string;
+  name: string;
+  amount: number;
+  minAmount: number;
+  price: number;
+  currency: string;
+}
 
 type ApiService = {
   _id: string;
@@ -80,6 +100,15 @@ type ApiService = {
   variants?: ServiceVariant[];
   createdAt?: string;
   imageFileId?: string;
+  requiredInventory?: string;
+  inventoryQuantityPerUnit?: number;
+  canEnable?: boolean;
+  inventoryStatus?: {
+    name: string;
+    amount: number;
+    minAmount: number;
+    isLowStock: boolean;
+  };
 };
 
 function mapServiceFromApi(s: ApiService): ServiceItem {
@@ -94,6 +123,10 @@ function mapServiceFromApi(s: ApiService): ServiceItem {
     variants: Array.isArray(s.variants) ? s.variants : undefined,
     createdAt: s.createdAt || new Date().toISOString(),
   imageUrl: s.imageFileId ? `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/services/${s._id}/image` : undefined,
+    requiredInventory: s.requiredInventory,
+    inventoryQuantityPerUnit: s.inventoryQuantityPerUnit,
+    canEnable: s.canEnable,
+    inventoryStatus: s.inventoryStatus,
   };
 }
 
@@ -113,6 +146,7 @@ export default function ServiceManagement() {
   // state
   const [query, setQuery] = useState("");
   const [services, setServices] = useState<ServiceItem[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<ServiceItem | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -131,10 +165,18 @@ export default function ServiceManagement() {
       try {
         setLoading(true);
         setError(null);
-        const res = await api.get("/services/mine");
+        
+        // Load services with inventory status
+        const servicesRes = await api.get("/services/mine/with-inventory");
         if (cancelled) return;
-        const items: ServiceItem[] = (res.data || []).map(mapServiceFromApi);
-        setServices(items);
+        const serviceItems: ServiceItem[] = (servicesRes.data || []).map(mapServiceFromApi);
+        setServices(serviceItems);
+        
+        // Load inventory items for selection
+        const inventoryRes = await api.get("/inventory/mine");
+        if (cancelled) return;
+        const inventoryList: InventoryItem[] = inventoryRes.data || [];
+        setInventoryItems(inventoryList);
       } catch (e: unknown) {
         if (!cancelled) setError(toErrorMessage(e, "Failed to load services"));
       } finally {
@@ -216,6 +258,8 @@ export default function ServiceManagement() {
   if (draft.currency) form.append('currency', draft.currency);
     form.append('active', String(draft.active));
     form.append('variants', JSON.stringify(draft.variants || []));
+    if (draft.requiredInventory) form.append('requiredInventory', draft.requiredInventory);
+    if (draft.inventoryQuantityPerUnit) form.append('inventoryQuantityPerUnit', String(draft.inventoryQuantityPerUnit));
     if (draft.imageFile) form.append('image', draft.imageFile);
   if (draft.removeImage) form.append('removeImage', 'true');
     return form;
@@ -468,6 +512,15 @@ export default function ServiceManagement() {
                   <span>
                     <strong>Pricing:</strong> {money(s.basePrice, s.currency || 'PHP')} {s.unit}
                   </span>
+                  {s.inventoryStatus && (
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      s.inventoryStatus.isLowStock 
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
+                        : 'bg-green-500/20 text-green-300 border border-green-500/30'
+                    }`}>
+                      <strong>Inventory:</strong> {s.inventoryStatus.name} ({s.inventoryStatus.amount}/{s.inventoryStatus.minAmount})
+                    </span>
+                  )}
                 </div>
                 {s.variants && s.variants.length > 0 && (
                   <div className="mt-2">
@@ -522,6 +575,7 @@ export default function ServiceManagement() {
           setEditing(null);
         }}
         onSave={saveService}
+        inventoryItems={inventoryItems}
       />
     </DashboardLayout>
   );
@@ -532,11 +586,13 @@ function ServiceModal({
   onClose,
   initial,
   onSave,
+  inventoryItems,
 }: {
   open: boolean;
   onClose: () => void;
   initial?: ServiceItem;
   onSave: (item: ServiceDraft) => void;
+  inventoryItems: InventoryItem[];
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -545,6 +601,8 @@ function ServiceModal({
   const [currency, setCurrency] = useState<string>(initial?.currency ?? 'PHP');
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
   const [variants, setVariants] = useState<ServiceVariant[]>(initial?.variants ?? []);
+  const [requiredInventory, setRequiredInventory] = useState<string>(initial?.requiredInventory ?? "");
+  const [inventoryQuantityPerUnit, setInventoryQuantityPerUnit] = useState<number>(initial?.inventoryQuantityPerUnit ?? 1);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(initial?.imageUrl ?? null);
   const [showCropper, setShowCropper] = useState<string | null>(null); // holds objectURL to crop
@@ -561,6 +619,8 @@ function ServiceModal({
   setCurrency(initial?.currency ?? 'PHP');
       setActive(initial?.active ?? true);
       setVariants(initial?.variants ?? []);
+      setRequiredInventory(initial?.requiredInventory ?? "");
+      setInventoryQuantityPerUnit(initial?.inventoryQuantityPerUnit ?? 1);
       setImageFile(null);
       setImagePreview(initial?.imageUrl ?? null);
   setImageOriginalSrc(initial?.imageUrl ?? null);
@@ -621,6 +681,8 @@ function ServiceModal({
   currency,
       active,
       variants: variants.length ? variants : undefined,
+      requiredInventory: requiredInventory || undefined,
+      inventoryQuantityPerUnit: inventoryQuantityPerUnit || undefined,
   imageFile,
   removeImage,
     };
@@ -719,6 +781,39 @@ function ServiceModal({
                         <option value="CNY">CNY (¥)</option>
                       </select>
                     </div>
+                  </div>
+                  
+                  {/* Inventory Requirements */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-300 mb-1">Required Inventory (Optional)</label>
+                      <select
+                        value={requiredInventory}
+                        onChange={(e) => setRequiredInventory(e.target.value)}
+                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        <option value="">No inventory required</option>
+                        {inventoryItems.map((item) => (
+                          <option key={item._id} value={item._id}>
+                            {item.name} (Stock: {item.amount})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {requiredInventory && (
+                      <div>
+                        <label className="block text-xs text-gray-300 mb-1">Quantity per Unit</label>
+                        <input
+                          type="number"
+                          min="0.1"
+                          step="0.1"
+                          value={inventoryQuantityPerUnit}
+                          onChange={(e) => setInventoryQuantityPerUnit(parseFloat(e.target.value) || 1)}
+                          className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                          placeholder="1"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs text-gray-300 mb-1">Description</label>

@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Order = require('../models/orderModel');
 const Service = require('../models/serviceModel');
 const PrintStore = require('../models/printStoreModel');
+const InventoryItem = require('../models/inventoryItemModel');
 const crypto = require('crypto');
 const Notification = require('../models/notificationModel');
 
@@ -9,6 +10,34 @@ function computeUnitPrice(service, selectedOptions = []) {
   const base = Number(service.basePrice) || 0;
   const deltas = (selectedOptions || []).reduce((sum, o) => sum + (Number(o.priceDelta) || 0), 0);
   return base + deltas;
+}
+
+async function reduceInventoryForOrder(order) {
+  try {
+    // Get all services in the order
+    const serviceIds = order.items.map(item => item.service);
+    const services = await Service.find({ _id: { $in: serviceIds } }).populate('requiredInventory');
+    
+    for (const item of order.items) {
+      const service = services.find(s => String(s._id) === String(item.service));
+      if (service && service.requiredInventory) {
+        const inventoryItem = service.requiredInventory;
+        const quantityToReduce = item.quantity * (service.inventoryQuantityPerUnit || 1);
+        
+        // Check if there's enough inventory
+        if (inventoryItem.amount < quantityToReduce) {
+          throw new Error(`Insufficient inventory for ${inventoryItem.name}. Required: ${quantityToReduce}, Available: ${inventoryItem.amount}`);
+        }
+        
+        // Reduce inventory
+        inventoryItem.amount = Math.max(0, inventoryItem.amount - quantityToReduce);
+        await inventoryItem.save();
+      }
+    }
+  } catch (error) {
+    console.error('Error reducing inventory:', error);
+    throw error;
+  }
 }
 
   exports.createOrder = async (req, res) => {
@@ -165,6 +194,8 @@ exports.updateOrderStatus = async (req, res) => {
     const order = await Order.findById(id).populate("store");
     if (!order) return res.status(404).json({ message: "Order not found" });
 
+    const previousStatus = order.status;
+
     // --- Update status ---
     if (status) {
       order.status = status;
@@ -176,11 +207,16 @@ exports.updateOrderStatus = async (req, res) => {
         order.pickupVerifiedAt = undefined;
       }
 
-      // 'completed': clear token
+      // 'completed': clear token and reduce inventory
       if (status === "completed") {
         order.pickupToken = undefined;
         order.pickupTokenExpires = undefined;
         if (!order.pickupVerifiedAt) order.pickupVerifiedAt = new Date();
+        
+        // Only reduce inventory if order wasn't already completed
+        if (previousStatus !== "completed") {
+          await reduceInventoryForOrder(order);
+        }
       }
     }
 
