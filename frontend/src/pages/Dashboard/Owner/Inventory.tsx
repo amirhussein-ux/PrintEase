@@ -465,7 +465,7 @@ const Inventory: React.FC = () => {
                                 </div>
                                 {/* Stock Prize Graph */}
                                 <div>
-                                    <h2 className="text-[0.95rem] font-bold mb-1">Stock Prize</h2>
+                                    <h2 className="text-[0.95rem] font-bold mb-1">Stock Price</h2>
                                     <ResponsiveContainer width="100%" height={140}>
                                         <BarChart data={stockPrizeData}>
                                             <CartesianGrid strokeDasharray="3 3" />
