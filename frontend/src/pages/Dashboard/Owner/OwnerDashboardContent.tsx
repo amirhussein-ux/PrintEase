@@ -3,6 +3,7 @@ import api from "../../../lib/api"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import logo from "/src/assets/PrintEase-Logo-Dark.png"
@@ -173,7 +174,10 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
       </ResponsiveContainer>
       <p className="text-xs text-gray-600 mt-1">{totalCurrent}/{totalExpected} {unit}</p>
       {restock && (
-        <p className="text-xs text-red-600 font-bold mt-1">⚠️ LOW STOCK</p>
+        <div className="flex items-center gap-1 text-xs text-red-500 font-semibold mt-1">
+          <ExclamationTriangleIcon className="w-4 h-4" aria-hidden="true" />
+          <span>LOW STOCK</span>
+        </div>
       )}
     </div>
   )
