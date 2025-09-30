@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import { FunnelIcon } from '@heroicons/react/24/outline';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import api from '../../../lib/api';
@@ -31,6 +32,7 @@ const formatMoney = (n: number | undefined | null, code: string = 'PHP') => {
 };
 
 export default function OrderPage() {
+    const { token, continueAsGuest } = useAuth();
     const location = useLocation() as { state: LocationState };
     const params = useParams<{ storeId?: string }>();
 
@@ -58,8 +60,7 @@ export default function OrderPage() {
     const [showFilters, setShowFilters] = useState(false);
     const [sortKey, setSortKey] = useState<'name' | 'price'>('name');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
-    const [storeLogoUrl, setStoreLogoUrl] = useState<string | null>(null);
-    const [storeName, setStoreName] = useState<string>('');
+    // removed store logo/name (unused here)
 
     // Modal state
     const [selected, setSelected] = useState<Service | null>(null);
@@ -112,35 +113,7 @@ export default function OrderPage() {
         };
     }, [derivedStoreId]);
 
-    // Load store logo/name
-    useEffect(() => {
-        let active = true;
-        const loadStore = async () => {
-            if (!derivedStoreId) return;
-            try {
-                const res = await api.get('/print-store/list');
-                if (!active) return;
-                const list = (res.data || []) as Array<{ _id: string; name: string; logoFileId?: unknown }>;
-                const found = list.find((s) => s._id === derivedStoreId);
-                if (!found) return;
-                setStoreName(found.name || '');
-                // derive logo id robustly
-                let logoId: string | undefined;
-                const raw = found.logoFileId as unknown;
-                if (typeof raw === 'string') logoId = raw;
-                else if (raw && typeof raw === 'object') {
-                    const maybe = raw as { _id?: unknown; toString?: () => string };
-                    if (typeof maybe._id === 'string') logoId = maybe._id;
-                    else if (typeof maybe.toString === 'function') logoId = maybe.toString();
-                }
-                setStoreLogoUrl(logoId ? `${api.defaults.baseURL}/print-store/logo/${logoId}` : null);
-            } catch {
-                /* ignore */
-            }
-        };
-        loadStore();
-        return () => { active = false; };
-    }, [derivedStoreId]);
+    // removed store logo/name loading effect
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -604,6 +577,16 @@ export default function OrderPage() {
                                         }
                                         try {
                                             setSubmitting(true);
+                                            // Ensure auth or guest token present
+                                            if (!token) {
+                                                try {
+                                                    await continueAsGuest();
+                                                } catch {
+                                                    setNotif({ type: 'error', message: 'Unable to start guest session.' });
+                                                    setSubmitting(false);
+                                                    return;
+                                                }
+                                            }
                                             const options = (selected.variants || []).map((v) => ({
                                                 label: v.label,
                                                 optionIndex: Number.isFinite(variantChoices[v.label]) ? Number(variantChoices[v.label]) : 0,
