@@ -18,7 +18,6 @@ import DashboardLayout from "../shared_components/DashboardLayout";
 import api from "../../../lib/api";
 import { isAxiosError } from "axios";
 
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 // Types
 interface InventoryItem {
@@ -55,7 +54,7 @@ function toErrorMessage(e: unknown, fallback: string): string {
 const Inventory: React.FC = () => {
     // Product state
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "" });
+    const [form, setForm] = useState({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "", entryPrice: "" });
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [products, setProducts] = useState<InventoryItem[]>([]);
     const [product, setProduct] = useState("");
@@ -100,9 +99,9 @@ const Inventory: React.FC = () => {
                 const employeeList: Employee[] = employeeRes.data || [];
                 setEmployees(employeeList);
                 
-                // Set first product as selected if available
-                if (inventoryItems.length > 0 && !product) {
-                    setProduct(inventoryItems[0].name);
+                // Set default selection to "ALL" if no product is selected
+                if (!product) {
+                    setProduct("ALL");
                 }
             } catch (e: unknown) {
                 if (!cancelled) setError(toErrorMessage(e, "Failed to load data"));
@@ -116,24 +115,105 @@ const Inventory: React.FC = () => {
         };
     }, [product]);
 
-    // Graph data: aggregate by month for selected product
-    const stockAmountData = MONTHS.map((month, idx) => ({
-        month,
-        amount: products
-            .filter(p => p.name === product && new Date(p.createdAt).getMonth() === idx)
-            .reduce((sum, p) => sum + Number(p.amount), 0)
-    }));
-    const stockPrizeData = MONTHS.map((month, idx) => ({
-        month,
-        prize: products
-            .filter(p => p.name === product && new Date(p.createdAt).getMonth() === idx)
-            .reduce((sum, p) => sum + Number(p.price), 0)
-    }));
+    // Graph data: show current stock levels by category or all products
+    const stockAmountData = useMemo(() => {
+        if (products.length === 0) {
+            return [{ month: "No Data", amount: 0 }];
+        }
+        
+        if (product && product !== "ALL") {
+            // Show data for selected product only
+            const selectedProduct = products.find(p => p.name === product);
+            if (!selectedProduct) return [{ month: "No Data", amount: 0 }];
+            
+            return [
+                { month: "Current", amount: selectedProduct.amount },
+                { month: "Min Required", amount: selectedProduct.minAmount }
+            ];
+        } else {
+            // Show data for all products grouped by category
+            const categoryData = products.reduce((acc, p) => {
+                const category = p.category || "Uncategorized";
+                if (!acc[category]) {
+                    acc[category] = { amount: 0, minAmount: 0 };
+                }
+                acc[category].amount += p.amount;
+                acc[category].minAmount += p.minAmount;
+                return acc;
+            }, {} as Record<string, { amount: number; minAmount: number }>);
+            
+            const entries = Object.entries(categoryData);
+            if (entries.length === 0) {
+                return [{ month: "No Data", amount: 0 }];
+            }
+            
+            return entries.map(([category, data]) => ({
+                month: category.length > 8 ? category.substring(0, 8) + "..." : category,
+                amount: data.amount
+            }));
+        }
+    }, [products, product]);
+
+    const stockPriceData = useMemo(() => {
+        if (products.length === 0) {
+            return [{ month: "No Data", prize: 0 }];
+        }
+        
+        if (product && product !== "ALL") {
+            // Show price data for selected product
+            const selectedProduct = products.find(p => p.name === product);
+            if (!selectedProduct) return [{ month: "No Data", prize: 0 }];
+            
+            return [
+                { month: "Unit Price", prize: selectedProduct.price },
+                { month: "Total Value", prize: selectedProduct.price * selectedProduct.amount }
+            ];
+        } else {
+            // Show total value by category
+            const categoryData = products.reduce((acc, p) => {
+                const category = p.category || "Uncategorized";
+                if (!acc[category]) {
+                    acc[category] = 0;
+                }
+                acc[category] += p.price * p.amount;
+                return acc;
+            }, {} as Record<string, number>);
+            
+            const entries = Object.entries(categoryData);
+            if (entries.length === 0) {
+                return [{ month: "No Data", prize: 0 }];
+            }
+            
+            return entries.map(([category, value]) => ({
+                month: category.length > 8 ? category.substring(0, 8) + "..." : category,
+                prize: value
+            }));
+        }
+    }, [products, product]);
+
+    // Calculate profit and expenses
+    const profitAndExpenses = useMemo(() => {
+        const totalStockValue = products.reduce((sum, p) => sum + (p.price * p.amount), 0);
+        const totalEntryCost = products.reduce((sum, p) => sum + (p.entryPrice * p.amount), 0);
+        const grossProfit = totalStockValue - totalEntryCost;
+        const profitMargin = totalEntryCost > 0 ? (grossProfit / totalEntryCost) * 100 : 0;
+        
+        // Calculate estimated expenses (you can modify this logic based on your business needs)
+        const estimatedExpenses = totalEntryCost * 0.1; // 10% of entry cost as estimated expenses
+        
+        return {
+            totalStockValue,
+            totalEntryCost,
+            grossProfit,
+            profitMargin,
+            estimatedExpenses
+        };
+    }, [products]);
 
     // Product handlers
     const handleCreate = () => {
         setShowModal(true);
-    setForm({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "" });
+    setForm({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "", entryPrice: "" });
         setErrors({});
         setEditIndex(null);
     };
@@ -141,9 +221,10 @@ const Inventory: React.FC = () => {
     const validateFields = () => {
         const newErrors: { [key: string]: string } = {};
         if (!form.product.trim()) newErrors.product = "Product name is required.";
-    if (!form.quantity.trim() || isNaN(Number(form.quantity))) newErrors.quantity = "Quantity must be a number.";
+        if (!form.quantity.trim() || isNaN(Number(form.quantity))) newErrors.quantity = "Quantity must be a number.";
         if (!form.minQuantity.trim() || isNaN(Number(form.minQuantity))) newErrors.minQuantity = "Min. Quantity must be a number.";
         if (!form.unitPrice.trim() || isNaN(Number(form.unitPrice))) newErrors.unitPrice = "Unit Price must be a number.";
+        if (!form.entryPrice.trim() || isNaN(Number(form.entryPrice))) newErrors.entryPrice = "Entry Price must be a number.";
         return newErrors;
     };
 
@@ -164,6 +245,7 @@ const Inventory: React.FC = () => {
                     amount: Number(form.quantity),
                     minAmount: Number(form.minQuantity),
                     price: Number(form.unitPrice),
+                    entryPrice: Number(form.entryPrice),
                 });
                 const updated = res.data;
                 setProducts(prev => prev.map(p => p._id === editIndex ? updated : p));
@@ -176,6 +258,7 @@ const Inventory: React.FC = () => {
                     amount: Number(form.quantity),
                     minAmount: Number(form.minQuantity),
                     price: Number(form.unitPrice),
+                    entryPrice: Number(form.entryPrice),
                 });
                 const created = res.data;
                 setProducts(prev => [created, ...prev]);
@@ -196,6 +279,7 @@ const Inventory: React.FC = () => {
             quantity: String(p.amount),
             minQuantity: String(p.minAmount),
             unitPrice: String(p.price),
+            entryPrice: String(p.entryPrice),
         });
         setEditIndex(id);
         setShowModal(true);
@@ -414,23 +498,30 @@ const Inventory: React.FC = () => {
                                 <BanknotesIcon className="w-5 h-5 text-gray-700" />
                             </span>
                             <div className="text-base font-bold text-gray-900">
-                                P {products.reduce((sum, p) => sum + (p.price * p.amount), 0)}
+                                ₱ {profitAndExpenses.totalStockValue.toLocaleString()}
                             </div>
-                            <div className="text-gray-800 text-[0.7rem] uppercase">Stock Price</div>
+                            <div className="text-gray-800 text-[0.7rem] uppercase">Stock Value</div>
                         </div>
                         <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
                             <span className="text-lg bg-white rounded-full p-1">
                                 <CurrencyDollarIcon className="w-5 h-5 text-green-600" />
                             </span>
-                            <div className="text-base font-bold text-gray-900">P 0</div>
-                            <div className="text-gray-800 text-[0.7rem] uppercase">Profit</div>
+                            <div className={`text-base font-bold ${profitAndExpenses.grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                ₱ {profitAndExpenses.grossProfit.toLocaleString()}
+                            </div>
+                            <div className="text-gray-800 text-[0.7rem] uppercase">
+                                Profit ({profitAndExpenses.profitMargin.toFixed(1)}%)
+                            </div>
                         </div>
                         <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
                             <span className="text-lg bg-white rounded-full p-1">
                                 <ArrowTrendingDownIcon className="w-5 h-5 text-red-600" />
                             </span>
-                            <div className="text-base font-bold text-gray-900">P 0</div>
-                            <div className="text-gray-800 text-[0.7rem] uppercase">Expenses</div>
+                            <div className="text-base font-bold text-red-600">
+                                ₱ {profitAndExpenses.estimatedExpenses.toLocaleString()}
+                            </div>
+                            <div className="text-gray-800 text-[0.7rem] uppercase">Est. Expenses</div>
+                            <div className="text-gray-600 text-[0.6rem] text-center">(10% of entry cost)</div>
                         </div>
                         <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
                             <span className="text-lg bg-white rounded-full p-1">
@@ -452,26 +543,30 @@ const Inventory: React.FC = () => {
                             <div className="flex-1 flex flex-col gap-4 justify-center">
                                 {/* Stock Amount Graph */}
                                 <div>
-                                    <h2 className="text-[0.95rem] font-bold mb-1">Stock Amount</h2>
+                                    <h2 className="text-[0.95rem] font-bold mb-1">
+                                        {product === "ALL" || !product ? "Stock by Category" : "Stock Levels"}
+                                    </h2>
                                     <ResponsiveContainer width="100%" height={140}>
                                         <BarChart data={stockAmountData}>
                                             <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="month" fontSize={12} />
-                                            <YAxis allowDecimals={false} fontSize={12} />
+                                            <XAxis dataKey="month" fontSize={10} />
+                                            <YAxis allowDecimals={false} fontSize={10} />
                                             <Tooltip formatter={(v: number) => [v, "Amount"]} />
                                             <Bar dataKey="amount" fill="#2a3b7c" radius={[6, 6, 0, 0]} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
-                                {/* Stock Prize Graph */}
+                                {/* Stock Value Graph */}
                                 <div>
-                                    <h2 className="text-[0.95rem] font-bold mb-1">Stock Price</h2>
+                                    <h2 className="text-[0.95rem] font-bold mb-1">
+                                        {product === "ALL" || !product ? "Value by Category" : "Price Analysis"}
+                                    </h2>
                                     <ResponsiveContainer width="100%" height={140}>
-                                        <BarChart data={stockPrizeData}>
+                                        <BarChart data={stockPriceData}>
                                             <CartesianGrid strokeDasharray="3 3" />
-                                            <XAxis dataKey="month" fontSize={12} />
-                                            <YAxis allowDecimals={false} fontSize={12} />
-                                            <Tooltip formatter={(v: number) => ["₱" + v, "Prize"]} />
+                                            <XAxis dataKey="month" fontSize={10} />
+                                            <YAxis allowDecimals={false} fontSize={10} />
+                                            <Tooltip formatter={(v: number) => ["₱" + v.toLocaleString(), "Value"]} />
                                             <Bar dataKey="prize" fill="#2a3b7c" radius={[6, 6, 0, 0]} />
                                         </BarChart>
                                     </ResponsiveContainer>
@@ -479,6 +574,20 @@ const Inventory: React.FC = () => {
                             </div>
                             {/* Product selection styled and inside merged graph border */}
                             <div className="flex flex-col gap-1 ml-4 justify-center min-w-[120px]">
+                                <button
+                                    onClick={() => setProduct("ALL")}
+                                    className={`rounded-lg py-1 px-2 text-[0.85rem] font-bold uppercase transition text-left
+                                        ${product === "ALL" || !product
+                                            ? "bg-gray-600 text-white"
+                                            : "bg-gray-300 text-gray-900 hover:bg-gray-400"
+                                        }`}
+                                    style={{
+                                        border: (product === "ALL" || !product) ? "2px solid #3b4a6b" : "2px solid transparent",
+                                        boxShadow: (product === "ALL" || !product) ? "0 2px 8px #3b4a6b22" : undefined,
+                                    }}
+                                >
+                                    All Products
+                                </button>
                                 {products.map((p) => (
                                     <button
                                         key={p._id}
@@ -608,6 +717,7 @@ const Inventory: React.FC = () => {
                                     <td>Quantity</td>
                                     <td>Min. Quantity</td>
                                     <td>Unit Price</td>
+                                    <td>Entry Price</td>
                                     <td></td>
                                 </tr>
                             </thead>
@@ -619,7 +729,8 @@ const Inventory: React.FC = () => {
                                         <td>{p.category || '-'}</td>
                                         <td>{p.amount}</td>
                                         <td>{p.minAmount}</td>
-                                        <td>{p.price}</td>
+                                        <td>₱{p.price}</td>
+                                        <td>₱{p.entryPrice}</td>
                                         <td className="flex gap-1 items-center justify-center">
                                             <button
                                                 className="p-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
@@ -771,18 +882,33 @@ const Inventory: React.FC = () => {
                                                         {errors.minQuantity && <p className="mt-1 text-xs text-red-400">{errors.minQuantity}</p>}
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-xs text-gray-300 mb-1">Unit Price (₱)</label>
-                                                    <input
-                                                        type="number"
-                                                        min={0}
-                                                        step="0.01"
-                                                        value={form.unitPrice}
-                                                        onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))}
-                                                        className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.unitPrice ? 'border-red-500/60' : 'border-white/10'}`}
-                                                        placeholder="0.00"
-                                                    />
-                                                    {errors.unitPrice && <p className="mt-1 text-xs text-red-400">{errors.unitPrice}</p>}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-xs text-gray-300 mb-1">Unit Price (₱)</label>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            step="0.01"
+                                                            value={form.unitPrice}
+                                                            onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))}
+                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.unitPrice ? 'border-red-500/60' : 'border-white/10'}`}
+                                                            placeholder="0.00"
+                                                        />
+                                                        {errors.unitPrice && <p className="mt-1 text-xs text-red-400">{errors.unitPrice}</p>}
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-300 mb-1">Entry Price (₱)</label>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            step="0.01"
+                                                            value={form.entryPrice}
+                                                            onChange={e => setForm(f => ({ ...f, entryPrice: e.target.value }))}
+                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.entryPrice ? 'border-red-500/60' : 'border-white/10'}`}
+                                                            placeholder="0.00"
+                                                        />
+                                                        {errors.entryPrice && <p className="mt-1 text-xs text-red-400">{errors.entryPrice}</p>}
+                                                    </div>
                                                 </div>
                                                 <div className="pt-2 flex justify-end gap-2">
                                                     <button
