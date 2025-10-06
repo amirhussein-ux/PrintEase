@@ -1,440 +1,1108 @@
-import React, { useEffect, useState } from "react";
-import { PencilSquareIcon, TrashIcon, FunnelIcon } from "@heroicons/react/24/outline";
+import React, { useState, useMemo, useEffect, Fragment, useRef } from "react";
+import { Dialog, DialogPanel, Transition } from "@headlessui/react";
+import {
+    PencilSquareIcon,
+    TrashIcon,
+    UserPlusIcon,
+    FunnelIcon,
+    PlusIcon,
+    XMarkIcon,
+    CheckIcon,
+    BanknotesIcon,
+    CurrencyDollarIcon,
+    ArrowTrendingDownIcon,
+    UsersIcon
+} from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
-
-import { BanknotesIcon, ChartBarIcon, ArrowTrendingDownIcon, UsersIcon } from "@heroicons/react/24/outline";
 import api from "../../../lib/api";
 import { isAxiosError } from "axios";
 
-const mockSummary = {
-	stockPrice: 120000,
-	profit: 45000,
-	expenses: 75000,
-	employees: 12,
-};
-type ApiInventoryItem = {
-	_id: string;
-	name: string;
-	amount: number;
-	minAmount: number;
-	entryPrice: number;
-	price: number;
-	currency?: string;
-};
 
-type InventoryItem = {
-	id: string;
-	product: string;
-	amount: number;
-	minAmount: number;
-	entryPrice: number;
-	price: number;
-	currency?: string;
-};
-
-const YEARS = [2025, 2024, 2023, 2022, 2021, 2020];
-// PRODUCTS will be derived from products state
-const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-function mapFromApi(i: ApiInventoryItem): InventoryItem {
-	return {
-		id: i._id,
-		product: i.name,
-		amount: i.amount ?? 0,
-		minAmount: i.minAmount ?? 0,
-		entryPrice: i.entryPrice ?? 0,
-		price: i.price ?? 0,
-		currency: i.currency,
-	};
+// Types
+interface InventoryItem {
+    _id: string;
+    name: string;
+    category?: string;
+    amount: number;
+    minAmount: number;
+    entryPrice: number;
+    price: number;
+    currency: string;
+    createdAt: string;
 }
 
-const ProductButtons = ({ selected, set, products }: { selected: string; set: (p: string) => void, products: Array<{ product: string }> }) => (
-	<div className="flex flex-row lg:flex-col gap-2 mt-4 lg:mt-0 lg:ml-4 justify-center">
-		{products.map(p => (
-			<button key={p.product} onClick={() => set(p.product)}
-				className={`rounded-lg py-2 text-sm font-bold uppercase transition ${
-					selected === p.product ? "bg-gray-600 text-white" : "bg-gray-300 text-gray-900 hover:bg-gray-400"
-				}`}>{p.product}</button>
-		))}
-	</div>
-);
+interface Employee {
+    _id: string;
+    fullName: string;
+    role: string;
+    email?: string;
+    phone?: string;
+    active: boolean;
+    createdAt: string;
+}
 
-const YearSelector = ({ selected, set }: { selected: number; set: (y: number) => void }) => (
-	<div className="w-32 bg-blue-900 rounded-xl shadow-md p-3">
-		<h3 className="text-white text-sm font-bold text-center mb-2">Year</h3>
-		<div className="grid grid-cols-2 gap-2">
-			{YEARS.map(y => (
-				<button key={y} onClick={() => set(y)}
-					className={`rounded-lg py-2 text-sm transition ${
-						selected === y ? "bg-gray-600 text-white" : "bg-gray-400 hover:bg-gray-500"
-					}`}>{y}</button>
-			))}
-		</div>
-	</div>
-);
+function toErrorMessage(e: unknown, fallback: string): string {
+    if (isAxiosError(e)) {
+        const data = e.response?.data as { message?: string } | undefined;
+        return data?.message || e.message || fallback;
+    }
+    if (e instanceof Error) return e.message || fallback;
+    return fallback;
+}
 
 const Inventory: React.FC = () => {
-	const [showModal, setShowModal] = useState(false);
-	const [form, setForm] = useState({ product: "", amount: "", minAmount: "", entryPrice: "", price: "" });
-	const [errors, setErrors] = useState<{ [key: string]: string }>({});
-	const [products, setProducts] = useState<InventoryItem[]>([]);
-	const [year, setYear] = useState(2025);
-	const [product, setProduct] = useState("");
-	const [editIndex, setEditIndex] = useState<number | null>(null);
-	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+    // Product state
+    const [showModal, setShowModal] = useState(false);
+    const [form, setForm] = useState({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "", entryPrice: "" });
+    const [errors, setErrors] = useState<{ [key: string]: string }>({});
+    const [products, setProducts] = useState<InventoryItem[]>([]);
+    const [product, setProduct] = useState("");
+    const [editIndex, setEditIndex] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-	useEffect(() => {
-		let cancel = false;
-		async function load() {
-			try {
-				setLoading(true);
-				setError(null);
-				const res = await api.get("/inventory/mine");
-				if (cancel) return;
-				const list: InventoryItem[] = (res.data || []).map(mapFromApi);
-				setProducts(list);
-				setProduct(list.length ? list[0].product : "");
-			} catch (e: unknown) {
-				const msg = isAxiosError(e) ? (e.response?.data?.message || e.message) : (e as Error)?.message || "Failed to load inventory";
-				if (!cancel) setError(msg);
-			} finally {
-				if (!cancel) setLoading(false);
-			}
-		}
-		load();
-		return () => { cancel = true; };
-	}, []);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [productStatusFilter, setProductStatusFilter] = useState<"ALL" | "LOW" | "OK">("ALL");
+    const [productSortKey, setProductSortKey] = useState<"product" | "quantity" | "unitPrice">("product");
+    const [productSortDir, setProductSortDir] = useState<"asc" | "desc">("asc");
+    const [showProductFilters, setShowProductFilters] = useState(false);
 
-	   // Sales data by month (mock, similar to OwnerDashboardContent)
-	   const stockAmountData = MONTHS.map((m, i) => ({
-		   month: m,
-		   amount: product === "MUGS" ? 120 + (i * 10) % 80 :
-					product === "SHIRTS" ? 80 + (i * 8) % 60 :
-					product === "DOCUMENTS" ? 200 + (i * 15) % 100 :
-					150 + (i * 12) % 90
-	   }));
-	   const stockPrizeData = MONTHS.map((m, i) => ({
-		   month: m,
-		   prize: product === "MUGS" ? 100 + (i * 12) % 60 :
-					product === "SHIRTS" ? 150 + (i * 10) % 80 :
-					product === "DOCUMENTS" ? 180 + (i * 14) % 70 :
-					130 + (i * 11) % 50
-	   }));
+    // Employee state
+    const [employees, setEmployees] = useState<Employee[]>([]);
+    const [showEmployeeModal, setShowEmployeeModal] = useState(false);
+    const [employeeForm, setEmployeeForm] = useState({ fullName: "", role: "" });
+    const [employeeErrors, setEmployeeErrors] = useState<{ [key: string]: string }>({});
+    const [employeeSearch, setEmployeeSearch] = useState("");
+    const [employeeRoleFilter, setEmployeeRoleFilter] = useState<"ALL" | "Manager" | "Staff">("ALL");
+    const [employeeSortKey, setEmployeeSortKey] = useState<"fullName" | "role">("fullName");
+    const [employeeSortDir, setEmployeeSortDir] = useState<"asc" | "desc">("asc");
+    const [showEmployeeFilters, setShowEmployeeFilters] = useState(false);
+    const [editEmployeeIndex, setEditEmployeeIndex] = useState<string | null>(null);
 
-	const handleCreate = () => {
-		setShowModal(true);
-		setForm({ product: "", amount: "", minAmount: "", entryPrice: "", price: "" });
-		setErrors({});
-	};
+    // Load data from backend
+    useEffect(() => {
+        let cancelled = false;
+        async function loadData() {
+            try {
+                // (loading indicator removed)
+                setError(null);
+                
+                // Load inventory items
+                const inventoryRes = await api.get("/inventory/mine");
+                if (cancelled) return;
+                const inventoryItems: InventoryItem[] = inventoryRes.data || [];
+                setProducts(inventoryItems);
+                
+                // Load employees
+                const employeeRes = await api.get("/employees/mine");
+                if (cancelled) return;
+                const employeeList: Employee[] = employeeRes.data || [];
+                setEmployees(employeeList);
+                
+                // Set default selection to "ALL" if no product is selected
+                if (!product) {
+                    setProduct("ALL");
+                }
+            } catch (e: unknown) {
+                if (!cancelled) setError(toErrorMessage(e, "Failed to load data"));
+            } finally {
+                // (loading indicator removed)
+            }
+        }
+        loadData();
+        return () => {
+            cancelled = true;
+        };
+    }, [product]);
 
-	const validateFields = () => {
-		const newErrors: { [key: string]: string } = {};
-		if (!form.product.trim()) newErrors.product = "Product name is required.";
-		if (!form.amount.trim() || isNaN(Number(form.amount))) newErrors.amount = "Amount must be a number.";
-		if (!form.minAmount.trim() || isNaN(Number(form.minAmount))) newErrors.minAmount = "Min. Amount must be a number.";
-		if (!form.entryPrice.trim() || isNaN(Number(form.entryPrice))) newErrors.entryPrice = "Entry Price must be a number.";
-		if (!form.price.trim() || isNaN(Number(form.price))) newErrors.price = "Price must be a number.";
-		return newErrors;
-	};
+    // Graph data: show current stock levels by category or all products
+    const stockAmountData = useMemo(() => {
+        if (products.length === 0) {
+            return [{ month: "No Data", amount: 0 }];
+        }
+        
+        if (product && product !== "ALL") {
+            // Show data for selected product only
+            const selectedProduct = products.find(p => p.name === product);
+            if (!selectedProduct) return [{ month: "No Data", amount: 0 }];
+            
+            return [
+                { month: "Current", amount: selectedProduct.amount },
+                { month: "Min Required", amount: selectedProduct.minAmount }
+            ];
+        } else {
+            // Show data for all products grouped by category
+            const categoryData = products.reduce((acc, p) => {
+                const category = p.category || "Uncategorized";
+                if (!acc[category]) {
+                    acc[category] = { amount: 0, minAmount: 0 };
+                }
+                acc[category].amount += p.amount;
+                acc[category].minAmount += p.minAmount;
+                return acc;
+            }, {} as Record<string, { amount: number; minAmount: number }>);
+            
+            const entries = Object.entries(categoryData);
+            if (entries.length === 0) {
+                return [{ month: "No Data", amount: 0 }];
+            }
+            
+            return entries.map(([category, data]) => ({
+                month: category.length > 8 ? category.substring(0, 8) + "..." : category,
+                amount: data.amount
+            }));
+        }
+    }, [products, product]);
 
-	const handleSave = async () => {
-		const newErrors = validateFields();
-		setErrors(newErrors);
-		if (Object.keys(newErrors).length > 0) return;
-		const payload = {
-			name: form.product,
-			amount: Number(form.amount),
-			minAmount: Number(form.minAmount),
-			entryPrice: Number(form.entryPrice),
-			price: Number(form.price),
-		};
-		try {
-			setError(null);
-			if (editIndex !== null) {
-				const id = products[editIndex]?.id;
-				if (!id) return;
-				const res = await api.put(`/inventory/${id}`, payload);
-				const updated = mapFromApi(res.data);
-				setProducts(prev => prev.map((p, i) => (i === editIndex ? updated : p)));
-				setEditIndex(null);
-				setProduct(updated.product);
-			} else {
-				const res = await api.post(`/inventory`, payload);
-				const created = mapFromApi(res.data);
-				setProducts(prev => [...prev, created]);
-				setProduct(created.product);
-			}
-			setShowModal(false);
-		} catch (e: unknown) {
-			const msg = isAxiosError(e) ? (e.response?.data?.message || e.message) : (e as Error)?.message || "Failed to save item";
-			setError(msg);
-		}
-	};
+    const stockPriceData = useMemo(() => {
+        if (products.length === 0) {
+            return [{ month: "No Data", prize: 0 }];
+        }
+        
+        if (product && product !== "ALL") {
+            // Show price data for selected product
+            const selectedProduct = products.find(p => p.name === product);
+            if (!selectedProduct) return [{ month: "No Data", prize: 0 }];
+            
+            return [
+                { month: "Unit Price", prize: selectedProduct.price },
+                { month: "Total Value", prize: selectedProduct.price * selectedProduct.amount }
+            ];
+        } else {
+            // Show total value by category
+            const categoryData = products.reduce((acc, p) => {
+                const category = p.category || "Uncategorized";
+                if (!acc[category]) {
+                    acc[category] = 0;
+                }
+                acc[category] += p.price * p.amount;
+                return acc;
+            }, {} as Record<string, number>);
+            
+            const entries = Object.entries(categoryData);
+            if (entries.length === 0) {
+                return [{ month: "No Data", prize: 0 }];
+            }
+            
+            return entries.map(([category, value]) => ({
+                month: category.length > 8 ? category.substring(0, 8) + "..." : category,
+                prize: value
+            }));
+        }
+    }, [products, product]);
 
-	const handleEdit = (idx: number) => {
-		const p = products[idx];
-		setForm({
-			product: p.product,
-			amount: String(p.amount),
-			minAmount: String(p.minAmount),
-			entryPrice: String(p.entryPrice),
-			price: String(p.price),
-		});
-		setEditIndex(idx);
-		setShowModal(true);
-		setErrors({});
-	};
+    // Calculate profit and expenses
+    const profitAndExpenses = useMemo(() => {
+        const totalStockValue = products.reduce((sum, p) => sum + (p.price * p.amount), 0);
+        const totalEntryCost = products.reduce((sum, p) => sum + (p.entryPrice * p.amount), 0);
+        const grossProfit = totalStockValue - totalEntryCost;
+        const profitMargin = totalEntryCost > 0 ? (grossProfit / totalEntryCost) * 100 : 0;
+        
+        // Calculate estimated expenses (you can modify this logic based on your business needs)
+        const estimatedExpenses = totalEntryCost * 0.1; // 10% of entry cost as estimated expenses
+        
+        return {
+            totalStockValue,
+            totalEntryCost,
+            grossProfit,
+            profitMargin,
+            estimatedExpenses
+        };
+    }, [products]);
 
-	const handleDelete = async (idx: number) => {
-		const item = products[idx];
-		if (!item) return;
-		try {
-			setError(null);
-			await api.delete(`/inventory/${item.id}`);
-			const updated = products.filter((_, i) => i !== idx);
-			setProducts(updated);
-			if (item.product === product) {
-				setProduct(updated.length > 0 ? updated[0].product : "");
-			}
-		} catch (e: unknown) {
-			const msg = isAxiosError(e) ? (e.response?.data?.message || e.message) : (e as Error)?.message || "Failed to delete item";
-			setError(msg);
-		}
-	};
-	const handleCancel = () => setShowModal(false);
+    // Product handlers
+    const handleCreate = () => {
+        setShowModal(true);
+    setForm({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "", entryPrice: "" });
+        setErrors({});
+        setEditIndex(null);
+    };
 
-		return (
-			<DashboardLayout role="owner">
-				<div className="transition-all duration-300 font-crimson p-6 sm:p-8">
-					<div className="w-full max-w-7xl mx-auto space-y-6">
-						{/* Summary Cards */}
-									<div className="grid sm:grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-										<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
-											<span className="bg-white rounded-full p-2 flex items-center justify-center"><BanknotesIcon className="h-7 w-7 text-blue-900" /></span>
-											<div className="text-xl font-bold text-gray-900">P {mockSummary.stockPrice.toLocaleString()}</div>
-											<div className="text-gray-800 text-xs uppercase">Stock <b>Price</b></div>
-										</div>
-										<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
-											<span className="bg-white rounded-full p-2 flex items-center justify-center"><ChartBarIcon className="h-7 w-7 text-green-700" /></span>
-											<div className="text-xl font-bold text-gray-900">P {mockSummary.profit.toLocaleString()}</div>
-											<div className="text-gray-800 text-xs uppercase">Profit</div>
-										</div>
-										<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
-											<span className="bg-white rounded-full p-2 flex items-center justify-center"><ArrowTrendingDownIcon className="h-7 w-7 text-red-600" /></span>
-											<div className="text-xl font-bold text-gray-900">P {mockSummary.expenses.toLocaleString()}</div>
-											<div className="text-gray-800 text-xs uppercase">Expenses</div>
-										</div>
-										<div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
-											<span className="bg-white rounded-full p-2 flex items-center justify-center"><UsersIcon className="h-7 w-7 text-gray-700" /></span>
-											<div className="text-xl font-bold text-gray-900">{mockSummary.employees}</div>
-											<div className="text-gray-800 text-xs uppercase">Employees</div>
-										</div>
-									</div>
+    const validateFields = () => {
+        const newErrors: { [key: string]: string } = {};
+        if (!form.product.trim()) newErrors.product = "Product name is required.";
+        if (!form.quantity.trim() || isNaN(Number(form.quantity))) newErrors.quantity = "Quantity must be a number.";
+        if (!form.minQuantity.trim() || isNaN(Number(form.minQuantity))) newErrors.minQuantity = "Min. Quantity must be a number.";
+        if (!form.unitPrice.trim() || isNaN(Number(form.unitPrice))) newErrors.unitPrice = "Unit Price must be a number.";
+        if (!form.entryPrice.trim() || isNaN(Number(form.entryPrice))) newErrors.entryPrice = "Entry Price must be a number.";
+        return newErrors;
+    };
 
-						{/* Stock Amount & Stock Prize Graphs with selectors on right */}
-						<div className="flex flex-col lg:flex-row gap-3 mb-8">
-							<div className="flex-1 flex flex-col gap-3">
-								<div className="bg-white/90 rounded-xl shadow-md p-6 flex flex-col">
-									<h2 className="text-base font-bold mb-4">Stock Amount</h2>
-									<ResponsiveContainer width="100%" height={220}>
-										<BarChart data={stockAmountData}>
-											<CartesianGrid strokeDasharray="3 3" />
-											<XAxis dataKey="month" /><YAxis allowDecimals={false} />
-											<Tooltip formatter={(v: number) => [v,"Amount"]} />
-											<Bar dataKey="amount" fill="#2563eb" radius={[6,6,0,0]} />
-										</BarChart>
-									</ResponsiveContainer>
-								</div>
-								<div className="bg-white/90 rounded-xl shadow-md p-6 flex flex-col">
-									<h2 className="text-base font-bold mb-4">Stock Prize</h2>
-									<ResponsiveContainer width="100%" height={220}>
-										<BarChart data={stockPrizeData}>
-											<CartesianGrid strokeDasharray="3 3" />
-											<XAxis dataKey="month" /><YAxis allowDecimals={false} />
-											<Tooltip formatter={(v: number) => ["₱"+v,"Prize"]} />
-											<Bar dataKey="prize" fill="#1e3a8a" radius={[6,6,0,0]} />
-										</BarChart>
-									</ResponsiveContainer>
-								</div>
-							</div>
-							<div className="flex flex-col gap-4 lg:ml-6 items-end justify-start min-w-[180px]">
-								<ProductButtons selected={product} set={setProduct} products={products} />
-								<YearSelector selected={year} set={setYear} />
-							</div>
-						</div>
+    // removed unused generateProductId that was part of previous local-only ID creation
 
-									{/* Search and Create Bar */}
-									<div className="w-full flex flex-col sm:flex-row gap-3 items-stretch sm:items-center mb-6">
-										<input
-											type="text"
-											placeholder="Search products"
-											className="flex-1 rounded-lg px-4 py-2 bg-gray-900/60 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-										/>
-										<div className="relative flex items-center gap-2">
-											<button
-												// onClick={...} // Add filter logic if needed
-												className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg border border-white/10 hover:bg-gray-700 transition"
-												aria-haspopup="true"
-												aria-expanded="false"
-											>
-												<FunnelIcon className="h-5 w-5" /> Filter
-											</button>
-											<button
-												className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg border border-blue-600 hover:bg-blue-500 transition"
-												onClick={handleCreate}
-											>
-												+ Create
-											</button>
-										</div>
-									</div>
+    const handleSave = async () => {
+        const newErrors = validateFields();
+        setErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) return;
+        
+        try {
+            setError(null);
+            if (editIndex !== null) {
+                // Update existing item
+                const res = await api.put(`/inventory/${editIndex}`, {
+                    name: form.product,
+                    category: form.category || undefined,
+                    amount: Number(form.quantity),
+                    minAmount: Number(form.minQuantity),
+                    price: Number(form.unitPrice),
+                    entryPrice: Number(form.entryPrice),
+                });
+                const updated = res.data;
+                setProducts(prev => prev.map(p => p._id === editIndex ? updated : p));
+                setProduct(form.product);
+            } else {
+                // Create new item
+                const res = await api.post("/inventory", {
+                    name: form.product,
+                    category: form.category || undefined,
+                    amount: Number(form.quantity),
+                    minAmount: Number(form.minQuantity),
+                    price: Number(form.unitPrice),
+                    entryPrice: Number(form.entryPrice),
+                });
+                const created = res.data;
+                setProducts(prev => [created, ...prev]);
+                setProduct(form.product);
+            }
+            setShowModal(false);
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to save product"));
+        }
+    };
 
-						{/* Products Table */}
-						<div className="bg-white/90 rounded-xl shadow-md p-6">
-							<div className="font-bold text-2xl text-center mb-4">PRODUCTS</div>
-							{error && (
-								<div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-700 px-3 py-2 text-sm">{error}</div>
-							)}
-							<div className="overflow-x-auto">
-								<table className="w-full border-collapse">
-									<thead>
-										<tr className="font-bold text-lg border-b-2 border-gray-400">
-											<td className="py-2">Product</td>
-											<td className="py-2">Amount</td>
-											<td className="py-2">Min. Amount</td>
-											<td className="py-2">Entry Price</td>
-											<td className="py-2">Price</td>
-											<td className="py-2 text-center">Actions</td>
-										</tr>
-									</thead>
-										<tbody>
-											{loading && (
-												<tr><td colSpan={6} className="py-4 text-center text-gray-500">Loading…</td></tr>
-											)}
-											{!loading && products.length === 0 && (
-												<tr><td colSpan={6} className="py-4 text-center text-gray-500">No products yet.</td></tr>
-											)}
-											{!loading && products.map((p, i) => (
-											<tr key={i} className="text-lg border-b border-gray-200 last:border-0 hover:bg-gray-50">
-												<td className="py-2">{p.product}</td>
-												<td className="py-2">{p.amount}</td>
-												<td className="py-2">{p.minAmount}</td>
-												<td className="py-2">{p.entryPrice}</td>
-												<td className="py-2">{p.price}</td>
-												<td className="py-2 flex gap-2 items-center justify-center">
-													<button
-														className="p-2 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
-														title="Edit"
-														onClick={() => handleEdit(i)}
-													>
-														<PencilSquareIcon className="w-5 h-5" />
-													</button>
-													<button
-														className="p-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-600"
-														title="Delete"
-														onClick={() => handleDelete(i)}
-													>
-														<TrashIcon className="w-5 h-5" />
-													</button>
-												</td>
-											</tr>
-											))}
-									</tbody>
-								</table>
-							</div>
-						</div>
+    const handleEdit = (id: string) => {
+        const p = products.find(prod => prod._id === id);
+        if (!p) return;
+        setForm({
+            product: p.name,
+            category: p.category || "",
+            quantity: String(p.amount),
+            minQuantity: String(p.minAmount),
+            unitPrice: String(p.price),
+            entryPrice: String(p.entryPrice),
+        });
+        setEditIndex(id);
+        setShowModal(true);
+        setErrors({});
+    };
 
-									{/* Modal for Create/Edit Product - styled like ServiceManagement */}
-									{showModal && (
-										<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-											<div className="bg-gray-900 text-white rounded-xl border border-white/10 shadow-xl w-full max-w-2xl p-0 relative">
-												<div className="flex items-center justify-between p-4 sm:p-5 border-b border-white/10">
-													<div className="text-lg font-semibold">{editIndex !== null ? "Edit Product" : "Add Product"}</div>
-													<button onClick={handleCancel} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
-														<span className="text-xl">✕</span>
-													</button>
-												</div>
-												<form onSubmit={e => { e.preventDefault(); handleSave(); }} className="p-4 sm:p-5 space-y-4">
-													<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-														<div>
-															<label className="block text-xs text-gray-300 mb-1">Product name</label>
-															<input
-																value={form.product}
-																onChange={e => setForm(f => ({ ...f, product: e.target.value }))}
-																required
-																className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-																placeholder="e.g. Custom Mug"
-															/>
-															{errors.product && <div className="text-red-400 text-xs mt-1">{errors.product}</div>}
-														</div>
-														<div>
-															<label className="block text-xs text-gray-300 mb-1">Amount</label>
-															<input
-																type="number"
-																min={0}
-																value={form.amount}
-																onChange={e => setForm(f => ({ ...f, amount: e.target.value }))}
-																className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-																placeholder="0"
-															/>
-															{errors.amount && <div className="text-red-400 text-xs mt-1">{errors.amount}</div>}
-														</div>
-													</div>
-													<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-														<div>
-															<label className="block text-xs text-gray-300 mb-1">Min. Amount</label>
-															<input
-																type="number"
-																min={0}
-																value={form.minAmount}
-																onChange={e => setForm(f => ({ ...f, minAmount: e.target.value }))}
-																className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-																placeholder="0"
-															/>
-															{errors.minAmount && <div className="text-red-400 text-xs mt-1">{errors.minAmount}</div>}
-														</div>
-														<div>
-															<label className="block text-xs text-gray-300 mb-1">Entry Price</label>
-															<input
-																type="number"
-																min={0}
-																value={form.entryPrice}
-																onChange={e => setForm(f => ({ ...f, entryPrice: e.target.value }))}
-																className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-																placeholder="0"
-															/>
-															{errors.entryPrice && <div className="text-red-400 text-xs mt-1">{errors.entryPrice}</div>}
-														</div>
-													</div>
-													<div>
-														<label className="block text-xs text-gray-300 mb-1">Price</label>
-														<input
-															type="number"
-															min={0}
-															value={form.price}
-															onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-															className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-															placeholder="0"
-														/>
-														{errors.price && <div className="text-red-400 text-xs mt-1">{errors.price}</div>}
-													</div>
-													<div className="pt-2 flex justify-end gap-2">
-														<button type="button" onClick={handleCancel} className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10">
-															Cancel
-														</button>
-														<button type="submit" className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold">
-															{editIndex !== null ? "Save changes" : "Create product"}
-														</button>
-													</div>
-												</form>
-											</div>
-										</div>
-									)}
-					</div>
-				</div>
-			</DashboardLayout>
-		);
+    const handleDelete = async (id: string) => {
+        try {
+            setError(null);
+            await api.delete(`/inventory/${id}`);
+            const updated = products.filter(p => p._id !== id);
+            setProducts(updated);
+            const deletedProduct = products.find(p => p._id === id);
+            if (deletedProduct && deletedProduct.name === product) {
+                setProduct(updated.length > 0 ? updated[0].name : "");
+            }
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to delete product"));
+        }
+    };
+
+    const handleCancel = () => setShowModal(false);
+
+    // Category dropdown state
+    const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+    const [categoryHighlight, setCategoryHighlight] = useState<number>(-1);
+    const categoryWrapperRef = useRef<HTMLDivElement | null>(null);
+    const categoryInputRef = useRef<HTMLInputElement | null>(null);
+
+    const categorySuggestions = useMemo(() => {
+        const set = new Set<string>();
+        products.forEach(p => { if (p.category) set.add(p.category); });
+        return Array.from(set).sort((a,b)=>a.localeCompare(b));
+    }, [products]);
+
+    const filteredCategorySuggestions = useMemo(() => {
+        if (!form.category.trim()) return categorySuggestions;
+        const q = form.category.toLowerCase();
+        return categorySuggestions.filter(c => c.toLowerCase().includes(q));
+    }, [form.category, categorySuggestions]);
+
+    useEffect(() => {
+        function onDocClick(e: MouseEvent) {
+            if (!categoryWrapperRef.current) return;
+            if (categoryWrapperRef.current.contains(e.target as Node)) return;
+            setShowCategoryMenu(false);
+            setCategoryHighlight(-1);
+        }
+        document.addEventListener('mousedown', onDocClick);
+        return () => document.removeEventListener('mousedown', onDocClick);
+    }, []);
+
+    function openCategoryMenu() {
+        if (!categorySuggestions.length) return;
+        setShowCategoryMenu(true);
+        setCategoryHighlight(-1);
+    }
+
+    function selectCategory(value: string) {
+        setForm(f => ({ ...f, category: value }));
+        setShowCategoryMenu(false);
+        setCategoryHighlight(-1);
+        // re-focus input for quick editing
+        requestAnimationFrame(()=>categoryInputRef.current?.focus());
+    }
+
+    function onCategoryKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+        if (!showCategoryMenu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            openCategoryMenu();
+            e.preventDefault();
+            return;
+        }
+        if (!showCategoryMenu) return;
+        if (e.key === 'Escape') {
+            setShowCategoryMenu(false);
+            setCategoryHighlight(-1);
+            return;
+        }
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setCategoryHighlight(h => {
+                const list = filteredCategorySuggestions;
+                if (!list.length) return -1;
+                const next = h + 1 >= list.length ? 0 : h + 1;
+                return next;
+            });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setCategoryHighlight(h => {
+                const list = filteredCategorySuggestions;
+                if (!list.length) return -1;
+                const next = h - 1 < 0 ? list.length - 1 : h - 1;
+                return next;
+            });
+        } else if (e.key === 'Enter') {
+            if (categoryHighlight >= 0 && categoryHighlight < filteredCategorySuggestions.length) {
+                e.preventDefault();
+                selectCategory(filteredCategorySuggestions[categoryHighlight]);
+            }
+        }
+    }
+
+    // Improved filteredProducts using useMemo (like Service Management)
+    const filteredProducts = useMemo(() => {
+    const base = products.filter(p => {
+            const qOK =
+                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (p._id && p._id.toLowerCase().includes(searchTerm.toLowerCase()));
+            let statusOK = true;
+            if (productStatusFilter === "LOW") statusOK = Number(p.amount) <= Number(p.minAmount);
+            if (productStatusFilter === "OK") statusOK = Number(p.amount) > Number(p.minAmount);
+            return qOK && statusOK;
+        });
+    const sorted = [...base].sort((a, b) => {
+            let cmp = 0;
+            if (productSortKey === "product") cmp = a.name.localeCompare(b.name);
+            else if (productSortKey === "quantity") cmp = Number(a.amount) - Number(b.amount);
+            else if (productSortKey === "unitPrice") cmp = Number(a.price) - Number(b.price);
+            return productSortDir === "asc" ? cmp : -cmp;
+        });
+        return sorted;
+    }, [products, searchTerm, productStatusFilter, productSortKey, productSortDir]);
+
+    // Employee filter and sort (like Service Management)
+    const filteredEmployees = useMemo(() => {
+    const base = employees.filter(e => {
+            const qOK =
+                e.fullName.toLowerCase().includes(employeeSearch.toLowerCase()) ||
+                e.role.toLowerCase().includes(employeeSearch.toLowerCase());
+            let roleOK = true;
+            if (employeeRoleFilter !== "ALL") roleOK = e.role === employeeRoleFilter;
+            return qOK && roleOK;
+        });
+    const sorted = [...base].sort((a, b) => {
+            let cmp = 0;
+            if (employeeSortKey === "fullName") cmp = a.fullName.localeCompare(b.fullName);
+            else if (employeeSortKey === "role") cmp = a.role.localeCompare(b.role);
+            return employeeSortDir === "asc" ? cmp : -cmp;
+        });
+        return sorted;
+    }, [employees, employeeSearch, employeeRoleFilter, employeeSortKey, employeeSortDir]);
+
+    // Employee handlers
+    const handleAddEmployee = () => {
+        setShowEmployeeModal(true);
+        setEmployeeForm({ fullName: "", role: "" });
+        setEmployeeErrors({});
+        setEditEmployeeIndex(null);
+    };
+
+    const validateEmployeeFields = () => {
+        const newErrors: { [key: string]: string } = {};
+        if (!employeeForm.fullName.trim()) newErrors.fullName = "Full name is required.";
+        if (!employeeForm.role.trim()) newErrors.role = "Role is required.";
+        return newErrors;
+    };
+
+    const handleSaveEmployee = async () => {
+        const newErrors = validateEmployeeFields();
+        setEmployeeErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) return;
+        
+        try {
+            setError(null);
+            if (editEmployeeIndex !== null) {
+                // Update existing employee
+                const res = await api.put(`/employees/${editEmployeeIndex}`, employeeForm);
+                const updated = res.data;
+                setEmployees(prev => prev.map(e => e._id === editEmployeeIndex ? updated : e));
+            } else {
+                // Create new employee
+                const res = await api.post("/employees", employeeForm);
+                const created = res.data;
+                setEmployees(prev => [created, ...prev]);
+            }
+            setShowEmployeeModal(false);
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to save employee"));
+        }
+    };
+
+    const handleEditEmployee = (id: string) => {
+        const e = employees.find(emp => emp._id === id);
+        if (!e) return;
+        setEmployeeForm({
+            fullName: e.fullName,
+            role: e.role,
+        });
+        setEditEmployeeIndex(id);
+        setShowEmployeeModal(true);
+        setEmployeeErrors({});
+    };
+
+    const handleDeleteEmployee = async (id: string) => {
+        try {
+            setError(null);
+            await api.delete(`/employees/${id}`);
+            const updated = employees.filter(e => e._id !== id);
+            setEmployees(updated);
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to delete employee"));
+        }
+    };
+
+    const handleCancelEmployee = () => setShowEmployeeModal(false);
+
+    return (
+        <DashboardLayout role="owner">
+            <div className="transition-all duration-300 font-crimson p-8">
+                <div className="w-full max-w-7xl mx-auto space-y-4">
+                    {/* Summary Cards */}
+                    <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                        <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
+                            <span className="text-lg bg-white rounded-full p-1">
+                                <BanknotesIcon className="w-5 h-5 text-gray-700" />
+                            </span>
+                            <div className="text-base font-bold text-gray-900">
+                                ₱ {profitAndExpenses.totalStockValue.toLocaleString()}
+                            </div>
+                            <div className="text-gray-800 text-[0.7rem] uppercase">Stock Value</div>
+                        </div>
+                        <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
+                            <span className="text-lg bg-white rounded-full p-1">
+                                <CurrencyDollarIcon className="w-5 h-5 text-green-600" />
+                            </span>
+                            <div className={`text-base font-bold ${profitAndExpenses.grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                ₱ {profitAndExpenses.grossProfit.toLocaleString()}
+                            </div>
+                            <div className="text-gray-800 text-[0.7rem] uppercase">
+                                Profit ({profitAndExpenses.profitMargin.toFixed(1)}%)
+                            </div>
+                        </div>
+                        <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
+                            <span className="text-lg bg-white rounded-full p-1">
+                                <ArrowTrendingDownIcon className="w-5 h-5 text-red-600" />
+                            </span>
+                            <div className="text-base font-bold text-red-600">
+                                ₱ {profitAndExpenses.estimatedExpenses.toLocaleString()}
+                            </div>
+                            <div className="text-gray-800 text-[0.7rem] uppercase">Est. Expenses</div>
+                            <div className="text-gray-600 text-[0.6rem] text-center">(10% of entry cost)</div>
+                        </div>
+                        <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
+                            <span className="text-lg bg-white rounded-full p-1">
+                                <UsersIcon className="w-5 h-5 text-blue-700" />
+                            </span>
+                            <div className="text-base font-bold text-gray-900">{employees.length}</div>
+                            <div className="text-gray-800 text-[0.7rem] uppercase">Employees</div>
+                        </div>
+                    </div>
+
+                    {/* Error Display */}
+                    {error && (
+                        <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-200 px-3 py-2 text-sm">{error}</div>
+                    )}
+
+                    {/* Merged Graphs & Product Selection */}
+                    <div className="flex flex-col gap-4 mb-4">
+                        <div className="bg-[#e7ecf7] rounded-xl shadow-md p-3 flex relative" style={{ border: "3px solid #3b4a6b" }}>
+                            <div className="flex-1 flex flex-col gap-4 justify-center">
+                                {/* Stock Amount Graph */}
+                                <div>
+                                    <h2 className="text-[0.95rem] font-bold mb-1">
+                                        {product === "ALL" || !product ? "Stock by Category" : "Stock Levels"}
+                                    </h2>
+                                    <ResponsiveContainer width="100%" height={140}>
+                                        <BarChart data={stockAmountData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="month" fontSize={10} />
+                                            <YAxis allowDecimals={false} fontSize={10} />
+                                            <Tooltip formatter={(v: number) => [v, "Amount"]} />
+                                            <Bar dataKey="amount" fill="#2a3b7c" radius={[6, 6, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                {/* Stock Value Graph */}
+                                <div>
+                                    <h2 className="text-[0.95rem] font-bold mb-1">
+                                        {product === "ALL" || !product ? "Value by Category" : "Price Analysis"}
+                                    </h2>
+                                    <ResponsiveContainer width="100%" height={140}>
+                                        <BarChart data={stockPriceData}>
+                                            <CartesianGrid strokeDasharray="3 3" />
+                                            <XAxis dataKey="month" fontSize={10} />
+                                            <YAxis allowDecimals={false} fontSize={10} />
+                                            <Tooltip formatter={(v: number) => ["₱" + v.toLocaleString(), "Value"]} />
+                                            <Bar dataKey="prize" fill="#2a3b7c" radius={[6, 6, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                            {/* Product selection styled and inside merged graph border */}
+                            <div className="flex flex-col gap-1 ml-4 justify-center min-w-[120px]">
+                                <button
+                                    onClick={() => setProduct("ALL")}
+                                    className={`rounded-lg py-1 px-2 text-[0.85rem] font-bold uppercase transition text-left
+                                        ${product === "ALL" || !product
+                                            ? "bg-gray-600 text-white"
+                                            : "bg-gray-300 text-gray-900 hover:bg-gray-400"
+                                        }`}
+                                    style={{
+                                        border: (product === "ALL" || !product) ? "2px solid #3b4a6b" : "2px solid transparent",
+                                        boxShadow: (product === "ALL" || !product) ? "0 2px 8px #3b4a6b22" : undefined,
+                                    }}
+                                >
+                                    All Products
+                                </button>
+                                {products.map((p) => (
+                                    <button
+                                        key={p._id}
+                                        onClick={() => setProduct(p.name)}
+                                        className={`rounded-lg py-1 px-2 text-[0.85rem] font-bold uppercase transition text-left
+                                            ${product === p.name
+                                                ? "bg-gray-600 text-white"
+                                                : "bg-gray-300 text-gray-900 hover:bg-gray-400"
+                                            }`}
+                                        style={{
+                                            border: product === p.name ? "2px solid #3b4a6b" : "2px solid transparent",
+                                            boxShadow: product === p.name ? "0 2px 8px #3b4a6b22" : undefined,
+                                        }}
+                                    >
+                                        {p.name}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Search + Filter Bar */}
+                    <div className="flex gap-2 mb-4 items-center">
+                        <input
+                            type="text"
+                            placeholder="Search Product"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="flex-1 px-3 py-1 rounded-lg border border-gray-400 text-[0.95rem] bg-gray-800 text-white"
+                        />
+                        <button
+                            className="bg-gray-800 text-white rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-2"
+                            onClick={() => setShowProductFilters(v => !v)}
+                            aria-haspopup="true"
+                            aria-expanded={showProductFilters}
+                        >
+                            <FunnelIcon className="w-5 h-5" />
+                            Filter
+                        </button>
+                        <button className="bg-green-400 text-black rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-1" onClick={handleCreate}>
+                            <PlusIcon className="w-5 h-5" /> Create
+                        </button>
+                        {showProductFilters && (
+                            <div className="absolute z-20 mt-2 right-8 w-72 rounded-lg border border-gray-300 bg-white p-3 shadow-xl">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="text-sm font-semibold text-gray-800">Filters</div>
+                                    <button
+                                        className="text-xs text-gray-500 hover:text-gray-800"
+                                        onClick={() => setShowProductFilters(false)}
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                                <div className="space-y-3">
+                                    <div>
+                                        <div className="text-xs text-gray-500 mb-1">Stock Status</div>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            {(["ALL", "LOW", "OK"] as const).map((s) => (
+                                                <label key={s} className="inline-flex items-center gap-1 text-xs text-gray-700">
+                                                    <input
+                                                        type="radio"
+                                                        name="productStatusFilter"
+                                                        className="h-3 w-3"
+                                                        checked={productStatusFilter === s}
+                                                        onChange={() => setProductStatusFilter(s)}
+                                                    />
+                                                    {s === "ALL" ? "All" : s === "LOW" ? "Low Stock" : s === "OK" ? "In Stock" : ""}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-gray-500 mb-1">Sort by</div>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <button
+                                                onClick={() => { setProductSortKey("product"); setProductSortDir("asc"); }}
+                                                className={`text-xs px-2 py-1 rounded border transition ${productSortKey === "product" && productSortDir === "asc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                            >
+                                                Product A–Z
+                                            </button>
+                                            <button
+                                                onClick={() => { setProductSortKey("product"); setProductSortDir("desc"); }}
+                                                className={`text-xs px-2 py-1 rounded border transition ${productSortKey === "product" && productSortDir === "desc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                            >
+                                                Product Z–A
+                                            </button>
+                                            <button
+                                                onClick={() => { setProductSortKey("quantity"); setProductSortDir("desc"); }}
+                                                className={`text-xs px-2 py-1 rounded border transition ${productSortKey === "quantity" && productSortDir === "desc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                            >
+                                                Most Quantity
+                                            </button>
+                                            <button
+                                                onClick={() => { setProductSortKey("quantity"); setProductSortDir("asc"); }}
+                                                className={`text-xs px-2 py-1 rounded border transition ${productSortKey === "quantity" && productSortDir === "asc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                            >
+                                                Least Quantity
+                                            </button>
+                                            <button
+                                                onClick={() => { setProductSortKey("unitPrice"); setProductSortDir("desc"); }}
+                                                className={`text-xs px-2 py-1 rounded border transition ${productSortKey === "unitPrice" && productSortDir === "desc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                            >
+                                                Highest Price
+                                            </button>
+                                            <button
+                                                onClick={() => { setProductSortKey("unitPrice"); setProductSortDir("asc"); }}
+                                                className={`text-xs px-2 py-1 rounded border transition ${productSortKey === "unitPrice" && productSortDir === "asc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                            >
+                                                Lowest Price
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Products Table */}
+                    <div className="bg-white/90 rounded-xl shadow-md p-3">
+                        <div className="font-bold text-lg text-center mb-2">PRODUCTS</div>
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="font-bold text-[0.95rem] border-b-2 border-gray-400">
+                                    <td>Product ID</td>
+                                    <td>Product</td>
+                                    <td>Category</td>
+                                    <td>Quantity</td>
+                                    <td>Min. Quantity</td>
+                                    <td>Unit Price</td>
+                                    <td>Entry Price</td>
+                                    <td></td>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredProducts.map((p) => (
+                                    <tr key={p._id} className="text-[0.95rem]">
+                                        <td>{p._id.slice(-6).toUpperCase()}</td>
+                                        <td>{p.name}</td>
+                                        <td>{p.category || '-'}</td>
+                                        <td>{p.amount}</td>
+                                        <td>{p.minAmount}</td>
+                                        <td>₱{p.price}</td>
+                                        <td>₱{p.entryPrice}</td>
+                                        <td className="flex gap-1 items-center justify-center">
+                                            <button
+                                                className="p-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
+                                                title="Edit"
+                                                onClick={() => handleEdit(p._id)}
+                                            >
+                                                <PencilSquareIcon className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                className="p-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600"
+                                                title="Delete"
+                                                onClick={() => handleDelete(p._id)}
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Modal for Create/Edit Product (headlessui for cohesive styling) */}
+                    <Transition show={showModal} as={Fragment}>
+                        <Dialog onClose={handleCancel} className="relative z-50">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-200"
+                                enterFrom="opacity-0"
+                                enterTo="opacity-100"
+                                leave="ease-in duration-150"
+                                leaveFrom="opacity-100"
+                                leaveTo="opacity-0"
+                            >
+                                <div className="fixed inset-0 bg-black/50" />
+                            </Transition.Child>
+                            <div className="fixed inset-0 overflow-y-auto p-4 sm:p-6 flex items-center justify-center min-h-screen">
+                                <div className="w-full max-w-md">
+                                    <Transition.Child
+                                        as={Fragment}
+                                        enter="ease-out duration-200"
+                                        enterFrom="opacity-0 translate-y-2"
+                                        enterTo="opacity-100 translate-y-0"
+                                        leave="ease-in duration-150"
+                                        leaveFrom="opacity-100 translate-y-0"
+                                        leaveTo="opacity-0 translate-y-1"
+                                    >
+                                        <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
+                                            <div className="flex items-center justify-between p-4 border-b border-white/10">
+                                                <Dialog.Title className="text-lg font-semibold">{editIndex !== null ? "Edit Product" : "Add Product"}</Dialog.Title>
+                                                <button onClick={handleCancel} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+                                                    <XMarkIcon className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                            <form
+                                                onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+                                                className="p-4 space-y-4"
+                                            >
+                                                <div>
+                                                    <label className="block text-xs text-gray-300 mb-1">Product Name</label>
+                                                    <input
+                                                        value={form.product}
+                                                        onChange={e => setForm(f => ({ ...f, product: e.target.value }))}
+                                                        className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm placeholder-gray-400 ${errors.product ? 'border-red-500/60' : 'border-white/10'}`}
+                                                        placeholder="e.g. A4 Bond Paper"
+                                                        autoFocus
+                                                    />
+                                                    {errors.product && <p className="mt-1 text-xs text-red-400">{errors.product}</p>}
+                                                </div>
+                                                <div ref={categoryWrapperRef} className="relative">
+                                                    <label className="block text-xs text-gray-300 mb-1">Category (optional)</label>
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            ref={categoryInputRef}
+                                                            value={form.category}
+                                                            onChange={e => { setForm(f => ({ ...f, category: e.target.value })); if (!showCategoryMenu) openCategoryMenu(); }}
+                                                            onFocus={() => openCategoryMenu()}
+                                                            onKeyDown={onCategoryKeyDown}
+                                                            placeholder={categorySuggestions.length ? "Search or type category" : "Type a category"}
+                                                            className="flex-1 rounded-md border border-white/10 bg-gray-800 px-3 py-2 text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                                            aria-expanded={showCategoryMenu}
+                                                            aria-haspopup="listbox"
+                                                            aria-controls="category-menu"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => showCategoryMenu ? setShowCategoryMenu(false) : openCategoryMenu()}
+                                                            className="shrink-0 rounded-md border border-white/10 bg-gray-800 p-2 text-gray-300 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                                            aria-label="Toggle categories"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`h-4 w-4 transition-transform ${showCategoryMenu ? 'rotate-180' : ''}`}>
+                                                                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.189l3.71-3.96a.75.75 0 111.08 1.04l-4.24 4.53a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    {showCategoryMenu && (
+                                                        <div
+                                                            id="category-menu"
+                                                            role="listbox"
+                                                            className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-white/10 bg-gray-900 shadow-lg focus:outline-none"
+                                                        >
+                                                            <div className="max-h-56 overflow-auto py-1 text-sm">
+                                                                {filteredCategorySuggestions.length === 0 && (
+                                                                    <div className="px-3 py-2 text-xs text-gray-500">No matches. Press Enter to keep "{form.category}"</div>
+                                                                )}
+                                                                {filteredCategorySuggestions.map((c, idx) => (
+                                                                    <div
+                                                                        key={c}
+                                                                        role="option"
+                                                                        aria-selected={form.category === c}
+                                                                        onMouseDown={(e) => { e.preventDefault(); selectCategory(c); }}
+                                                                        onMouseEnter={() => setCategoryHighlight(idx)}
+                                                                        className={`flex cursor-pointer items-center gap-2 px-3 py-2 text-gray-200 hover:bg-white/10 ${idx === categoryHighlight ? 'bg-white/10' : ''}`}
+                                                                    >
+                                                                        <span className="truncate">{c}</span>
+                                                                        {form.category === c && <span className="ml-auto text-[10px] rounded bg-blue-600/20 px-1.5 py-0.5 text-blue-300">Selected</span>}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                            {form.category && !filteredCategorySuggestions.includes(form.category) && (
+                                                                <div className="border-t border-white/5 bg-gray-800/60 px-3 py-2 text-[11px] text-gray-400">Press Enter to use custom category</div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-xs text-gray-300 mb-1">Quantity</label>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            value={form.quantity}
+                                                            onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
+                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.quantity ? 'border-red-500/60' : 'border-white/10'}`}
+                                                            placeholder="0"
+                                                        />
+                                                        {errors.quantity && <p className="mt-1 text-xs text-red-400">{errors.quantity}</p>}
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-300 mb-1">Min. Quantity</label>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            value={form.minQuantity}
+                                                            onChange={e => setForm(f => ({ ...f, minQuantity: e.target.value }))}
+                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.minQuantity ? 'border-red-500/60' : 'border-white/10'}`}
+                                                            placeholder="0"
+                                                        />
+                                                        {errors.minQuantity && <p className="mt-1 text-xs text-red-400">{errors.minQuantity}</p>}
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-xs text-gray-300 mb-1">Unit Price (₱)</label>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            step="0.01"
+                                                            value={form.unitPrice}
+                                                            onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))}
+                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.unitPrice ? 'border-red-500/60' : 'border-white/10'}`}
+                                                            placeholder="0.00"
+                                                        />
+                                                        {errors.unitPrice && <p className="mt-1 text-xs text-red-400">{errors.unitPrice}</p>}
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-300 mb-1">Entry Price (₱)</label>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            step="0.01"
+                                                            value={form.entryPrice}
+                                                            onChange={e => setForm(f => ({ ...f, entryPrice: e.target.value }))}
+                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.entryPrice ? 'border-red-500/60' : 'border-white/10'}`}
+                                                            placeholder="0.00"
+                                                        />
+                                                        {errors.entryPrice && <p className="mt-1 text-xs text-red-400">{errors.entryPrice}</p>}
+                                                    </div>
+                                                </div>
+                                                <div className="pt-2 flex justify-end gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleCancel}
+                                                        className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <XMarkIcon className="w-4 h-4" /> Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <CheckIcon className="w-4 h-4" /> {editIndex !== null ? 'Save changes' : 'Create product'}
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </DialogPanel>
+                                    </Transition.Child>
+                                </div>
+                            </div>
+                        </Dialog>
+                    </Transition>
+
+                    {/* Employee List Section - identical to Product Table UI */}
+                    <div className="bg-white/90 rounded-xl shadow-md p-3 mt-4">
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="font-bold text-lg">Employee List</div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    placeholder="Search Employee"
+                                    value={employeeSearch}
+                                    onChange={e => setEmployeeSearch(e.target.value)}
+                                    className="px-3 py-1 rounded-lg border border-gray-400 text-[0.95rem] bg-gray-800 text-white"
+                                />
+                                <button
+                                    className="bg-gray-800 text-white rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-2"
+                                    onClick={() => setShowEmployeeFilters(v => !v)}
+                                    aria-haspopup="true"
+                                    aria-expanded={showEmployeeFilters}
+                                >
+                                    <FunnelIcon className="w-5 h-5" />
+                                    Filter
+                                </button>
+                                <button
+                                    className="bg-green-400 text-black rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-2"
+                                    onClick={handleAddEmployee}
+                                >
+                                    <UserPlusIcon className="w-4 h-4" /> Add Employee
+                                </button>
+                                {showEmployeeFilters && (
+                                    <div className="absolute z-20 mt-2 right-8 w-64 rounded-lg border border-gray-300 bg-white p-3 shadow-xl">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="text-sm font-semibold text-gray-800">Filters</div>
+                                            <button
+                                                className="text-xs text-gray-500 hover:text-gray-800"
+                                                onClick={() => setShowEmployeeFilters(false)}
+                                            >
+                                                Close
+                                            </button>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div>
+                                                <div className="text-xs text-gray-500 mb-1">Role</div>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {(["ALL", "Manager", "Staff"] as const).map((r) => (
+                                                        <label key={r} className="inline-flex items-center gap-1 text-xs text-gray-700">
+                                                            <input
+                                                                type="radio"
+                                                                name="employeeRoleFilter"
+                                                                className="h-3 w-3"
+                                                                checked={employeeRoleFilter === r}
+                                                                onChange={() => setEmployeeRoleFilter(r)}
+                                                            />
+                                                            {r}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500 mb-1">Sort by</div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        onClick={() => { setEmployeeSortKey("fullName"); setEmployeeSortDir("asc"); }}
+                                                        className={`text-xs px-2 py-1 rounded border transition ${employeeSortKey === "fullName" && employeeSortDir === "asc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                                    >
+                                                        Name A–Z
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setEmployeeSortKey("fullName"); setEmployeeSortDir("desc"); }}
+                                                        className={`text-xs px-2 py-1 rounded border transition ${employeeSortKey === "fullName" && employeeSortDir === "desc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                                    >
+                                                        Name Z–A
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setEmployeeSortKey("role"); setEmployeeSortDir("asc"); }}
+                                                        className={`text-xs px-2 py-1 rounded border transition ${employeeSortKey === "role" && employeeSortDir === "asc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                                    >
+                                                        Role A–Z
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { setEmployeeSortKey("role"); setEmployeeSortDir("desc"); }}
+                                                        className={`text-xs px-2 py-1 rounded border transition ${employeeSortKey === "role" && employeeSortDir === "desc" ? "border-blue-500 text-blue-700 bg-blue-500/10" : "border-gray-300 text-gray-700 hover:bg-gray-100"}`}
+                                                    >
+                                                        Role Z–A
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="flex justify-end gap-2 pt-1">
+                                                <button
+                                                    className="text-xs px-3 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100"
+                                                    onClick={() => {
+                                                        setEmployeeRoleFilter("ALL");
+                                                        setEmployeeSortKey("fullName");
+                                                        setEmployeeSortDir("asc");
+                                                    }}
+                                                >
+                                                    Clear
+                                                </button>
+                                                <button
+                                                    className="text-xs px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-500"
+                                                    onClick={() => setShowEmployeeFilters(false)}
+                                                >
+                                                    Apply
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        <table className="w-full border-collapse">
+                            <thead>
+                                <tr className="font-bold text-[0.95rem] border-b-2 border-gray-400">
+                                    <td>Full Name</td>
+                                    <td>Role</td>
+                                    <td></td>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredEmployees.map((e) => (
+                                    <tr key={e._id} className="text-[0.95rem]">
+                                        <td>{e.fullName}</td>
+                                        <td>{e.role}</td>
+                                        <td className="flex gap-1 items-center justify-center">
+                                            <button
+                                                className="p-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
+                                                title="Edit"
+                                                onClick={() => handleEditEmployee(e._id)}
+                                            >
+                                                <PencilSquareIcon className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                className="p-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600"
+                                                title="Delete"
+                                                onClick={() => handleDeleteEmployee(e._id)}
+                                            >
+                                                <TrashIcon className="w-4 h-4" />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Modal for Add/Edit Employee */}
+                    {showEmployeeModal && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                            <div className="bg-white rounded-xl shadow-lg w-full max-w-xs p-4 relative">
+                                <button className="absolute top-2 right-2 cursor-pointer text-[1.1rem]" onClick={handleCancelEmployee} aria-label="Close">
+                                    <XMarkIcon className="w-5 h-5" />
+                                </button>
+                                <div className="font-bold text-lg text-center mb-2">{editEmployeeIndex !== null ? "Edit Employee" : "Add Employee"}</div>
+                                <input className="rounded-lg px-3 py-1 bg-gray-400 text-black mb-1 text-[0.95rem]" placeholder="Full Name" value={employeeForm.fullName} onChange={e => setEmployeeForm(f => ({ ...f, fullName: e.target.value }))} />
+                                {employeeErrors.fullName && <div className="text-red-500 text-xs mb-1">{employeeErrors.fullName}</div>}
+                                <input className="rounded-lg px-3 py-1 bg-gray-400 text-black mb-1 text-[0.95rem]" placeholder="Role" value={employeeForm.role} onChange={e => setEmployeeForm(f => ({ ...f, role: e.target.value }))} />
+                                {employeeErrors.role && <div className="text-red-500 text-xs mb-1">{employeeErrors.role}</div>}
+                                <div className="flex gap-2 mt-2">
+                                    <button className="bg-red-400 text-white rounded-lg px-4 py-1 font-bold flex-1 text-[0.95rem] inline-flex items-center justify-center gap-1" onClick={handleCancelEmployee}>
+                                        <XMarkIcon className="w-4 h-4" /> Cancel
+                                    </button>
+                                    <button className="bg-green-400 text-white rounded-lg px-4 py-1 font-bold flex-1 text-[0.95rem] inline-flex items-center justify-center gap-1" onClick={handleSaveEmployee}>
+                                        <CheckIcon className="w-4 h-4" /> Save
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </DashboardLayout>
+    );
 };
 
 export default Inventory;

@@ -55,6 +55,15 @@ interface ServiceItem {
   variants?: ServiceVariant[];
   createdAt: string; // ISO string for sorting/display
   imageUrl?: string; // derived from backend image endpoint
+  requiredInventory?: string; // inventory item ID
+  inventoryQuantityPerUnit?: number;
+  canEnable?: boolean;
+  inventoryStatus?: {
+    name: string;
+    amount: number;
+    minAmount: number;
+    isLowStock: boolean;
+  };
 }
 
 type ServiceDraft = {
@@ -67,7 +76,18 @@ type ServiceDraft = {
   variants?: ServiceVariant[];
   imageFile?: File | null;
   removeImage?: boolean;
+  requiredInventory?: string;
+  inventoryQuantityPerUnit?: number;
 };
+
+interface InventoryItem {
+  _id: string;
+  name: string;
+  amount: number;
+  minAmount: number;
+  price: number;
+  currency: string;
+}
 
 type ApiService = {
   _id: string;
@@ -80,6 +100,15 @@ type ApiService = {
   variants?: ServiceVariant[];
   createdAt?: string;
   imageFileId?: string;
+  requiredInventory?: string;
+  inventoryQuantityPerUnit?: number;
+  canEnable?: boolean;
+  inventoryStatus?: {
+    name: string;
+    amount: number;
+    minAmount: number;
+    isLowStock: boolean;
+  };
 };
 
 function mapServiceFromApi(s: ApiService): ServiceItem {
@@ -94,6 +123,10 @@ function mapServiceFromApi(s: ApiService): ServiceItem {
     variants: Array.isArray(s.variants) ? s.variants : undefined,
     createdAt: s.createdAt || new Date().toISOString(),
   imageUrl: s.imageFileId ? `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/services/${s._id}/image` : undefined,
+    requiredInventory: s.requiredInventory,
+    inventoryQuantityPerUnit: s.inventoryQuantityPerUnit,
+    canEnable: s.canEnable,
+    inventoryStatus: s.inventoryStatus,
   };
 }
 
@@ -113,6 +146,7 @@ export default function ServiceManagement() {
   // state
   const [query, setQuery] = useState("");
   const [services, setServices] = useState<ServiceItem[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<ServiceItem | null>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -131,10 +165,18 @@ export default function ServiceManagement() {
       try {
         setLoading(true);
         setError(null);
-        const res = await api.get("/services/mine");
+        
+        // Load services with inventory status
+        const servicesRes = await api.get("/services/mine/with-inventory");
         if (cancelled) return;
-        const items: ServiceItem[] = (res.data || []).map(mapServiceFromApi);
-        setServices(items);
+        const serviceItems: ServiceItem[] = (servicesRes.data || []).map(mapServiceFromApi);
+        setServices(serviceItems);
+        
+        // Load inventory items for selection
+        const inventoryRes = await api.get("/inventory/mine");
+        if (cancelled) return;
+        const inventoryList: InventoryItem[] = inventoryRes.data || [];
+        setInventoryItems(inventoryList);
       } catch (e: unknown) {
         if (!cancelled) setError(toErrorMessage(e, "Failed to load services"));
       } finally {
@@ -468,6 +510,15 @@ export default function ServiceManagement() {
                   <span>
                     <strong>Pricing:</strong> {money(s.basePrice, s.currency || 'PHP')} {s.unit}
                   </span>
+                  {s.inventoryStatus && (
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      s.inventoryStatus.isLowStock 
+                        ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
+                        : 'bg-green-500/20 text-green-300 border border-green-500/30'
+                    }`}>
+                      <strong>Inventory:</strong> {s.inventoryStatus.name} ({s.inventoryStatus.amount}/{s.inventoryStatus.minAmount})
+                    </span>
+                  )}
                 </div>
                 {s.variants && s.variants.length > 0 && (
                   <div className="mt-2">
@@ -522,6 +573,7 @@ export default function ServiceManagement() {
           setEditing(null);
         }}
         onSave={saveService}
+        inventoryItems={inventoryItems}
       />
     </DashboardLayout>
   );
@@ -532,11 +584,13 @@ function ServiceModal({
   onClose,
   initial,
   onSave,
+  inventoryItems,
 }: {
   open: boolean;
   onClose: () => void;
   initial?: ServiceItem;
   onSave: (item: ServiceDraft) => void;
+  inventoryItems: InventoryItem[];
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -545,11 +599,14 @@ function ServiceModal({
   const [currency, setCurrency] = useState<string>(initial?.currency ?? 'PHP');
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
   const [variants, setVariants] = useState<ServiceVariant[]>(initial?.variants ?? []);
+  // removed requiredInventory & inventoryQuantityPerUnit per new requirements
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(initial?.imageUrl ?? null);
   const [showCropper, setShowCropper] = useState<string | null>(null); // holds objectURL to crop
   const [removeImage, setRemoveImage] = useState<boolean>(false);
   const [imageOriginalSrc, setImageOriginalSrc] = useState<string | null>(initial?.imageUrl ?? null);
+  // track which variant option input is focused for suggestion dropdown
+  const [focusedOption, setFocusedOption] = useState<{ v: number; o: number } | null>(null);
 
   // sync when opening for edit
   useEffect(() => {
@@ -561,6 +618,7 @@ function ServiceModal({
   setCurrency(initial?.currency ?? 'PHP');
       setActive(initial?.active ?? true);
       setVariants(initial?.variants ?? []);
+  // inventory linkage removed
       setImageFile(null);
       setImagePreview(initial?.imageUrl ?? null);
   setImageOriginalSrc(initial?.imageUrl ?? null);
@@ -621,6 +679,7 @@ function ServiceModal({
   currency,
       active,
       variants: variants.length ? variants : undefined,
+  // inventory linkage removed from payload
   imageFile,
   removeImage,
     };
@@ -720,6 +779,8 @@ function ServiceModal({
                       </select>
                     </div>
                   </div>
+                  
+                  {/* Inventory requirements removed. When inventory exists, show suggestion dropdown for attribute option names. */}
                   <div>
                     <label className="block text-xs text-gray-300 mb-1">Description</label>
                     <textarea
@@ -831,41 +892,72 @@ function ServiceModal({
                             </button>
                           </div>
                           <div className="mt-2 space-y-2">
-                            {v.options.map((o, oIdx) => (
-                              <div key={oIdx} className="grid grid-cols-5 gap-2 items-center">
-                                <div className="col-span-3">
-                                  <input
-                                    value={o.name}
-                                    onChange={(e) => updateVariantOption(vIdx, oIdx, { name: e.target.value })}
-                                    className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                    placeholder="Option (e.g., A4 / Red / Small)"
-                                  />
+                            {v.options.map((o, oIdx) => {
+                              // suggestion list from inventory item names (unique)
+                              const suggestionSet = new Set(inventoryItems.map(ii => ii.name).filter(Boolean));
+                              const suggestions = Array.from(suggestionSet).sort((a,b)=>a.localeCompare(b));
+                              const filteredSuggestions = o.name.trim() ? suggestions.filter(s => s.toLowerCase().includes(o.name.toLowerCase())) : suggestions;
+                              const isFocused = focusedOption && focusedOption.v === vIdx && focusedOption.o === oIdx;
+                              return (
+                                <div key={oIdx} className="grid grid-cols-5 gap-2 items-start relative">
+                                  <div className="col-span-3">
+                                    <div className="relative">
+                                      <input
+                                        value={o.name}
+                                        onChange={(e) => updateVariantOption(vIdx, oIdx, { name: e.target.value })}
+                                        onFocus={() => setFocusedOption({ v: vIdx, o: oIdx })}
+                                        onBlur={() => setTimeout(() => {
+                                          setFocusedOption(prev => (prev && prev.v === vIdx && prev.o === oIdx) ? null : prev);
+                                        }, 120)}
+                                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                        placeholder="Option (e.g., Size A4 / Material PVC)"
+                                        aria-haspopup="listbox"
+                                      />
+                                      {isFocused && suggestions.length > 0 && (
+                                        <div className="absolute z-40 mt-1 w-full rounded-md border border-white/10 bg-gray-900 shadow-lg max-h-48 overflow-auto">
+                                          {filteredSuggestions.length === 0 && (
+                                            <div className="px-3 py-2 text-xs text-gray-500">No matches</div>
+                                          )}
+                                          {filteredSuggestions.map(s => (
+                                            <div
+                                              key={s}
+                                              role="option"
+                                              onMouseDown={(e) => { e.preventDefault(); updateVariantOption(vIdx, oIdx, { name: s }); setFocusedOption(null); }}
+                                              className={`px-3 py-1.5 text-sm cursor-pointer hover:bg-white/10 ${s === o.name ? 'bg-white/10' : ''}`}
+                                            >
+                                              {s}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="col-span-2 flex items-center gap-2">
+                                    <span className="text-gray-400 text-sm">+{currencySymbol(currency)}</span>
+                                    <input
+                                      type="number"
+                                      inputMode="decimal"
+                                      min={0}
+                                      step="0.01"
+                                      value={o.priceDelta}
+                                      onChange={(e) =>
+                                        updateVariantOption(vIdx, oIdx, { priceDelta: parseFloat(e.target.value) || 0 })
+                                      }
+                                      className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                      placeholder="0"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => removeVariantOption(vIdx, oIdx)}
+                                      className="p-2 rounded-lg hover:bg-white/10"
+                                      title="Remove option"
+                                    >
+                                      <TrashIcon className="h-5 w-5 text-red-300" />
+                                    </button>
+                                  </div>
                                 </div>
-                                <div className="col-span-2 flex items-center gap-2">
-                                  <span className="text-gray-400 text-sm">+{currencySymbol(currency)}</span>
-                                  <input
-                                    type="number"
-                                    inputMode="decimal"
-                                    min={0}
-                                    step="0.01"
-                                    value={o.priceDelta}
-                                    onChange={(e) =>
-                                      updateVariantOption(vIdx, oIdx, { priceDelta: parseFloat(e.target.value) || 0 })
-                                    }
-                                    className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                    placeholder="0"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => removeVariantOption(vIdx, oIdx)}
-                                    className="p-2 rounded-lg hover:bg-white/10"
-                                    title="Remove option"
-                                  >
-                                    <TrashIcon className="h-5 w-5 text-red-300" />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                             <button
                               type="button"
                               onClick={() => addVariantOption(vIdx)}

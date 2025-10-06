@@ -1,5 +1,6 @@
 const Service = require('../models/serviceModel');
 const PrintStore = require('../models/printStoreModel');
+const InventoryItem = require('../models/inventoryItemModel');
 const mongoose = require('mongoose');
 
 // Helper: get store for current owner
@@ -8,14 +9,41 @@ async function getOwnerStore(userId) {
   return store;
 }
 
-// Create service for owner’s store
+// Helper: validate inventory requirements
+async function validateInventoryRequirements(storeId, requiredInventory, inventoryQuantityPerUnit) {
+  if (!requiredInventory) return true; // No inventory requirement
+  
+  const inventoryItem = await InventoryItem.findOne({ 
+    _id: requiredInventory, 
+    store: storeId 
+  });
+  
+  if (!inventoryItem) {
+    throw new Error('Required inventory item not found');
+  }
+  
+  return true;
+}
+
+// Helper: check if service can be enabled based on inventory
+async function canEnableService(service) {
+  if (!service.requiredInventory) return true; // No inventory requirement
+  
+  const inventoryItem = await InventoryItem.findById(service.requiredInventory);
+  if (!inventoryItem) return false;
+  
+  // Check if there's enough inventory (at least the minimum amount)
+  return inventoryItem.amount >= inventoryItem.minAmount;
+}
+
+// Create service for owner's store
 exports.createService = async (req, res) => {
   try {
     const userId = req.user.id;
     const store = await getOwnerStore(userId);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
 
-  let { name, description, basePrice, unit, currency, active = true, variants = [] } = req.body;
+  let { name, description, basePrice, unit, currency, active = true, variants = [], requiredInventory, inventoryQuantityPerUnit = 1 } = req.body;
     // type coercion for multipart fields
     const basePriceNum = typeof basePrice === 'string' ? parseFloat(basePrice) : basePrice;
     const activeBool = typeof active === 'string' ? active === 'true' || active === '1' : !!active;
@@ -23,6 +51,12 @@ exports.createService = async (req, res) => {
     if (typeof variants === 'string') {
       try { variantsArr = JSON.parse(variants); } catch { variantsArr = []; }
     }
+    
+    // Validate inventory requirements
+    if (requiredInventory) {
+      await validateInventoryRequirements(store._id, requiredInventory, inventoryQuantityPerUnit);
+    }
+    
     const doc = {
       store: store._id,
       name,
@@ -32,6 +66,8 @@ exports.createService = async (req, res) => {
   currency,
       active: activeBool,
       variants: Array.isArray(variantsArr) ? variantsArr : [],
+      requiredInventory: requiredInventory || undefined,
+      inventoryQuantityPerUnit: Number(inventoryQuantityPerUnit) || 1,
     };
     // image file
     if (req.file && req.file.buffer) {
@@ -54,7 +90,7 @@ exports.createService = async (req, res) => {
   }
 };
 
-// Update service (owner only, must belong to owner’s store)
+// Update service (owner only, must belong to owner's store)
 exports.updateService = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -79,6 +115,18 @@ exports.updateService = async (req, res) => {
       }
       if (!Array.isArray(updates.variants)) updates.variants = svc.variants;
     }
+    
+    // Validate inventory requirements if being updated
+    if (updates.requiredInventory !== undefined) {
+      if (updates.requiredInventory) {
+        await validateInventoryRequirements(store._id, updates.requiredInventory, updates.inventoryQuantityPerUnit || svc.inventoryQuantityPerUnit);
+      }
+    }
+    
+    if (updates.inventoryQuantityPerUnit !== undefined) {
+      updates.inventoryQuantityPerUnit = Number(updates.inventoryQuantityPerUnit) || 1;
+    }
+    
   // currency may come as a string code; let schema enum validate
     Object.assign(svc, updates);
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
@@ -164,6 +212,40 @@ exports.getServiceImage = async (req, res) => {
     const download = bucket.openDownloadStream(svc.imageFileId);
     download.pipe(res);
     download.on('error', () => res.status(500).end());
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Get services with inventory status for owner
+exports.getServicesWithInventoryStatus = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const store = await getOwnerStore(userId);
+    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    
+    const services = await Service.find({ store: store._id })
+      .populate('requiredInventory')
+      .sort({ createdAt: -1 });
+    
+    // Add inventory status to each service
+    const servicesWithStatus = await Promise.all(
+      services.map(async (service) => {
+        const canEnable = await canEnableService(service);
+        return {
+          ...service.toObject(),
+          canEnable,
+          inventoryStatus: service.requiredInventory ? {
+            name: service.requiredInventory.name,
+            amount: service.requiredInventory.amount,
+            minAmount: service.requiredInventory.minAmount,
+            isLowStock: service.requiredInventory.amount <= service.requiredInventory.minAmount
+          } : null
+        };
+      })
+    );
+    
+    res.json(servicesWithStatus);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

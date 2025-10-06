@@ -20,6 +20,9 @@ const orderItemSchema = new mongoose.Schema(
   unitPrice: { type: Number, required: true, min: 0 }, // server-side
     selectedOptions: { type: [selectedOptionSchema], default: [] },
     totalPrice: { type: Number, required: true, min: 0 }, // unitPrice * quantity
+  // snapshot of inventory requirement at time of ordering (if any)
+  requiredInventory: { type: mongoose.Schema.Types.ObjectId, ref: 'InventoryItem' },
+  inventoryQuantityPerUnit: { type: Number, min: 0 },
   },
   { _id: false }
 );
@@ -36,7 +39,8 @@ const fileRefSchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // optional for guest
+    guestId: { type: String }, // for guest orders (non-persistent user)
     store: { type: mongoose.Schema.Types.ObjectId, ref: 'PrintStore', required: true },
     items: { type: [orderItemSchema], default: [] },
     notes: { type: String },
@@ -53,6 +57,8 @@ const orderSchema = new mongoose.Schema(
   pickupToken: { type: String },
   pickupTokenExpires: { type: Date },
   pickupVerifiedAt: { type: Date },
+  // ensure inventory only deducted once
+  inventoryDeducted: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

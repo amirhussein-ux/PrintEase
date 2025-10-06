@@ -3,6 +3,7 @@ import api from "../../../lib/api"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import logo from "/src/assets/PrintEase-Logo-Dark.png"
@@ -10,8 +11,16 @@ import autoTable from "jspdf-autotable"
 import "@/assets/fonts/Roboto-Regular-normal"
 
 // Types
-interface VariantItem { variant: string; expectedStock: number; currentStock: number; minAmount?: number }
-interface InventoryItem { name: string; unit: string; variants: VariantItem[] }
+interface BackendInventoryItem { 
+  _id: string; 
+  name: string; 
+  category?: string; // newly added backend category field
+  amount: number; 
+  minAmount: number; 
+  price: number; 
+  currency: string; 
+  createdAt: string; 
+}
 
 // Constants
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020]
@@ -22,8 +31,7 @@ const FULL_MONTHS: Record<string,string> = {
   Jul: "July", Aug: "August", Sep: "September", Oct: "October", Nov: "November", Dec: "December"
 }
 
-// Inventory items will be fetched from backend and normalized into this shape
-const EMPTY_INVENTORY: InventoryItem[] = []
+// inventory now grouped by category; previous flat inventory structures removed
 
 // Components
 const StatCard = ({ value, label }: { value: string; label: string }) => {
@@ -105,15 +113,37 @@ const YearSelector = ({ selected, set }: { selected: number; set: (y: number) =>
   </div>
 )
 
-const Accordion = ({ item, open, onToggle }: { item: InventoryItem; open: boolean; onToggle: () => void }) => (
+// Category-level accordion groups all items within a category
+const CategoryAccordion = ({
+  category,
+  items,
+  open,
+  onToggle,
+}: {
+  category: string;
+  items: { name: string; amount: number; minAmount: number; expectedStock: number }[];
+  open: boolean;
+  onToggle: () => void;
+}) => (
   <div className="border rounded-xl shadow-sm bg-white/90">
-    <button onClick={onToggle} className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800">
-      <span>{item.name}</span><span>{open ? "−" : "+"}</span>
+    <button
+      onClick={onToggle}
+      className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800"
+      aria-expanded={open}
+      aria-controls={`cat-${category}`}
+    >
+      <span className="truncate pr-2">{category}</span>
+      <span>{open ? '−' : '+'}</span>
     </button>
     {open && (
-      <div className="p-4 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {item.variants.map((v) => (
-          <InventoryPie key={v.variant} type={`${item.name} - ${v.variant}`} items={[v]} unit={item.unit} />
+      <div id={`cat-${category}`} className="p-4 grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+        {items.map(it => (
+          <InventoryPie
+            key={it.name}
+            type={it.name}
+            unit="units"
+            items={[{ expectedStock: it.expectedStock, currentStock: it.amount, minAmount: it.minAmount }]}
+          />
         ))}
       </div>
     )}
@@ -133,7 +163,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
   const restock = hasThresholdBreach || (totalExpected > 0 && totalCurrent < totalExpected * 0.3)
 
   return (
-    <div className={`bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center ${restock ? "animate-pulse shadow-[0_0_20px_#f87171]" : ""}`}>
+    <div className={`bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center ${restock ? "animate-pulse shadow-[0_0_20px_#f87171] border-2 border-red-500" : ""}`}>
       <h3 className="text-sm font-bold uppercase mb-2">{type}</h3>
       <ResponsiveContainer width="100%" height={180}>
         <PieChart>
@@ -142,7 +172,13 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
           </Pie>
         </PieChart>
       </ResponsiveContainer>
-  <p className="text-xs text-gray-600 mt-1">{totalCurrent}/{totalExpected} {unit}</p>
+      <p className="text-xs text-gray-600 mt-1">{totalCurrent}/{totalExpected} {unit}</p>
+      {restock && (
+        <div className="flex items-center gap-1 text-xs text-red-500 font-semibold mt-1">
+          <ExclamationTriangleIcon className="w-4 h-4" aria-hidden="true" />
+          <span>LOW STOCK</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -160,7 +196,7 @@ const OwnerDashboardContent: React.FC = () => {
   const [salesYear, setSalesYear] = useState(0)
   const [openIndex, setOpenIndex] = useState<number>(-1)
   const [loading, setLoading] = useState(true)
-  const [inventory, setInventory] = useState<InventoryItem[]>(EMPTY_INVENTORY)
+  const [inventoryCategories, setInventoryCategories] = useState<Array<{ category: string; items: { name: string; amount: number; minAmount: number; expectedStock: number }[] }>>([])
   // UI transition helpers for smoother skeleton -> content
   const [showSkeleton, setShowSkeleton] = useState(true)
   const [contentReady, setContentReady] = useState(false)
@@ -219,24 +255,20 @@ const OwnerDashboardContent: React.FC = () => {
           : []
         // fetch inventory items for owner store
         const invRes = await api.get('/inventory/mine')
-        const invList: Array<{ _id: string; name: string; amount?: number; minAmount?: number }> = Array.isArray(invRes.data) ? invRes.data : []
-        const normalizedInventory: InventoryItem[] = invList.map((it) => {
+        const invList: BackendInventoryItem[] = Array.isArray(invRes.data) ? invRes.data : []
+        // group by category
+        const grouped: Record<string, { name: string; amount: number; minAmount: number; expectedStock: number }[]> = {}
+        for (const it of invList) {
           const amt = Math.max(Number(it.amount) || 0, 0)
-          const minAmt = Math.max(Number(it.minAmount) || 0, 0)
-          const expected = Math.max(amt, minAmt)
-          return {
-            name: it.name,
-            unit: 'units',
-            variants: [
-              {
-                variant: 'Stock',
-                expectedStock: expected,
-                currentStock: amt,
-                minAmount: minAmt,
-              },
-            ],
-          }
-        })
+            const minAmt = Math.max(Number(it.minAmount) || 0, 0)
+            const expected = Math.max(amt, minAmt)
+          const cat = (it.category && it.category.trim()) ? it.category.trim() : 'Uncategorized'
+          if (!grouped[cat]) grouped[cat] = []
+          grouped[cat].push({ name: it.name, amount: amt, minAmount: minAmt, expectedStock: expected })
+        }
+        const normalizedCategories = Object.keys(grouped)
+          .sort((a,b)=>a.localeCompare(b))
+          .map(cat => ({ category: cat, items: grouped[cat].sort((a,b)=>a.name.localeCompare(b.name)) }))
 
         const now = new Date()
         const startDay = new Date(now); startDay.setHours(0,0,0,0)
@@ -276,7 +308,7 @@ const OwnerDashboardContent: React.FC = () => {
             }))
           )
           setServices(svcList)
-          setInventory(normalizedInventory)
+          setInventoryCategories(normalizedCategories)
           // ensure selected service remains valid
           if (selectedServiceId !== 'ALL' && !svcList.find((s) => s._id === selectedServiceId)) {
             setSelectedServiceId('ALL')
@@ -402,7 +434,7 @@ const OwnerDashboardContent: React.FC = () => {
               </div>
             </div>
 
-            {/* Inventory (moved inside crossfade container to avoid bleed-through during skeleton) */}
+            {/* Inventory grouped by category */}
             <div className="bg-white/90 rounded-xl shadow-md p-6 space-y-4">
               <h2 className="text-base font-bold text-gray-800 mb-2">Inventory Overview</h2>
               <div className="flex gap-4 mb-3">
@@ -410,11 +442,17 @@ const OwnerDashboardContent: React.FC = () => {
                 <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#d1d5db]" /> Decreased/Used</div>
               </div>
               <div className="space-y-3">
-                {inventory.length === 0 ? (
+                {inventoryCategories.length === 0 ? (
                   <p className="text-sm text-gray-600">No inventory items yet.</p>
                 ) : (
-                  inventory.map((item: InventoryItem, idx: number) => (
-                    <Accordion key={`${item.name}-${idx}`} item={item} open={openIndex === idx} onToggle={() => setOpenIndex(openIndex === idx ? -1 : idx)} />
+                  inventoryCategories.map((cat, idx) => (
+                    <CategoryAccordion
+                      key={cat.category}
+                      category={cat.category}
+                      items={cat.items}
+                      open={openIndex === idx}
+                      onToggle={() => setOpenIndex(openIndex === idx ? -1 : idx)}
+                    />
                   ))
                 )}
               </div>

@@ -9,12 +9,14 @@ const {
   listMyServices,
   listByStore,
   getServiceImage,
+  getServicesWithInventoryStatus,
 } = require('../controllers/serviceController');
 
 const router = express.Router();
 
 // owner
 router.get('/mine', protect, listMyServices);
+router.get('/mine/with-inventory', protect, getServicesWithInventoryStatus);
 router.post('/', protect, upload.single('image'), createService);
 router.put('/:id', protect, upload.single('image'), updateService);
 router.delete('/:id', protect, deleteService);

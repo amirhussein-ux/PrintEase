@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Order = require('../models/orderModel');
 const Service = require('../models/serviceModel');
 const PrintStore = require('../models/printStoreModel');
+const InventoryItem = require('../models/inventoryItemModel');
 const crypto = require('crypto');
 const Notification = require('../models/notificationModel');
 
@@ -11,10 +12,67 @@ function computeUnitPrice(service, selectedOptions = []) {
   return base + deltas;
 }
 
+async function reduceInventoryForOrder(order) {
+  try {
+    for (const item of order.items) {
+      let reqInvId = item.requiredInventory;
+      let qtyPerUnit = item.inventoryQuantityPerUnit;
+      const matchedIds = new Set();
+
+      // Load service once for fallbacks and option processing
+      const svc = await Service.findById(item.service);
+      if (svc && svc.requiredInventory && !reqInvId) {
+        reqInvId = svc.requiredInventory;
+        qtyPerUnit = qtyPerUnit || svc.inventoryQuantityPerUnit || 1;
+      }
+      if (reqInvId) matchedIds.add(String(reqInvId));
+
+      // Fallback: service name match
+      if (!reqInvId && svc) {
+        const nameMatch = await InventoryItem.findOne({ store: order.store, name: svc.name });
+        if (nameMatch) {
+          matchedIds.add(String(nameMatch._id));
+          qtyPerUnit = qtyPerUnit || 1;
+        }
+      }
+
+      // New logic: match each selected option's optionName to an inventory item name
+      if (Array.isArray(item.selectedOptions)) {
+        for (const opt of item.selectedOptions) {
+          const optName = opt.optionName || opt.label; // fallback label
+          if (!optName) continue;
+            const inv = await InventoryItem.findOne({ store: order.store, name: optName });
+            if (inv) matchedIds.add(String(inv._id));
+        }
+      }
+
+      if (matchedIds.size === 0) continue; // nothing to deduct
+
+      // Deduct for each matched inventory item (assume same qtyPerUnit or fallback 1)
+      for (const id of matchedIds) {
+        const invItem = await InventoryItem.findById(id);
+        if (!invItem) continue;
+        const perUnit = qtyPerUnit || 1; // default 1 if unspecified
+        const quantityToReduce = item.quantity * perUnit;
+        if (invItem.amount < quantityToReduce) {
+          throw new Error(`Insufficient inventory for ${invItem.name}. Required: ${quantityToReduce}, Available: ${invItem.amount}`);
+        }
+        invItem.amount = Math.max(0, invItem.amount - quantityToReduce);
+        await invItem.save();
+      }
+    }
+  } catch (error) {
+    console.error('Error reducing inventory:', error);
+    throw error;
+  }
+}
+
   exports.createOrder = async (req, res) => {
     try {
-      const userId = req.user?.id; // set by auth middleware
-      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+      const requester = req.user; // may be guest
+      if (!requester) return res.status(401).json({ message: 'Unauthorized' });
+      const isGuest = requester.role === 'guest';
+      const userId = isGuest ? undefined : requester.id;
 
       let { storeId, serviceId, quantity, notes, selectedOptions, currency } = req.body;
       if (!storeId || !serviceId) return res.status(400).json({ message: 'storeId and serviceId are required' });
@@ -55,6 +113,7 @@ function computeUnitPrice(service, selectedOptions = []) {
 
       const orderDoc = {
         user: userId,
+        guestId: isGuest ? requester.id : undefined,
         store: store._id,
         items: [
           {
@@ -66,6 +125,8 @@ function computeUnitPrice(service, selectedOptions = []) {
             unitPrice,
             selectedOptions: enrichedOptions,
             totalPrice: total,
+            requiredInventory: service.requiredInventory || undefined,
+            inventoryQuantityPerUnit: service.inventoryQuantityPerUnit || undefined,
           },
         ],
         notes: notes || '',
@@ -119,7 +180,7 @@ function computeUnitPrice(service, selectedOptions = []) {
         console.error("Notification emit error:", notifyErr);
       }
 
-      res.status(201).json(order);
+  res.status(201).json(order);
     } catch (err) {
       console.error('createOrder error:', err);
       res.status(500).json({ message: err.message });
@@ -128,9 +189,13 @@ function computeUnitPrice(service, selectedOptions = []) {
 
 exports.getMyOrders = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    if (!userId) return res.status(401).json({ message: 'Unauthorized' });
-    const orders = await Order.find({ user: userId }).sort({ createdAt: -1 });
+    const requester = req.user;
+    if (!requester) return res.status(401).json({ message: 'Unauthorized' });
+    if (requester.role === 'guest') {
+      const orders = await Order.find({ guestId: requester.id }).sort({ createdAt: -1 });
+      return res.json(orders);
+    }
+    const orders = await Order.find({ user: requester.id }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -161,23 +226,40 @@ exports.getOrderById = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, paymentStatus } = req.body || {};
+  const { status: incomingStatus, paymentStatus } = req.body || {};
     const order = await Order.findById(id).populate("store");
     if (!order) return res.status(404).json({ message: "Order not found" });
 
+    const previousStatus = order.status;
+
     // --- Update status ---
-    if (status) {
-      order.status = status;
+    if (incomingStatus) {
+      let newStatus = incomingStatus;
+      if (newStatus === 'in progress') newStatus = 'processing';
+      order.status = newStatus;
+
+      const shouldDeduct = !order.inventoryDeducted && ["processing","ready","completed","in progress"].includes(newStatus);
+      if (shouldDeduct) {
+        try {
+          await reduceInventoryForOrder(order);
+          order.inventoryDeducted = true;
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[inventory] deduction applied for order', order._id);
+          }
+        } catch (invErr) {
+          return res.status(400).json({ message: invErr.message || 'Inventory deduction failed' });
+        }
+      }
 
       // 'ready': create pickup token (48h validity)
-      if (status === "ready") {
+      if (newStatus === "ready") {
         order.pickupToken = crypto.randomBytes(16).toString("hex");
         order.pickupTokenExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
         order.pickupVerifiedAt = undefined;
       }
 
-      // 'completed': clear token
-      if (status === "completed") {
+      // 'completed': clear token and set pickup time (inventory already deducted earlier if needed)
+      if (newStatus === "completed") {
         order.pickupToken = undefined;
         order.pickupTokenExpires = undefined;
         if (!order.pickupVerifiedAt) order.pickupVerifiedAt = new Date();
@@ -192,9 +274,8 @@ exports.updateOrderStatus = async (req, res) => {
     try {
       const io = req.app.get("io");
       const onlineUsers = req.app.get("onlineUsers");
-      const customerId = order.user.toString();
-
-      if (customerId) {
+  const customerId = order.user ? order.user.toString() : null;
+  if (customerId) {
         const customerNotif = await Notification.create({
           user: customerId,
           type: "customer", 
@@ -206,7 +287,7 @@ exports.updateOrderStatus = async (req, res) => {
         if (onlineUsers[customerId]) {
           io.to(onlineUsers[customerId]).emit("newNotification", customerNotif);
         }
-      }
+  }
     } catch (notifyErr) {
       console.error("Notification emit error:", notifyErr);
     }
