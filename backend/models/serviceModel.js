@@ -32,6 +32,9 @@ const serviceSchema = new mongoose.Schema(
   // inventory requirements
   requiredInventory: { type: mongoose.Schema.Types.ObjectId, ref: 'InventoryItem' },
   inventoryQuantityPerUnit: { type: Number, default: 1, min: 0 },
+  // auto-disable fields
+  autoDisabled: { type: Boolean, default: false },
+  disableReason: { type: String },
   },
   { timestamps: true }
 );

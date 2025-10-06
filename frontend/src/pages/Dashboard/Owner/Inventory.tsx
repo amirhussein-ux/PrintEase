@@ -11,12 +11,14 @@ import {
     BanknotesIcon,
     CurrencyDollarIcon,
     ArrowTrendingDownIcon,
-    UsersIcon
+    UsersIcon,
+    DocumentArrowDownIcon
 } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import api from "../../../lib/api";
 import { isAxiosError } from "axios";
+import jsPDF from 'jspdf';
 
 
 // Types
@@ -487,6 +489,83 @@ const Inventory: React.FC = () => {
 
     const handleCancelEmployee = () => setShowEmployeeModal(false);
 
+    // PDF Export function
+    const exportToPDF = async () => {
+        try {
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            
+            // Title
+            pdf.setFontSize(20);
+            pdf.text('Profit & Expenses Ledger', pageWidth / 2, 20, { align: 'center' });
+            
+            // Date
+            pdf.setFontSize(12);
+            pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pageWidth / 2, 30, { align: 'center' });
+            
+            let yPosition = 50;
+            
+            // Summary section
+            pdf.setFontSize(16);
+            pdf.text('Summary', 20, yPosition);
+            yPosition += 10;
+            
+            pdf.setFontSize(12);
+            pdf.text(`Total Stock Value: ₱${profitAndExpenses.totalStockValue.toLocaleString()}`, 20, yPosition);
+            yPosition += 8;
+            pdf.text(`Total Entry Cost: ₱${profitAndExpenses.totalEntryCost.toLocaleString()}`, 20, yPosition);
+            yPosition += 8;
+            pdf.text(`Gross Profit: ₱${profitAndExpenses.grossProfit.toLocaleString()}`, 20, yPosition);
+            yPosition += 8;
+            pdf.text(`Profit Margin: ${profitAndExpenses.profitMargin.toFixed(1)}%`, 20, yPosition);
+            yPosition += 8;
+            pdf.text(`Estimated Expenses: ₱${profitAndExpenses.estimatedExpenses.toLocaleString()}`, 20, yPosition);
+            yPosition += 15;
+            
+            // Products table
+            pdf.setFontSize(16);
+            pdf.text('Inventory Items', 20, yPosition);
+            yPosition += 10;
+            
+            // Table headers
+            pdf.setFontSize(10);
+            pdf.text('Product', 20, yPosition);
+            pdf.text('Category', 60, yPosition);
+            pdf.text('Quantity', 90, yPosition);
+            pdf.text('Unit Price', 110, yPosition);
+            pdf.text('Entry Price', 130, yPosition);
+            pdf.text('Total Value', 150, yPosition);
+            yPosition += 5;
+            
+            // Draw line
+            pdf.line(20, yPosition, 180, yPosition);
+            yPosition += 5;
+            
+            // Table data
+            filteredProducts.forEach((product) => {
+                if (yPosition > pageHeight - 20) {
+                    pdf.addPage();
+                    yPosition = 20;
+                }
+                
+                pdf.text(product.name.substring(0, 25), 20, yPosition);
+                pdf.text(product.category || '-', 60, yPosition);
+                pdf.text(product.amount.toString(), 90, yPosition);
+                pdf.text(`₱${product.price}`, 110, yPosition);
+                pdf.text(`₱${product.entryPrice}`, 130, yPosition);
+                pdf.text(`₱${(product.price * product.amount).toLocaleString()}`, 150, yPosition);
+                yPosition += 6;
+            });
+            
+            // Save the PDF
+            pdf.save(`profit-expenses-ledger-${new Date().toISOString().split('T')[0]}.pdf`);
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Failed to generate PDF');
+        }
+    };
+
     return (
         <DashboardLayout role="owner">
             <div className="transition-all duration-300 font-crimson p-8">
@@ -629,6 +708,9 @@ const Inventory: React.FC = () => {
                         </button>
                         <button className="bg-green-400 text-black rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-1" onClick={handleCreate}>
                             <PlusIcon className="w-5 h-5" /> Create
+                        </button>
+                        <button className="bg-blue-400 text-white rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-1" onClick={exportToPDF}>
+                            <DocumentArrowDownIcon className="w-5 h-5" /> Export PDF
                         </button>
                         {showProductFilters && (
                             <div className="absolute z-20 mt-2 right-8 w-72 rounded-lg border border-gray-300 bg-white p-3 shadow-xl">

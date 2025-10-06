@@ -59,6 +59,19 @@ const orderSchema = new mongoose.Schema(
   pickupVerifiedAt: { type: Date },
   // ensure inventory only deducted once
   inventoryDeducted: { type: Boolean, default: false },
+  // time estimates for each stage
+  timeEstimates: {
+    processing: { type: Number, default: 2 }, // hours
+    ready: { type: Number, default: 4 }, // hours
+    completed: { type: Number, default: 6 }, // hours
+  },
+  // actual timestamps for each stage
+  stageTimestamps: {
+    pending: { type: Date, default: Date.now },
+    processing: { type: Date },
+    ready: { type: Date },
+    completed: { type: Date },
+  },
   },
   { timestamps: true }
 );

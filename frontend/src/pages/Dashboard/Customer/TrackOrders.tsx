@@ -30,6 +30,17 @@ type Order = {
   createdAt?: string;
   updatedAt?: string;
   pickupToken?: string;
+  timeEstimates?: {
+    processing: number;
+    ready: number;
+    completed: number;
+  };
+  stageTimestamps?: {
+    pending: string;
+    processing?: string;
+    ready?: string;
+    completed?: string;
+  };
 };
 
 const FILTERS: { label: string; value: 'all' | OrderStatus }[] = [
@@ -48,6 +59,29 @@ function money(v: number, currency: string = 'PHP') {
     const prefix = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : currency === 'JPY' ? '¥' : '₱';
     return `${prefix}${v.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
   }
+}
+
+function getTimeRemaining(order: Order): string {
+  if (!order.timeEstimates || !order.stageTimestamps) return '';
+  
+  const now = new Date();
+  const currentStage = order.status;
+  
+  if (currentStage === 'pending') {
+    const estimate = order.timeEstimates.processing;
+    return `Est. ${estimate}h to start processing`;
+  } else if (currentStage === 'processing') {
+    const startTime = new Date(order.stageTimestamps.processing || order.stageTimestamps.pending);
+    const elapsed = (now.getTime() - startTime.getTime()) / (1000 * 60 * 60); // hours
+    const remaining = Math.max(0, order.timeEstimates.processing - elapsed);
+    return `~${remaining.toFixed(1)}h remaining`;
+  } else if (currentStage === 'ready') {
+    return 'Ready for pickup!';
+  } else if (currentStage === 'completed') {
+    return 'Order completed!';
+  }
+  
+  return '';
 }
 
 function statusBadgeClasses(status: OrderStatus) {
@@ -224,6 +258,11 @@ export default function TrackOrders() {
                     <div className="text-xs text-gray-300 font-mono tabular-nums mt-0.5">
                       {formatDateUTC(o.createdAt)}
                     </div>
+                    {getTimeRemaining(o) && (
+                      <div className="text-xs text-blue-300 mt-1 font-medium">
+                        {getTimeRemaining(o)}
+                      </div>
+                    )}
                     <div className="mt-1 text-gray-200 text-sm">
                       <div className="font-medium">{first?.serviceName || 'Service'}</div>
                       <div className="text-xs text-gray-300">Qty: {first?.quantity} {first?.unit ? `· ${first.unit}` : ''}</div>

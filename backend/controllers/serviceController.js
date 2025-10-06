@@ -27,13 +27,29 @@ async function validateInventoryRequirements(storeId, requiredInventory, invento
 
 // Helper: check if service can be enabled based on inventory
 async function canEnableService(service) {
-  if (!service.requiredInventory) return true; // No inventory requirement
-  
+  // Business rule: service MUST have a linked inventory item
+  if (!service.requiredInventory) return false;
+
   const inventoryItem = await InventoryItem.findById(service.requiredInventory);
   if (!inventoryItem) return false;
+
+  // Enable only if stock strictly above 0 and meets minimum threshold
+  return inventoryItem.amount > 0 && inventoryItem.amount >= inventoryItem.minAmount;
+}
+
+// Helper: auto-disable services based on inventory status
+async function autoDisableServicesBasedOnInventory(storeId) {
+  const services = await Service.find({ store: storeId, active: true });
   
-  // Check if there's enough inventory (at least the minimum amount)
-  return inventoryItem.amount >= inventoryItem.minAmount;
+  for (const service of services) {
+    const canEnable = await canEnableService(service);
+    if (!canEnable) {
+      service.active = false;
+      service.autoDisabled = true;
+      service.disableReason = service.requiredInventory ? 'Insufficient inventory' : 'No inventory linked';
+      await service.save();
+    }
+  }
 }
 
 // Create service for owner's store
@@ -223,6 +239,9 @@ exports.getServicesWithInventoryStatus = async (req, res) => {
     const userId = req.user.id;
     const store = await getOwnerStore(userId);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    
+    // First, auto-disable services based on inventory
+    await autoDisableServicesBasedOnInventory(store._id);
     
     const services = await Service.find({ store: store._id })
       .populate('requiredInventory')

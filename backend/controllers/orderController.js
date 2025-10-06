@@ -238,6 +238,15 @@ exports.updateOrderStatus = async (req, res) => {
       if (newStatus === 'in progress') newStatus = 'processing';
       order.status = newStatus;
 
+      // Update stage timestamps
+      if (newStatus === 'processing' && !order.stageTimestamps.processing) {
+        order.stageTimestamps.processing = new Date();
+      } else if (newStatus === 'ready' && !order.stageTimestamps.ready) {
+        order.stageTimestamps.ready = new Date();
+      } else if (newStatus === 'completed' && !order.stageTimestamps.completed) {
+        order.stageTimestamps.completed = new Date();
+      }
+
       const shouldDeduct = !order.inventoryDeducted && ["processing","ready","completed","in progress"].includes(newStatus);
       if (shouldDeduct) {
         try {
@@ -270,17 +279,26 @@ exports.updateOrderStatus = async (req, res) => {
 
     await order.save();
 
-    // --- Notify customer only ---
+    // --- Notify customer with time estimates ---
     try {
       const io = req.app.get("io");
       const onlineUsers = req.app.get("onlineUsers");
   const customerId = order.user ? order.user.toString() : null;
   if (customerId) {
+        let timeEstimate = '';
+        if (order.status === 'processing') {
+          timeEstimate = `Estimated completion: ${order.timeEstimates.processing} hours`;
+        } else if (order.status === 'ready') {
+          timeEstimate = `Ready for pickup!`;
+        } else if (order.status === 'completed') {
+          timeEstimate = `Order completed!`;
+        }
+
         const customerNotif = await Notification.create({
           user: customerId,
           type: "customer", 
-          title: `Order #${order._id} status updated`,
-          description: `Your order is now marked as "${order.status}".`,
+          title: `Order #${order._id.slice(-6)} status updated`,
+          description: `Your order is now marked as "${order.status}". ${timeEstimate}`,
         });
 
         // Emit in real-time if online

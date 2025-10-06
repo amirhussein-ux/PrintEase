@@ -21,6 +21,7 @@ const reviewRoutes = require("./routes/reviewRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const chatRoutes = require("./routes/chatRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
 
 const PORT = process.env.PORT || 8000;
 
@@ -48,6 +49,7 @@ app.get("/", (req, res) => {
 
 // --- Routes ---
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 app.use("/api/print-store", printStoreRoutes);
 app.use("/api/services", serviceRoutes);
 app.use("/api/inventory", inventoryRoutes);
@@ -56,6 +58,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/analytics", analyticsRoutes);
 
 // --- Server setup ---
 const server = http.createServer(app);

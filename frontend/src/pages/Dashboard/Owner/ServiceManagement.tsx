@@ -64,6 +64,8 @@ interface ServiceItem {
     minAmount: number;
     isLowStock: boolean;
   };
+  autoDisabled?: boolean; // true if service was auto-disabled due to inventory
+  disableReason?: string; // reason for auto-disable
 }
 
 type ServiceDraft = {
@@ -109,6 +111,8 @@ type ApiService = {
     minAmount: number;
     isLowStock: boolean;
   };
+  autoDisabled?: boolean;
+  disableReason?: string;
 };
 
 function mapServiceFromApi(s: ApiService): ServiceItem {
@@ -127,6 +131,8 @@ function mapServiceFromApi(s: ApiService): ServiceItem {
     inventoryQuantityPerUnit: s.inventoryQuantityPerUnit,
     canEnable: s.canEnable,
     inventoryStatus: s.inventoryStatus,
+    autoDisabled: s.autoDisabled,
+    disableReason: s.disableReason,
   };
 }
 
@@ -504,12 +510,26 @@ export default function ServiceManagement() {
                   >
                     {s.active ? "Active" : "Disabled"}
                   </span>
+                  {s.autoDisabled && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-red-400 text-red-300 bg-red-400/10">
+                      Auto-Disabled
+                    </span>
+                  )}
                 </div>
                 <div className="text-gray-300 text-sm mt-0.5">{s.description}</div>
                 <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-200">
                   <span>
                     <strong>Pricing:</strong> {money(s.basePrice, s.currency || 'PHP')} {s.unit}
                   </span>
+                  {s.requiredInventory ? (
+                    <span className="px-2 py-1 rounded-full text-xs bg-white/10 border border-white/10">
+                      <strong>Product:</strong> {s.inventoryStatus?.name || 'Linked'}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+                      <strong>No product linked</strong>
+                    </span>
+                  )}
                   {s.inventoryStatus && (
                     <span className={`px-2 py-1 rounded-full text-xs ${
                       s.inventoryStatus.isLowStock 
@@ -520,6 +540,11 @@ export default function ServiceManagement() {
                     </span>
                   )}
                 </div>
+                {s.disableReason && (
+                  <div className="mt-2 text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
+                    <strong>Disable Reason:</strong> {s.disableReason}
+                  </div>
+                )}
                 {s.variants && s.variants.length > 0 && (
                   <div className="mt-2">
                     <div className="text-xs text-gray-400">Attributes</div>
@@ -599,7 +624,9 @@ function ServiceModal({
   const [currency, setCurrency] = useState<string>(initial?.currency ?? 'PHP');
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
   const [variants, setVariants] = useState<ServiceVariant[]>(initial?.variants ?? []);
-  // removed requiredInventory & inventoryQuantityPerUnit per new requirements
+  // link service to inventory
+  const [requiredInventory, setRequiredInventory] = useState<string | undefined>(initial?.requiredInventory);
+  const [inventoryQuantityPerUnit, setInventoryQuantityPerUnit] = useState<number>(initial?.inventoryQuantityPerUnit ?? 1);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(initial?.imageUrl ?? null);
   const [showCropper, setShowCropper] = useState<string | null>(null); // holds objectURL to crop
@@ -618,7 +645,8 @@ function ServiceModal({
   setCurrency(initial?.currency ?? 'PHP');
       setActive(initial?.active ?? true);
       setVariants(initial?.variants ?? []);
-  // inventory linkage removed
+      setRequiredInventory(initial?.requiredInventory);
+      setInventoryQuantityPerUnit(initial?.inventoryQuantityPerUnit ?? 1);
       setImageFile(null);
       setImagePreview(initial?.imageUrl ?? null);
   setImageOriginalSrc(initial?.imageUrl ?? null);
@@ -679,9 +707,10 @@ function ServiceModal({
   currency,
       active,
       variants: variants.length ? variants : undefined,
-  // inventory linkage removed from payload
-  imageFile,
-  removeImage,
+      requiredInventory,
+      inventoryQuantityPerUnit,
+      imageFile,
+      removeImage,
     };
     onSave(draft);
   }
@@ -777,6 +806,33 @@ function ServiceModal({
                         <option value="INR">INR (₹)</option>
                         <option value="CNY">CNY (¥)</option>
                       </select>
+                    </div>
+                  </div>
+                  {/* Inventory linking */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-300 mb-1">Linked product</label>
+                      <select
+                        value={requiredInventory || ''}
+                        onChange={(e) => setRequiredInventory(e.target.value || undefined)}
+                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      >
+                        <option value="">— Select product —</option>
+                        {inventoryItems.map(ii => (
+                          <option key={ii._id} value={ii._id}>{ii.name} (qty {ii.amount})</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-300 mb-1">Inventory units per service</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="1"
+                        value={inventoryQuantityPerUnit}
+                        onChange={(e) => setInventoryQuantityPerUnit(Math.max(0, parseInt(e.target.value || '0', 10)))}
+                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      />
                     </div>
                   </div>
                   
