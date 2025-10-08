@@ -702,7 +702,7 @@ const Inventory: React.FC = () => {
 
                     {/* Merged Graphs & Product Selection */}
                     <div className="flex flex-col gap-4 mb-4">
-                        <div className="bg-[#e7ecf7] rounded-xl shadow-md p-3 flex relative" style={{ border: "3px solid #3b4a6b" }}>
+                        <div className="bg-[#e7ecf7] rounded-xl shadow-md p-3 flex relative">
                             <div className="flex-1 flex flex-col gap-4 justify-center">
                                 {/* Stock Amount Graph */}
                                 <div>
