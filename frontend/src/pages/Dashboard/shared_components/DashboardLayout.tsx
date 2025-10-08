@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Fragment } from "react";
 import { BellIcon, UserCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
 import DashboardSidebar from "./DashboardSidebar";
 import { useAuth } from "../../../context/AuthContext";
@@ -8,6 +8,7 @@ import { useSocket } from "../../../context/SocketContext";
 import axios from "axios";
 import { Socket } from "socket.io-client";
 import api from "../../../lib/api";
+import { Transition } from "@headlessui/react";
 
 interface DashboardLayoutProps {
   role: "owner" | "customer";
@@ -28,7 +29,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [closingDropdown, setClosingDropdown] = useState<"profile" | "notifications" | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [store, setStore] = useState<{ _id: string; name: string; logoFileId?: unknown } | null>(null);
   const [centerMenuOpen, setCenterMenuOpen] = useState(false);
@@ -45,7 +45,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
     ? "bg-gradient-to-r from-[#0f172a] via-[#1e3a8a]/90 to-white"
     : "bg-gradient-to-r from-blue-900 via-indigo-900 to-black";
 
-  const storeId = (location.state as any)?.storeId;
+  const locationState = location.state as { storeId?: string } | undefined;
+  const storeId = locationState?.storeId;
 
   // Load store for customer pages
   useEffect(() => {
@@ -71,12 +72,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (centerRef.current && !centerRef.current.contains(e.target as Node)) setCenterMenuOpen(false);
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) closeDropdown("profile");
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) closeDropdown("notifications");
+      if (profileOpen && profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileOpen(false);
+      if (notificationsOpen && notifRef.current && !notifRef.current.contains(e.target as Node)) setNotificationsOpen(false);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [profileOpen, notificationsOpen]);
 
   // Fetch notifications
   useEffect(() => {
@@ -94,25 +95,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
     const handleNewNotification = (data: Notification) => setNotifications((prev) => [data, ...prev]);
     socket.on("newNotification", handleNewNotification);
     return () => socket.off("newNotification", handleNewNotification);
-  }, [socket, user]);
-
-  const closeDropdown = (type: "profile" | "notifications") => {
-    setClosingDropdown(type);
-    setTimeout(() => {
-      if (type === "profile") setProfileOpen(false);
-      if (type === "notifications") setNotificationsOpen(false);
-      setClosingDropdown(null);
-    }, 200);
-  };
+  }, [socket, user, role]);
 
   const toggleProfile = () => {
-    if (notificationsOpen) closeDropdown("notifications");
-    profileOpen ? closeDropdown("profile") : setProfileOpen(true);
+    if (!profileOpen) setNotificationsOpen(false);
+    setProfileOpen((prev) => !prev);
   };
 
   const toggleNotifications = () => {
-    if (profileOpen) closeDropdown("profile");
-    notificationsOpen ? closeDropdown("notifications") : setNotificationsOpen(true);
+    if (!notificationsOpen) setProfileOpen(false);
+    setNotificationsOpen((prev) => !prev);
   };
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -197,12 +189,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
             >
               <UserCircleIcon className="h-6 w-6 text-gray-800" />
             </button>
-            {profileOpen && (
-              <div
-                className={`absolute right-0 mt-2 w-48 bg-gray-900 border border-white/10 rounded-xl shadow-lg z-30 py-2 ${
-                  closingDropdown === "profile" ? "animate-fadeOut" : "animate-fadeIn"
-                }`}
-              >
+            <Transition
+              show={profileOpen}
+              as={Fragment}
+              enter="transition ease-out duration-200"
+              enterFrom="opacity-0 -translate-y-1"
+              enterTo="opacity-100 translate-y-0"
+              leave="transition ease-in duration-150"
+              leaveFrom="opacity-100 translate-y-0"
+              leaveTo="opacity-0 -translate-y-1"
+            >
+              <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-white/10 rounded-xl shadow-lg z-30 py-2">
                 <Link
                   to="/profile"
                   className="block px-4 py-2 text-sm text-gray-200 font-semibold hover:bg-blue-600 hover:text-white transition rounded-lg"
@@ -230,7 +227,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                   Log Out
                 </button>
               </div>
-            )}
+            </Transition>
           </div>
 
           {/* Notifications */}
@@ -243,12 +240,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
               <BellIcon className="h-6 w-6 text-gray-800" />
               {unreadCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
             </button>
-            {notificationsOpen && (
-              <div
-                className={`absolute right-0 mt-2 w-80 bg-gray-900 border border-white/10 rounded-xl shadow-lg z-30 py-2 max-h-96 overflow-y-auto ${
-                  closingDropdown === "notifications" ? "animate-fadeOut" : "animate-fadeIn"
-                }`}
-              >
+            <Transition
+              show={notificationsOpen}
+              as={Fragment}
+              enter="transition ease-out duration-200"
+              enterFrom="opacity-0 -translate-y-1"
+              enterTo="opacity-100 translate-y-0"
+              leave="transition ease-in duration-150"
+              leaveFrom="opacity-100 translate-y-0"
+              leaveTo="opacity-0 -translate-y-1"
+            >
+              <div className="absolute right-0 mt-2 w-80 bg-gray-900 border border-white/10 rounded-xl shadow-lg z-30 py-2 max-h-96 overflow-y-auto">
                 {notifications.length === 0 ? (
                   <p className="px-4 py-3 text-sm text-gray-400 text-center">No notifications</p>
                 ) : (
@@ -266,7 +268,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                               { headers: { Authorization: `Bearer ${token}` } }
                             );
                             setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-                          } catch {}
+                          } catch (error) {
+                            console.error("Failed to mark notifications as read", error);
+                          }
                         }}
                       >
                         Mark all as read
@@ -280,7 +284,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                               headers: { Authorization: `Bearer ${token}` },
                             });
                             setNotifications([]);
-                          } catch {}
+                          } catch (error) {
+                            console.error("Failed to delete all notifications", error);
+                          }
                         }}
                       >
                         <TrashIcon className="h-4 w-4" /> Delete all
@@ -312,9 +318,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                                     prev.map((notif) => (notif._id === n._id ? { ...notif, read: true } : notif))
                                   );
                                 }
-                                role === "owner" ? navigate("/dashboard/orders") : navigate("/dashboard/my-orders");
+                                if (role === "owner") {
+                                  navigate("/dashboard/orders");
+                                } else {
+                                  navigate("/dashboard/my-orders");
+                                }
                                 setNotificationsOpen(false);
-                              } catch {}
+                              } catch (error) {
+                                console.error("Failed to handle notification selection", error);
+                              }
                             }
                           }}
                         >
@@ -330,7 +342,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                                 headers: { Authorization: `Bearer ${token}` },
                               });
                               setNotifications((prev) => prev.filter((notif) => notif._id !== n._id));
-                            } catch {}
+                            } catch (error) {
+                              console.error("Failed to delete notification", error);
+                            }
                           }}
                           className="ml-2 p-1 rounded-md text-red-500 hover:bg-red-600/20 opacity-0 group-hover:opacity-100 transition"
                           title="Delete notification"
@@ -342,7 +356,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                   </>
                 )}
               </div>
-            )}
+            </Transition>
           </div>
         </div>
       </header>
