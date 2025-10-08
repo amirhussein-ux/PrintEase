@@ -1,4 +1,5 @@
 const InventoryItem = require('../models/inventoryItemModel');
+const DeletedInventoryItem = require('../models/deletedInventoryItemModel');
 const PrintStore = require('../models/printStoreModel');
 
 async function getOwnerStore(userId) {
@@ -72,8 +73,92 @@ exports.deleteItem = async (req, res) => {
     const store = await getOwnerStore(req.user.id);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
     const { id } = req.params;
-    const deleted = await InventoryItem.findOneAndDelete({ _id: id, store: store._id });
-    if (!deleted) return res.status(404).json({ message: 'Item not found' });
+    const item = await InventoryItem.findOne({ _id: id, store: store._id });
+    if (!item) return res.status(404).json({ message: 'Item not found' });
+
+    const archivedPayload = {
+      store: store._id,
+      originalId: item._id,
+      name: item.name,
+      category: item.category,
+      amount: item.amount,
+      minAmount: item.minAmount,
+      entryPrice: item.entryPrice,
+      price: item.price,
+      currency: item.currency,
+      deletedAt: new Date(),
+    };
+
+    const archived = await DeletedInventoryItem.findOneAndUpdate(
+      { store: store._id, originalId: item._id },
+      archivedPayload,
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    await item.deleteOne();
+
+    res.json({ success: true, archived });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.listDeletedItems = async (req, res) => {
+  try {
+    const store = await getOwnerStore(req.user.id);
+    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const items = await DeletedInventoryItem.find({ store: store._id }).sort({ deletedAt: -1 });
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.restoreDeletedItem = async (req, res) => {
+  try {
+    const store = await getOwnerStore(req.user.id);
+    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const { deletedId } = req.params;
+    const archived = await DeletedInventoryItem.findOne({ _id: deletedId, store: store._id });
+    if (!archived) return res.status(404).json({ message: 'Archived inventory item not found' });
+
+    const payload = {
+      _id: archived.originalId,
+      store: store._id,
+      name: archived.name,
+      category: archived.category,
+      amount: archived.amount,
+      minAmount: archived.minAmount,
+      entryPrice: archived.entryPrice,
+      price: archived.price,
+      currency: archived.currency,
+    };
+
+    let restored;
+    try {
+      restored = await InventoryItem.create(payload);
+    } catch (err) {
+      if (err && err.code === 11000) {
+        return res.status(409).json({ message: 'An active inventory item with this name already exists' });
+      }
+      throw err;
+    }
+
+    await archived.deleteOne();
+
+    res.json(restored);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.purgeDeletedItem = async (req, res) => {
+  try {
+    const store = await getOwnerStore(req.user.id);
+    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const { deletedId } = req.params;
+    const archived = await DeletedInventoryItem.findOneAndDelete({ _id: deletedId, store: store._id });
+    if (!archived) return res.status(404).json({ message: 'Archived inventory item not found' });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: err.message });

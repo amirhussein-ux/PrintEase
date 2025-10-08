@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, Fragment, useRef } from "react";
+import React, { useState, useMemo, useEffect, Fragment, useRef, useCallback } from "react";
 import { Dialog, DialogPanel, Transition } from "@headlessui/react";
 import {
     PencilSquareIcon,
@@ -12,7 +12,8 @@ import {
     CurrencyDollarIcon,
     ArrowTrendingDownIcon,
     UsersIcon,
-    DocumentArrowDownIcon
+    DocumentArrowDownIcon,
+    ArrowPathIcon
 } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
@@ -42,6 +43,30 @@ interface Employee {
     phone?: string;
     active: boolean;
     createdAt: string;
+}
+
+interface DeletedInventoryItem {
+    _id: string;
+    originalId: string;
+    name: string;
+    category?: string;
+    amount: number;
+    minAmount: number;
+    entryPrice: number;
+    price: number;
+    currency: string;
+    deletedAt: string;
+}
+
+interface DeletedEmployee {
+    _id: string;
+    originalId: string;
+    fullName: string;
+    role: string;
+    email?: string;
+    phone?: string;
+    active: boolean;
+    deletedAt: string;
 }
 
 function toErrorMessage(e: unknown, fallback: string): string {
@@ -81,41 +106,79 @@ const Inventory: React.FC = () => {
     const [showEmployeeFilters, setShowEmployeeFilters] = useState(false);
     const [editEmployeeIndex, setEditEmployeeIndex] = useState<string | null>(null);
 
+    // Delete safeguards
+    const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
+    const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
+    const productToDeleteName = useMemo(
+        () => (deleteProductId ? products.find(p => p._id === deleteProductId)?.name || "" : ""),
+        [deleteProductId, products]
+    );
+    const employeeToDeleteName = useMemo(
+        () => (deleteEmployeeId ? employees.find(e => e._id === deleteEmployeeId)?.fullName || "" : ""),
+        [deleteEmployeeId, employees]
+    );
+
+    // Deleted collections
+    const [deletedProducts, setDeletedProducts] = useState<DeletedInventoryItem[]>([]);
+    const [deletedEmployees, setDeletedEmployees] = useState<DeletedEmployee[]>([]);
+    const [showDeletedProducts, setShowDeletedProducts] = useState(false);
+    const [showDeletedEmployees, setShowDeletedEmployees] = useState(false);
+
+    const isMountedRef = useRef(true);
+
+    const reloadInventoryLists = useCallback(async () => {
+        const [inventoryRes, deletedRes] = await Promise.all([
+            api.get("/inventory/mine"),
+            api.get("/inventory/deleted"),
+        ]);
+
+        if (!isMountedRef.current) return;
+
+        const inventoryItems: InventoryItem[] = inventoryRes.data || [];
+        const archivedInventory: DeletedInventoryItem[] = deletedRes.data || [];
+
+        setProducts(inventoryItems);
+        setDeletedProducts(archivedInventory);
+        setProduct(current => {
+            if (!inventoryItems.length) return "ALL";
+            if (!current || current === "ALL") return "ALL";
+            return inventoryItems.some(p => p.name === current) ? current : inventoryItems[0].name;
+        });
+    }, []);
+
+    const reloadEmployeeLists = useCallback(async () => {
+        const [employeeRes, deletedRes] = await Promise.all([
+            api.get("/employees/mine"),
+            api.get("/employees/deleted"),
+        ]);
+
+        if (!isMountedRef.current) return;
+
+        const employeeList: Employee[] = employeeRes.data || [];
+        const archivedEmployees: DeletedEmployee[] = deletedRes.data || [];
+
+        setEmployees(employeeList);
+        setDeletedEmployees(archivedEmployees);
+    }, []);
+
     // Load data from backend
     useEffect(() => {
         let cancelled = false;
-        async function loadData() {
+        isMountedRef.current = true;
+        async function loadAll() {
             try {
-                // (loading indicator removed)
                 setError(null);
-                
-                // Load inventory items
-                const inventoryRes = await api.get("/inventory/mine");
-                if (cancelled) return;
-                const inventoryItems: InventoryItem[] = inventoryRes.data || [];
-                setProducts(inventoryItems);
-                
-                // Load employees
-                const employeeRes = await api.get("/employees/mine");
-                if (cancelled) return;
-                const employeeList: Employee[] = employeeRes.data || [];
-                setEmployees(employeeList);
-                
-                // Set default selection to "ALL" if no product is selected
-                if (!product) {
-                    setProduct("ALL");
-                }
+                await Promise.all([reloadInventoryLists(), reloadEmployeeLists()]);
             } catch (e: unknown) {
                 if (!cancelled) setError(toErrorMessage(e, "Failed to load data"));
-            } finally {
-                // (loading indicator removed)
             }
         }
-        loadData();
+        loadAll();
         return () => {
             cancelled = true;
+            isMountedRef.current = false;
         };
-    }, [product]);
+    }, [reloadInventoryLists, reloadEmployeeLists]);
 
     // Graph data: show current stock levels by category or all products
     const stockAmountData = useMemo(() => {
@@ -288,16 +351,15 @@ const Inventory: React.FC = () => {
         setErrors({});
     };
 
-    const handleDelete = async (id: string) => {
+    const confirmDeleteProduct = async () => {
+        if (!deleteProductId) return;
+        const id = deleteProductId;
+        setDeleteProductId(null);
+
         try {
             setError(null);
             await api.delete(`/inventory/${id}`);
-            const updated = products.filter(p => p._id !== id);
-            setProducts(updated);
-            const deletedProduct = products.find(p => p._id === id);
-            if (deletedProduct && deletedProduct.name === product) {
-                setProduct(updated.length > 0 ? updated[0].name : "");
-            }
+            await reloadInventoryLists();
         } catch (e: unknown) {
             setError(toErrorMessage(e, "Failed to delete product"));
         }
@@ -476,14 +538,36 @@ const Inventory: React.FC = () => {
         setEmployeeErrors({});
     };
 
-    const handleDeleteEmployee = async (id: string) => {
+    const confirmDeleteEmployee = async () => {
+        if (!deleteEmployeeId) return;
+        const id = deleteEmployeeId;
+        setDeleteEmployeeId(null);
         try {
             setError(null);
             await api.delete(`/employees/${id}`);
-            const updated = employees.filter(e => e._id !== id);
-            setEmployees(updated);
+            await reloadEmployeeLists();
         } catch (e: unknown) {
             setError(toErrorMessage(e, "Failed to delete employee"));
+        }
+    };
+
+    const restoreDeletedProduct = async (archivedId: string) => {
+        try {
+            setError(null);
+            await api.post(`/inventory/deleted/${archivedId}/restore`);
+            await reloadInventoryLists();
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to restore product"));
+        }
+    };
+
+    const restoreDeletedEmployee = async (archivedId: string) => {
+        try {
+            setError(null);
+            await api.post(`/employees/deleted/${archivedId}/restore`);
+            await reloadEmployeeLists();
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to restore employee"));
         }
     };
 
@@ -706,6 +790,15 @@ const Inventory: React.FC = () => {
                             <FunnelIcon className="w-5 h-5" />
                             Filter
                         </button>
+                        <button
+                            className="bg-gray-200 text-gray-800 rounded-lg px-3 py-1 font-normal text-[0.95rem] flex items-center gap-2 border border-gray-300"
+                            title={showDeletedProducts ? 'Return to active products' : 'Show deleted products'}
+                            onClick={() => setShowDeletedProducts(v => !v)}
+                            aria-pressed={showDeletedProducts}
+                        >
+                            <ArrowPathIcon className={`w-5 h-5 ${showDeletedProducts ? 'text-green-700' : 'text-gray-700'}`} />
+                            {showDeletedProducts ? 'Active' : 'Deleted'}
+                        </button>
                         <button className="bg-green-400 text-black rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-1" onClick={handleCreate}>
                             <PlusIcon className="w-5 h-5" /> Create
                         </button>
@@ -789,7 +882,7 @@ const Inventory: React.FC = () => {
 
                     {/* Products Table */}
                     <div className="bg-white/90 rounded-xl shadow-md p-3">
-                        <div className="font-bold text-lg text-center mb-2">PRODUCTS</div>
+                        <div className="font-bold text-lg text-center mb-2">{showDeletedProducts ? 'DELETED PRODUCTS' : 'PRODUCTS'}</div>
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="font-bold text-[0.95rem] border-b-2 border-gray-400">
@@ -800,11 +893,11 @@ const Inventory: React.FC = () => {
                                     <td>Min. Quantity</td>
                                     <td>Unit Price</td>
                                     <td>Entry Price</td>
-                                    <td></td>
+                                    <td className="text-right">Actions</td>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredProducts.map((p) => (
+                                {!showDeletedProducts && filteredProducts.map((p) => (
                                     <tr key={p._id} className="text-[0.95rem]">
                                         <td>{p._id.slice(-6).toUpperCase()}</td>
                                         <td>{p.name}</td>
@@ -813,27 +906,114 @@ const Inventory: React.FC = () => {
                                         <td>{p.minAmount}</td>
                                         <td>₱{p.price}</td>
                                         <td>₱{p.entryPrice}</td>
-                                        <td className="flex gap-1 items-center justify-center">
+                                        <td className="flex gap-1 items-center justify-end py-1">
                                             <button
-                                                className="p-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
+                                                className="p-2 rounded-lg hover:bg-blue-200 text-blue-700"
                                                 title="Edit"
                                                 onClick={() => handleEdit(p._id)}
                                             >
                                                 <PencilSquareIcon className="w-4 h-4" />
                                             </button>
                                             <button
-                                                className="p-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600"
+                                                className="p-2 rounded-lg hover:bg-red-200 text-red-600"
                                                 title="Delete"
-                                                onClick={() => handleDelete(p._id)}
+                                                onClick={() => setDeleteProductId(p._id)}
                                             >
                                                 <TrashIcon className="w-4 h-4" />
                                             </button>
                                         </td>
                                     </tr>
                                 ))}
+                                {showDeletedProducts && deletedProducts.map((item) => (
+                                    <tr key={item._id} className="text-[0.95rem]">
+                                        <td>{item.originalId.slice(-6).toUpperCase()}</td>
+                                        <td>{item.name}</td>
+                                        <td>{item.category || '-'}</td>
+                                        <td>{item.amount}</td>
+                                        <td>{item.minAmount}</td>
+                                        <td>₱{item.price}</td>
+                                        <td>₱{item.entryPrice}</td>
+                                        <td className="flex gap-1 items-center justify-end py-2">
+                                            <button
+                                                className="px-3 py-1 rounded-lg  hover:bg-green-300 text-green-800 text-sm"
+                                                onClick={() => restoreDeletedProduct(item._id)}
+                                            >
+                                                Restore
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {showDeletedProducts && deletedProducts.length === 0 && (
+                                    <tr>
+                                        <td colSpan={8} className="py-6 text-center text-sm text-gray-500">No deleted products.</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
+                        {showDeletedProducts && (
+                            <p className="mt-2 text-[0.7rem] text-gray-500 italic text-right">
+                                Deleted products are automatically purged after 30 days.
+                            </p>
+                        )}
                     </div>
+
+                    {/* Confirm Delete Product Modal */}
+                    <Transition show={deleteProductId !== null} as={Fragment}>
+                        <Dialog onClose={() => setDeleteProductId(null)} className="relative z-50">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-200"
+                                enterFrom="opacity-0"
+                                enterTo="opacity-100"
+                                leave="ease-in duration-150"
+                                leaveFrom="opacity-100"
+                                leaveTo="opacity-0"
+                            >
+                                <div className="fixed inset-0 bg-black/50" />
+                            </Transition.Child>
+                            <div className="fixed inset-0 overflow-y-auto p-4 sm:p-6 flex items-center justify-center min-h-screen">
+                                <div className="w-full max-w-md">
+                                    <Transition.Child
+                                        as={Fragment}
+                                        enter="ease-out duration-200"
+                                        enterFrom="opacity-0 translate-y-2"
+                                        enterTo="opacity-100 translate-y-0"
+                                        leave="ease-in duration-150"
+                                        leaveFrom="opacity-100 translate-y-0"
+                                        leaveTo="opacity-0 translate-y-1"
+                                    >
+                                        <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
+                                            <div className="flex items-center justify-between p-4 border-b border-white/10">
+                                                <Dialog.Title className="text-lg font-semibold">Delete Product</Dialog.Title>
+                                                <button onClick={() => setDeleteProductId(null)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+                                                    <XMarkIcon className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                            <div className="p-4 space-y-3 text-sm">
+                                                <p>Are you sure you want to delete the product{productToDeleteName ? ` "${productToDeleteName}"` : ""}? This action cannot be undone.</p>
+                                                <div className="flex justify-end gap-2 pt-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeleteProductId(null)}
+                                                        className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <XMarkIcon className="w-4 h-4" /> Cancel
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={confirmDeleteProduct}
+                                                        className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-semibold text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <TrashIcon className="w-4 h-4" /> Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </DialogPanel>
+                                    </Transition.Child>
+                                </div>
+                            </div>
+                        </Dialog>
+                    </Transition>
 
                     {/* Modal for Create/Edit Product (headlessui for cohesive styling) */}
                     <Transition show={showModal} as={Fragment}>
@@ -1018,7 +1198,7 @@ const Inventory: React.FC = () => {
                     {/* Employee List Section - identical to Product Table UI */}
                     <div className="bg-white/90 rounded-xl shadow-md p-3 mt-4">
                         <div className="flex justify-between items-center mb-2">
-                            <div className="font-bold text-lg">Employee List</div>
+                            <div className="font-bold text-lg">{showDeletedEmployees ? 'Deleted Employees' : 'Employee List'}</div>
                             <div className="flex gap-2">
                                 <input
                                     type="text"
@@ -1035,6 +1215,15 @@ const Inventory: React.FC = () => {
                                 >
                                     <FunnelIcon className="w-5 h-5" />
                                     Filter
+                                </button>
+                                <button
+                                    className="bg-gray-200 text-gray-800 rounded-lg px-3 py-1 font-normal text-[0.95rem] flex items-center gap-2 border border-gray-300"
+                                    title={showDeletedEmployees ? 'Return to active employees' : 'Show deleted employees'}
+                                    onClick={() => setShowDeletedEmployees(v => !v)}
+                                    aria-pressed={showDeletedEmployees}
+                                >
+                                    <ArrowPathIcon className={`w-5 h-5 ${showDeletedEmployees ? 'text-green-700' : 'text-gray-700'}`} />
+                                    {showDeletedEmployees ? 'Active' : 'Deleted'}
                                 </button>
                                 <button
                                     className="bg-green-400 text-black rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-2"
@@ -1128,35 +1317,116 @@ const Inventory: React.FC = () => {
                                 <tr className="font-bold text-[0.95rem] border-b-2 border-gray-400">
                                     <td>Full Name</td>
                                     <td>Role</td>
-                                    <td></td>
+                                    <td className="text-right">Actions</td>
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredEmployees.map((e) => (
+                                {!showDeletedEmployees && filteredEmployees.map((e) => (
                                     <tr key={e._id} className="text-[0.95rem]">
                                         <td>{e.fullName}</td>
                                         <td>{e.role}</td>
-                                        <td className="flex gap-1 items-center justify-center">
+                                        <td className="flex gap-1 items-center justify-end py-1">
                                             <button
-                                                className="p-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-700"
+                                                className="p-2 rounded-lg  hover:bg-blue-200 text-blue-700"
                                                 title="Edit"
                                                 onClick={() => handleEditEmployee(e._id)}
                                             >
                                                 <PencilSquareIcon className="w-4 h-4" />
                                             </button>
                                             <button
-                                                className="p-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600"
+                                                className="p-2 rounded-lg  hover:bg-red-200 text-red-600"
                                                 title="Delete"
-                                                onClick={() => handleDeleteEmployee(e._id)}
+                                                onClick={() => setDeleteEmployeeId(e._id)}
                                             >
                                                 <TrashIcon className="w-4 h-4" />
                                             </button>
                                         </td>
                                     </tr>
                                 ))}
+                                {showDeletedEmployees && deletedEmployees.map((item) => (
+                                    <tr key={item._id} className="text-[0.95rem]">
+                                        <td>{item.fullName}</td>
+                                        <td>{item.role}</td>
+                                        <td className="flex gap-1 items-center justify-end py-2">
+                                            <button
+                                                className="px-3 py-1 rounded-lg bg-green-200 hover:bg-green-300 text-green-800 text-sm"
+                                                onClick={() => restoreDeletedEmployee(item._id)}
+                                            >
+                                                Restore
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {showDeletedEmployees && deletedEmployees.length === 0 && (
+                                    <tr>
+                                        <td colSpan={3} className="py-6 text-center text-sm text-gray-500">No deleted employees.</td>
+                                    </tr>
+                                )}
                             </tbody>
                         </table>
+                        {showDeletedEmployees && (
+                            <p className="mt-2 text-[0.7rem] text-gray-500 italic text-right">
+                                Deleted employees are automatically purged after 30 days.
+                            </p>
+                        )}
                     </div>
+                    {/* Confirm Delete Employee Modal */}
+                    <Transition show={deleteEmployeeId !== null} as={Fragment}>
+                        <Dialog onClose={() => setDeleteEmployeeId(null)} className="relative z-50">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-200"
+                                enterFrom="opacity-0"
+                                enterTo="opacity-100"
+                                leave="ease-in duration-150"
+                                leaveFrom="opacity-100"
+                                leaveTo="opacity-0"
+                            >
+                                <div className="fixed inset-0 bg-black/50" />
+                            </Transition.Child>
+                            <div className="fixed inset-0 overflow-y-auto p-4 sm:p-6 flex items-center justify-center min-h-screen">
+                                <div className="w-full max-w-md">
+                                    <Transition.Child
+                                        as={Fragment}
+                                        enter="ease-out duration-200"
+                                        enterFrom="opacity-0 translate-y-2"
+                                        enterTo="opacity-100 translate-y-0"
+                                        leave="ease-in duration-150"
+                                        leaveFrom="opacity-100 translate-y-0"
+                                        leaveTo="opacity-0 translate-y-1"
+                                    >
+                                        <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
+                                            <div className="flex items-center justify-between p-4 border-b border-white/10">
+                                                <Dialog.Title className="text-lg font-semibold">Delete Employee</Dialog.Title>
+                                                <button onClick={() => setDeleteEmployeeId(null)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+                                                    <XMarkIcon className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                            <div className="p-4 space-y-3 text-sm">
+                                                <p>Are you sure you want to delete{employeeToDeleteName ? ` "${employeeToDeleteName}"` : " this employee"}? This action cannot be undone.</p>
+                                                <div className="flex justify-end gap-2 pt-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setDeleteEmployeeId(null)}
+                                                        className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <XMarkIcon className="w-4 h-4" /> Cancel
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={confirmDeleteEmployee}
+                                                        className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-semibold text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <TrashIcon className="w-4 h-4" /> Delete
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </DialogPanel>
+                                    </Transition.Child>
+                                </div>
+                            </div>
+                        </Dialog>
+                    </Transition>
 
                     {/* Modal for Add/Edit Employee */}
                     {showEmployeeModal && (

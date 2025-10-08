@@ -347,8 +347,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
         </div>
       </header>
 
-      {/* Background gradient */}
-      <div className={`absolute inset-0 top-16 ${gradientClass}`} />
+  {/* Background gradient (fixed to prevent white bars on overscroll) */}
+  <div aria-hidden className={`fixed inset-0 ${gradientClass} pointer-events-none z-0`} />
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-col lg:fixed lg:top-1/2 lg:-translate-y-1/2 lg:left-0 lg:w-64 lg:z-30">

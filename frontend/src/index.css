@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* Root background to avoid white bars during overscroll bounce */
+html, body, #root {
+  background-color: #0f172a; /* matches dashboard gradient start */
+}
+
+/* Reduce scroll chaining to the viewport to limit bounce revealing page background */
+html {
+  overscroll-behavior-y: contain;
+}
+
 /* Hide number input spinners for elements that opt-in with .no-spinner */
 input.no-spinner::-webkit-outer-spin-button,
 input.no-spinner::-webkit-inner-spin-button {

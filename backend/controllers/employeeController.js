@@ -1,4 +1,5 @@
 const Employee = require('../models/employeeModel');
+const DeletedEmployee = require('../models/deletedEmployeeModel');
 const PrintStore = require('../models/printStoreModel');
 
 async function getOwnerStore(userId) {
@@ -67,8 +68,88 @@ exports.deleteEmployee = async (req, res) => {
     const store = await getOwnerStore(req.user.id);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
     const { id } = req.params;
-    const deleted = await Employee.findOneAndDelete({ _id: id, store: store._id });
-    if (!deleted) return res.status(404).json({ message: 'Employee not found' });
+    const employee = await Employee.findOne({ _id: id, store: store._id });
+    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+    const archivedPayload = {
+      store: store._id,
+      originalId: employee._id,
+      fullName: employee.fullName,
+      role: employee.role,
+      email: employee.email,
+      phone: employee.phone,
+      active: employee.active,
+      deletedAt: new Date(),
+    };
+
+    const archived = await DeletedEmployee.findOneAndUpdate(
+      { store: store._id, originalId: employee._id },
+      archivedPayload,
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    await employee.deleteOne();
+
+    res.json({ success: true, archived });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.listDeletedEmployees = async (req, res) => {
+  try {
+    const store = await getOwnerStore(req.user.id);
+    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const employees = await DeletedEmployee.find({ store: store._id }).sort({ deletedAt: -1 });
+    res.json(employees);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.restoreDeletedEmployee = async (req, res) => {
+  try {
+    const store = await getOwnerStore(req.user.id);
+    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const { deletedId } = req.params;
+    const archived = await DeletedEmployee.findOne({ _id: deletedId, store: store._id });
+    if (!archived) return res.status(404).json({ message: 'Archived employee not found' });
+
+    const payload = {
+      _id: archived.originalId,
+      store: store._id,
+      fullName: archived.fullName,
+      role: archived.role,
+      email: archived.email,
+      phone: archived.phone,
+      active: archived.active,
+    };
+
+    let restored;
+    try {
+      restored = await Employee.create(payload);
+    } catch (err) {
+      if (err && err.code === 11000) {
+        return res.status(409).json({ message: 'An active employee with this name already exists' });
+      }
+      throw err;
+    }
+
+    await archived.deleteOne();
+
+    res.json(restored);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.purgeDeletedEmployee = async (req, res) => {
+  try {
+    const store = await getOwnerStore(req.user.id);
+    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const { deletedId } = req.params;
+    const archived = await DeletedEmployee.findOneAndDelete({ _id: deletedId, store: store._id });
+    if (!archived) return res.status(404).json({ message: 'Archived employee not found' });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ message: err.message });
