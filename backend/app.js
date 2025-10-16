@@ -22,6 +22,7 @@ const orderRoutes = require("./routes/orderRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+const Service = require("./models/serviceModel");
 
 const PORT = process.env.PORT || 8000;
 
@@ -200,3 +201,26 @@ app.set("onlineUsers", onlineUsers);
 server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
+
+// --- Purge soft-deleted services older than 30 days ---
+async function purgeDeletedServices() {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const old = await Service.find({ deletedAt: { $ne: null, $lte: cutoff } });
+    if (!old.length) return;
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+    for (const svc of old) {
+      if (svc.imageFileId) {
+        try { await bucket.delete(svc.imageFileId); } catch (_) { /* ignore missing */ }
+      }
+      await Service.deleteOne({ _id: svc._id });
+    }
+    console.log(`🧹 Purged ${old.length} service(s) older than 30 days`);
+  } catch (err) {
+    console.error('Failed purging deleted services:', err?.message || err);
+  }
+}
+
+// Run on startup and every 24 hours
+setTimeout(purgeDeletedServices, 10_000);
+setInterval(purgeDeletedServices, 24 * 60 * 60 * 1000);

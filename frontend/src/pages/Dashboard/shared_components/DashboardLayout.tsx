@@ -9,6 +9,7 @@ import axios from "axios";
 import { Socket } from "socket.io-client";
 import api from "../../../lib/api";
 import { Transition } from "@headlessui/react";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface DashboardLayoutProps {
   role: "owner" | "customer";
@@ -32,6 +33,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [store, setStore] = useState<{ _id: string; name: string; logoFileId?: unknown } | null>(null);
   const [centerMenuOpen, setCenterMenuOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,7 +96,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
     socket.emit("register", { userId: user._id, role });
     const handleNewNotification = (data: Notification) => setNotifications((prev) => [data, ...prev]);
     socket.on("newNotification", handleNewNotification);
-    return () => socket.off("newNotification", handleNewNotification);
+    return () => {
+      socket.off("newNotification", handleNewNotification);
+    };
   }, [socket, user, role]);
 
   const toggleProfile = () => {
@@ -199,10 +203,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 -translate-y-1"
             >
-              <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-white/10 rounded-xl shadow-lg z-30 py-2">
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-2">
                 <Link
                   to="/profile"
-                  className="block px-4 py-2 text-sm text-gray-200 font-semibold hover:bg-blue-600 hover:text-white transition rounded-lg"
+                  className="block px-4 py-2 text-sm text-gray-800 font-semibold hover:bg-gray-100 hover:text-gray-900 transition rounded-lg"
                   onClick={() => setProfileOpen(false)}
                 >
                   Edit Profile
@@ -210,18 +214,17 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                 {role === "owner" && (
                   <Link
                     to="/owner/create-shop"
-                    className="block px-4 py-2 text-sm text-gray-200 font-semibold hover:bg-blue-600 hover:text-white transition rounded-lg"
+                    className="block px-4 py-2 text-sm text-gray-800 font-semibold hover:bg-gray-100 hover:text-gray-900 transition rounded-lg"
                     onClick={() => setProfileOpen(false)}
                   >
                     Edit Shop
                   </Link>
                 )}
                 <button
-                  className="w-full text-left px-4 py-2 text-sm text-red-400 font-semibold hover:bg-red-600/20 hover:text-red-500 transition rounded-lg"
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 font-semibold hover:bg-red-50 hover:text-red-700 transition rounded-lg"
                   onClick={() => {
                     setProfileOpen(false);
-                    logout();
-                    navigate("/login");
+                    setShowLogoutConfirm(true);
                   }}
                 >
                   Log Out
@@ -250,15 +253,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
               leaveFrom="opacity-100 translate-y-0"
               leaveTo="opacity-0 -translate-y-1"
             >
-              <div className="absolute right-0 mt-2 w-80 bg-gray-900 border border-white/10 rounded-xl shadow-lg z-30 py-2 max-h-96 overflow-y-auto">
+              <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-2 max-h-96 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-gray-400 text-center">No notifications</p>
+                  <p className="px-4 py-3 text-sm text-gray-600 text-center">No notifications</p>
                 ) : (
                   <>
                     {/* Top actions */}
-                    <div className="flex justify-between items-center px-4 py-2 text-sm">
+                    <div className="flex justify-between items-center px-4 py-2 text-sm text-gray-800">
                       <span
-                        className="text-blue-400 cursor-pointer hover:text-blue-300 transition"
+                        className="text-blue-600 cursor-pointer hover:text-blue-700 transition"
                         onClick={async () => {
                           if (!token) return;
                           try {
@@ -276,7 +279,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                         Mark all as read
                       </span>
                       <span
-                        className="text-red-400 cursor-pointer hover:text-red-500 transition flex items-center gap-1"
+                        className="text-red-600 cursor-pointer hover:text-red-700 transition flex items-center gap-1"
                         onClick={async () => {
                           if (!token) return;
                           try {
@@ -299,8 +302,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                         key={n._id}
                         className={`group flex items-start justify-between px-4 py-2 text-sm rounded-lg transition ${
                           n.read
-                            ? "text-gray-300 hover:bg-gray-800/70"
-                            : "font-semibold text-white bg-blue-600/10 hover:bg-blue-600/20"
+                            ? "text-gray-700 hover:bg-gray-100"
+                            : "font-semibold text-gray-900 bg-blue-50 hover:bg-blue-100"
                         }`}
                       >
                         <div
@@ -331,7 +334,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                           }}
                         >
                           <p>{n.title}</p>
-                          {n.description && <p className="text-gray-400 text-xs">{n.description}</p>}
+                          {n.description && <p className="text-gray-600 text-xs">{n.description}</p>}
                         </div>
 
                         <button
@@ -346,7 +349,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                               console.error("Failed to delete notification", error);
                             }
                           }}
-                          className="ml-2 p-1 rounded-md text-red-500 hover:bg-red-600/20 opacity-0 group-hover:opacity-100 transition"
+                          className="ml-2 p-1 rounded-md text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition"
                           title="Delete notification"
                         >
                           <TrashIcon className="h-5 w-5" />
@@ -383,6 +386,27 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
       <main className={`relative z-10 mt-16 p-6 lg:ml-64 ${sidebarOpen ? "hidden lg:block" : "block"}`}>
         <div className="w-full">{children}</div>
       </main>
+
+      {/* Logout Confirmation */}
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        title="Log out?"
+        message={
+          <span>
+            You’re about to log out{user?.role === 'guest' ? ' of your guest session' : ''}. Any unsaved changes may be lost.
+            <br />
+            Continue?
+          </span>
+        }
+        confirmText="Log out"
+        cancelText="Stay"
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          logout();
+          navigate("/login");
+        }}
+        onClose={() => setShowLogoutConfirm(false)}
+      />
 
       {/* Fade animations */}
       <style>{`

@@ -338,6 +338,22 @@ const OwnerDashboardContent: React.FC = () => {
     }
   }, [loading])
 
+  // Recompute yearly sales total based on selected year (day/month remain current only)
+  useEffect(() => {
+    // Sum paid orders within the selected year using subtotal
+    let y = 0
+    for (const o of orders) {
+      const amt = Number(o.subtotal) || 0
+      if (amt <= 0) continue
+      const paid = o.paymentStatus === 'paid' || o.status === 'completed'
+      if (!paid) continue
+      const dt = o.createdAt ? new Date(o.createdAt) : null
+      if (!dt) continue
+      if (dt.getFullYear() === year) y += amt
+    }
+    setSalesYear(y)
+  }, [orders, year])
+
   // Download PDF
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return

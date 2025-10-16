@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { FunnelIcon } from '@heroicons/react/24/outline';
 import { Link, useLocation, useParams } from 'react-router-dom';
@@ -53,11 +54,14 @@ export default function OrderPage() {
     }, [derivedStoreId]);
 
     const [services, setServices] = useState<Service[]>([]);
+    const [bestSellingIds, setBestSellingIds] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [query, setQuery] = useState('');
     // Filters (customer: sort only)
     const [showFilters, setShowFilters] = useState(false);
+    const filterAnchorRef = useRef<HTMLDivElement | null>(null);
+    const [filterPos, setFilterPos] = useState<{ top: number; left: number } | null>(null);
     const [sortKey, setSortKey] = useState<'name' | 'price'>('name');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
     // removed store logo/name (unused here)
@@ -89,6 +93,24 @@ export default function OrderPage() {
 
     useEffect(() => {
         let active = true;
+        const fetchBestSelling = async (storeId: string) => {
+            try {
+                const bestRes = await api.get(`/analytics/best-selling/${storeId}`);
+                if (!active) return;
+                const listRaw = bestRes.data?.bestSelling ?? bestRes.data ?? [];
+                const list: Array<{ serviceId?: string; _id?: string; serviceName?: string }> = Array.isArray(listRaw) ? listRaw : [];
+                const ids = new Set<string>(list.map((x) => String((x.serviceId ?? x._id) || '')));
+                // also keep names as a fallback match
+                const names = new Set<string>(list.map((x) => (x.serviceName || '').toLowerCase()).filter(Boolean));
+                setBestSellingIds(ids);
+                setBestSellingNames(names);
+            } catch {
+                if (active) {
+                    setBestSellingIds(new Set());
+                    setBestSellingNames(new Set());
+                }
+            }
+        };
         const run = async () => {
             if (!derivedStoreId) return;
             setLoading(true);
@@ -97,6 +119,8 @@ export default function OrderPage() {
                 const res = await api.get(`/services/store/${derivedStoreId}`);
                 if (!active) return;
                 setServices(res.data || []);
+                // Fetch best selling in parallel after services load
+                if (derivedStoreId) await fetchBestSelling(derivedStoreId);
             } catch (e: unknown) {
                 if (!active) return;
                 const msg = (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
@@ -108,12 +132,45 @@ export default function OrderPage() {
             }
         };
         run();
+        // Refetch best-selling when tab regains focus
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible' && derivedStoreId) {
+                fetchBestSelling(derivedStoreId);
+            }
+        };
+        document.addEventListener('visibilitychange', onVisibility);
         return () => {
             active = false;
+            document.removeEventListener('visibilitychange', onVisibility);
         };
     }, [derivedStoreId]);
 
     // removed store logo/name loading effect
+
+    const [bestSellingNames, setBestSellingNames] = useState<Set<string>>(new Set());
+
+    // Compute fixed position for filter dropdown portal relative to the Filter button
+    useEffect(() => {
+        if (!showFilters) return;
+        const calc = () => {
+            const el = filterAnchorRef.current;
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            const width = 288; // w-72
+            const gap = 8; // mt-2
+            let left = Math.max(8, rect.right - width);
+            left = Math.min(left, window.innerWidth - width - 8);
+            const top = rect.bottom + gap;
+            setFilterPos({ top, left });
+        };
+        calc();
+        window.addEventListener('resize', calc);
+        window.addEventListener('scroll', calc, true);
+        return () => {
+            window.removeEventListener('resize', calc);
+            window.removeEventListener('scroll', calc, true);
+        };
+    }, [showFilters]);
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -123,8 +180,11 @@ export default function OrderPage() {
                 .some((t) => String(t).toLowerCase().includes(q))
         );
 
-        // Sorting
+        // Sorting: best-selling first, then by selected sort key
         items = [...items].sort((a, b) => {
+            const aBest = bestSellingIds.has(String(a._id)) || bestSellingNames.has((a.name || '').toLowerCase());
+            const bBest = bestSellingIds.has(String(b._id)) || bestSellingNames.has((b.name || '').toLowerCase());
+            if (aBest !== bBest) return aBest ? -1 : 1;
             let cmp = 0;
             if (sortKey === 'name') {
                 cmp = (a.name || '').localeCompare(b.name || '');
@@ -137,7 +197,7 @@ export default function OrderPage() {
         });
 
         return items;
-    }, [query, services, sortKey, sortDir]);
+    }, [query, services, sortKey, sortDir, bestSellingIds, bestSellingNames]);
 
     // Notification auto-hide
     useEffect(() => {
@@ -172,12 +232,12 @@ export default function OrderPage() {
             {/* Header */}
             <div className="mt-6">
                 {/* Center on desktop view */}
-                <div className="max-w-4xl mx-auto px-4 lg:transform lg:-translate-x-32">
+                <div className="relative z-[100] max-w-4xl mx-auto px-4 lg:transform lg:-translate-x-32">
                     <h1 className="text-center text-white text-2xl md:text-3xl tracking-widest font-semibold">
                         SELECT A SERVICE
                     </h1>
                     <div className="mt-4">
-                        <div className="relative flex items-center justify-center gap-2">
+                        <div className="relative z-[60] flex items-center justify-center gap-2">
                             <input
                                 type="text"
                                 value={query}
@@ -186,7 +246,7 @@ export default function OrderPage() {
                                 className="block w-full max-w-md h-11 rounded-full bg-white/10 text-white placeholder:text-gray-300 px-5 focus:outline-none border border-white/20 focus:border-white/40 backdrop-blur"
                                 aria-label="Search services"
                             />
-                            <div className="relative">
+                            <div className="relative z-[60]" ref={filterAnchorRef}>
                                 <button
                                     onClick={() => setShowFilters((v) => !v)}
                                     className="inline-flex items-center justify-center gap-2 px-4 h-11 rounded-full bg-white/10 text-white border border-white/20 hover:bg-white/15"
@@ -195,8 +255,11 @@ export default function OrderPage() {
                                 >
                                     <FunnelIcon className="h-5 w-5" /> Filter
                                 </button>
-                                {showFilters && (
-                                    <div className="absolute right-0 top-full mt-2 w-72 rounded-lg border border-white/10 bg-gray-900 p-3 z-20 shadow-xl">
+                                {showFilters && filterPos && createPortal(
+                                    <div
+                                        className="w-72 rounded-lg border border-white/10 bg-gray-900 p-3 z-[1000] shadow-2xl"
+                                        style={{ position: 'fixed', top: `${filterPos.top}px`, left: `${filterPos.left}px` }}
+                                    >
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="text-sm font-semibold text-white">Filters</div>
                                             <button className="text-xs text-gray-300 hover:text-white" onClick={() => setShowFilters(false)}>Close</button>
@@ -246,7 +309,8 @@ export default function OrderPage() {
                                                 </button>
                                             </div>
                                         </div>
-                                    </div>
+                                    </div>,
+                                    document.body
                                 )}
                             </div>
                         </div>
@@ -291,11 +355,14 @@ export default function OrderPage() {
                                                 else if (typeof maybe.toString === 'function' && maybe.toString()) hasImage = true;
                                             }
                                             const imgSrc = hasImage ? `${api.defaults.baseURL}/services/${svc._id}/image` : undefined;
+                                            const isBest = bestSellingIds.has(String(svc._id)) || bestSellingNames.has((svc.name || '').toLowerCase());
                                             return (
                                                 <li key={svc._id} className="group">
                                                     <div
                                                         className="h-full overflow-hidden rounded-xl border border-white/15 bg-black/50 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                                                         onClick={() => {
+                                                            // Close filter dropdown if open
+                                                            if (showFilters) setShowFilters(false);
                                                             setSelected(svc);
                                                             // initialize variant choices to first option per variant
                                                             const init: Record<string, number> = {};
@@ -307,16 +374,25 @@ export default function OrderPage() {
                                                         }}
                                                     >
                                                         {imgSrc ? (
-                                                            <div className="aspect-video w-full bg-white/5 overflow-hidden">
+                                                            <div className="relative aspect-video w-full bg-white/5 overflow-hidden">
                                                                 <img src={imgSrc} alt={`${svc.name} image`} className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform" />
                                                             </div>
                                                         ) : (
-                                                            <div className="aspect-video w-full bg-white/5 flex items-center justify-center text-white/60 text-sm">No image</div>
+                                                            <div className="relative aspect-video w-full bg-white/5 flex items-center justify-center text-white/60 text-sm">
+                                                                No image
+                                                            </div>
                                                         )}
-                                                        <div className="p-4">
-                                                            <div className="flex items-start justify-between gap-3">
-                                                                <h3 className="text-base font-semibold text-white">{svc.name}</h3>
-                                                                <div className="text-sm text-white/90 whitespace-nowrap ml-auto">
+                                                            <div className="p-4">
+                                                                <div className="flex items-start justify-between gap-3">
+                                                                    <div className="flex items-center gap-2 min-w-0">
+                                                                        <h3 className="text-base font-semibold text-white truncate">{svc.name}</h3>
+                                                                        {isBest && (
+                                                                            <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full border border-yellow-400 text-yellow-200 bg-yellow-500/10">
+                                                                                Best Seller
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="text-sm text-white/90 whitespace-nowrap ml-auto">
                                                                     {formatMoney(svc.basePrice, svc.currency || 'PHP')}
                                                                 </div>
                                                             </div>

@@ -23,7 +23,7 @@ const serviceSchema = new mongoose.Schema(
     description: { type: String },
     basePrice: { type: Number, required: true, min: 0 },
     unit: { type: String, enum: ['per page', 'per sq ft', 'per item'], required: true },
-  currency: { type: String, enum: ['USD', 'EUR', 'GBP', 'JPY', 'PHP'], default: 'PHP' },
+  currency: { type: String, enum: ['USD', 'EUR', 'GBP', 'JPY', 'PHP', 'AUD', 'CAD', 'SGD', 'INR', 'CNY'], default: 'PHP' },
     active: { type: Boolean, default: true },
     variants: { type: [serviceVariantSchema], default: [] },
   // optional image stored in GridFS
@@ -35,6 +35,8 @@ const serviceSchema = new mongoose.Schema(
   // auto-disable fields
   autoDisabled: { type: Boolean, default: false },
   disableReason: { type: String },
+  // soft-delete timestamp
+  deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

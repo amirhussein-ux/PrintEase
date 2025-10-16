@@ -27,14 +27,36 @@ async function validateInventoryRequirements(storeId, requiredInventory, invento
 
 // Helper: check if service can be enabled based on inventory
 async function canEnableService(service) {
-  // Business rule: service MUST have a linked inventory item
-  if (!service.requiredInventory) return false;
+  // If explicitly linked, use that inventory
+  if (service.requiredInventory) {
+    const inventoryItem = await InventoryItem.findById(service.requiredInventory);
+    if (!inventoryItem) return false;
+    return inventoryItem.amount > 0 && inventoryItem.amount >= inventoryItem.minAmount;
+  }
 
-  const inventoryItem = await InventoryItem.findById(service.requiredInventory);
-  if (!inventoryItem) return false;
+  // Otherwise, try to infer link via attribute option names
+  try {
+    const optionNames = new Set();
+    if (Array.isArray(service.variants)) {
+      for (const v of service.variants) {
+        if (v && Array.isArray(v.options)) {
+          for (const o of v.options) {
+            if (o && o.name) optionNames.add(o.name);
+          }
+        }
+      }
+    }
+    if (optionNames.size === 0) return false;
 
-  // Enable only if stock strictly above 0 and meets minimum threshold
-  return inventoryItem.amount > 0 && inventoryItem.amount >= inventoryItem.minAmount;
+    const inv = await InventoryItem.findOne({
+      store: service.store,
+      name: { $in: Array.from(optionNames) },
+    });
+    if (!inv) return false;
+    return inv.amount > 0 && inv.amount >= inv.minAmount;
+  } catch (_) {
+    return false;
+  }
 }
 
 // Helper: auto-disable services based on inventory status
@@ -100,7 +122,46 @@ exports.createService = async (req, res) => {
       doc.imageMime = req.file.mimetype;
     }
     const svc = await Service.create(doc);
-    res.status(201).json(svc);
+    // Build enriched response with inventory status
+    try {
+      await svc.populate('requiredInventory');
+      const canEnable = await canEnableService(svc);
+      let inventoryStatus = null;
+      if (svc.requiredInventory) {
+        inventoryStatus = {
+          name: svc.requiredInventory.name,
+          amount: svc.requiredInventory.amount,
+          minAmount: svc.requiredInventory.minAmount,
+          isLowStock: svc.requiredInventory.amount <= svc.requiredInventory.minAmount,
+        };
+      } else {
+        const optionNames = new Set();
+        if (Array.isArray(svc.variants)) {
+          for (const v of svc.variants) {
+            if (v && Array.isArray(v.options)) {
+              for (const o of v.options) {
+                if (o && o.name) optionNames.add(o.name);
+              }
+            }
+          }
+        }
+        if (optionNames.size > 0) {
+          const items = await InventoryItem.find({ store: store._id, name: { $in: Array.from(optionNames) } });
+          if (items && items.length) {
+            let pick = items.find((it) => it.amount > 0 && it.amount >= it.minAmount) || items[0];
+            inventoryStatus = {
+              name: pick.name,
+              amount: pick.amount,
+              minAmount: pick.minAmount,
+              isLowStock: pick.amount <= pick.minAmount,
+            };
+          }
+        }
+      }
+      return res.status(201).json({ ...svc.toObject(), canEnable, inventoryStatus });
+    } catch (_) {
+      return res.status(201).json(svc);
+    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -143,8 +204,29 @@ exports.updateService = async (req, res) => {
       updates.inventoryQuantityPerUnit = Number(updates.inventoryQuantityPerUnit) || 1;
     }
     
+  // normalize inventory unlinking when empty string is sent from multipart
+    if (updates.requiredInventory === '') {
+      updates.requiredInventory = undefined;
+    }
   // currency may come as a string code; let schema enum validate
+    const wasAutoDisabled = !!svc.autoDisabled;
     Object.assign(svc, updates);
+    // If the service now satisfies inventory requirements, clear auto-disable flags and auto-enable when previously auto-disabled
+    try {
+      const eligible = await canEnableService(svc);
+      if (eligible) {
+        if (wasAutoDisabled && !svc.active) {
+          // Auto re-enable if the previous state was auto-disabled and now eligible
+          svc.active = true;
+        }
+        if (svc.autoDisabled || svc.disableReason) {
+          svc.autoDisabled = false;
+          svc.disableReason = undefined;
+        }
+      }
+    } catch (_) {
+      // ignore eligibility errors here; will be handled by save/validation
+    }
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
     // handle remove image flag
     const removeImageFlag = typeof updates.removeImage === 'string' ? (updates.removeImage === 'true' || updates.removeImage === '1') : !!updates.removeImage;
@@ -172,22 +254,64 @@ exports.updateService = async (req, res) => {
       svc.imageMime = req.file.mimetype;
     }
     await svc.save();
-    res.json(svc);
+    // Build enriched response with inventory status
+    try {
+      await svc.populate('requiredInventory');
+      const canEnable = await canEnableService(svc);
+      let inventoryStatus = null;
+      if (svc.requiredInventory) {
+        inventoryStatus = {
+          name: svc.requiredInventory.name,
+          amount: svc.requiredInventory.amount,
+          minAmount: svc.requiredInventory.minAmount,
+          isLowStock: svc.requiredInventory.amount <= svc.requiredInventory.minAmount,
+        };
+      } else {
+        const optionNames = new Set();
+        if (Array.isArray(svc.variants)) {
+          for (const v of svc.variants) {
+            if (v && Array.isArray(v.options)) {
+              for (const o of v.options) {
+                if (o && o.name) optionNames.add(o.name);
+              }
+            }
+          }
+        }
+        if (optionNames.size > 0) {
+          const items = await InventoryItem.find({ store: store._id, name: { $in: Array.from(optionNames) } });
+          if (items && items.length) {
+            let pick = items.find((it) => it.amount > 0 && it.amount >= it.minAmount) || items[0];
+            inventoryStatus = {
+              name: pick.name,
+              amount: pick.amount,
+              minAmount: pick.minAmount,
+              isLowStock: pick.amount <= pick.minAmount,
+            };
+          }
+        }
+      }
+      return res.json({ ...svc.toObject(), canEnable, inventoryStatus });
+    } catch (_) {
+      return res.json(svc);
+    }
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
-// Delete service (owner only)
+// Soft delete service (owner only)
 exports.deleteService = async (req, res) => {
   try {
     const userId = req.user.id;
     const store = await getOwnerStore(userId);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
     const { id } = req.params;
-    const svc = await Service.findOneAndDelete({ _id: id, store: store._id });
+    const svc = await Service.findOne({ _id: id, store: store._id });
     if (!svc) return res.status(404).json({ message: 'Service not found' });
-    res.json({ success: true });
+    if (svc.deletedAt) return res.status(400).json({ message: 'Service already deleted' });
+    svc.deletedAt = new Date();
+    await svc.save();
+    res.json({ success: true, deletedAt: svc.deletedAt });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -199,7 +323,7 @@ exports.listMyServices = async (req, res) => {
     const userId = req.user.id;
     const store = await getOwnerStore(userId);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
-    const list = await Service.find({ store: store._id }).sort({ createdAt: -1 });
+    const list = await Service.find({ store: store._id, deletedAt: null }).sort({ createdAt: -1 });
     res.json(list);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -210,7 +334,7 @@ exports.listMyServices = async (req, res) => {
 exports.listByStore = async (req, res) => {
   try {
     const { storeId } = req.params;
-    const list = await Service.find({ store: storeId, active: true }).sort({ createdAt: -1 });
+    const list = await Service.find({ store: storeId, active: true, deletedAt: null }).sort({ createdAt: -1 });
     res.json(list);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -243,28 +367,94 @@ exports.getServicesWithInventoryStatus = async (req, res) => {
     // First, auto-disable services based on inventory
     await autoDisableServicesBasedOnInventory(store._id);
     
-    const services = await Service.find({ store: store._id })
+    const services = await Service.find({ store: store._id, deletedAt: null })
       .populate('requiredInventory')
       .sort({ createdAt: -1 });
     
-    // Add inventory status to each service
-    const servicesWithStatus = await Promise.all(
-      services.map(async (service) => {
-        const canEnable = await canEnableService(service);
-        return {
-          ...service.toObject(),
-          canEnable,
-          inventoryStatus: service.requiredInventory ? {
-            name: service.requiredInventory.name,
-            amount: service.requiredInventory.amount,
-            minAmount: service.requiredInventory.minAmount,
-            isLowStock: service.requiredInventory.amount <= service.requiredInventory.minAmount
-          } : null
+    // Add inventory status and clear stale auto-disable flags when eligible
+    const servicesWithStatus = [];
+    for (const service of services) {
+      const canEnable = await canEnableService(service);
+      if (canEnable && (service.autoDisabled || service.disableReason)) {
+        service.autoDisabled = false;
+        service.disableReason = undefined;
+        try { await service.save(); } catch (_) { /* ignore save issues here */ }
+      }
+      let inventoryStatus = null;
+      if (service.requiredInventory) {
+        inventoryStatus = {
+          name: service.requiredInventory.name,
+          amount: service.requiredInventory.amount,
+          minAmount: service.requiredInventory.minAmount,
+          isLowStock: service.requiredInventory.amount <= service.requiredInventory.minAmount,
         };
-      })
-    );
+      } else {
+        // Try attribute-based match for status display
+        const optionNames = new Set();
+        if (Array.isArray(service.variants)) {
+          for (const v of service.variants) {
+            if (v && Array.isArray(v.options)) {
+              for (const o of v.options) {
+                if (o && o.name) optionNames.add(o.name);
+              }
+            }
+          }
+        }
+        if (optionNames.size > 0) {
+          // Prefer an item that is not low stock if available
+          const items = await InventoryItem.find({ store: store._id, name: { $in: Array.from(optionNames) } });
+          if (items && items.length) {
+            // pick best
+            let pick = items.find((it) => it.amount > 0 && it.amount >= it.minAmount) || items[0];
+            inventoryStatus = {
+              name: pick.name,
+              amount: pick.amount,
+              minAmount: pick.minAmount,
+              isLowStock: pick.amount <= pick.minAmount,
+            };
+          }
+        }
+      }
+
+      servicesWithStatus.push({
+        ...service.toObject(),
+        canEnable,
+        inventoryStatus,
+      });
+    }
     
     res.json(servicesWithStatus);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// List soft-deleted services for current owner
+exports.listDeleted = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const store = await getOwnerStore(userId);
+    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const list = await Service.find({ store: store._id, deletedAt: { $ne: null } }).sort({ deletedAt: -1 });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Restore a soft-deleted service
+exports.restoreService = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const store = await getOwnerStore(userId);
+    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const { id } = req.params;
+    const svc = await Service.findOne({ _id: id, store: store._id });
+    if (!svc) return res.status(404).json({ message: 'Service not found' });
+    if (!svc.deletedAt) return res.status(400).json({ message: 'Service is not deleted' });
+    svc.deletedAt = null;
+    await svc.save();
+    res.json(svc);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

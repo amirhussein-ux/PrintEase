@@ -137,6 +137,14 @@ async function getPrescriptiveAnalysis(req, res) {
 async function getBestSellingServices(req, res) {
   try {
     const { storeId } = req.params;
+    // Validate storeId
+    try {
+      if (!storeId || !storeId.match(/^[0-9a-fA-F]{24}$/)) {
+        return res.status(400).json({ message: 'Invalid storeId' });
+      }
+    } catch (_) {
+      return res.status(400).json({ message: 'Invalid storeId' });
+    }
     
     // Get orders from the last 30 days
     const thirtyDaysAgo = new Date();
@@ -151,18 +159,35 @@ async function getBestSellingServices(req, res) {
     // Count service orders
     const serviceCounts = {};
     orders.forEach(order => {
-      order.items.forEach(item => {
-        const serviceId = item.service._id.toString();
-        if (!serviceCounts[serviceId]) {
-          serviceCounts[serviceId] = {
-            serviceId,
-            serviceName: item.serviceName || item.service.name,
+      (order.items || []).forEach(item => {
+        // Derive a safe service identifier
+        let serviceId = undefined;
+        let serviceName = undefined;
+        if (item.service && typeof item.service === 'object' && item.service._id) {
+          serviceId = item.service._id.toString();
+          serviceName = item.serviceName || item.service.name;
+        } else if (item.service) {
+          // item.service may be an ObjectId
+          try { serviceId = item.service.toString(); } catch (_) { /* ignore */ }
+          serviceName = item.serviceName;
+        } else {
+          serviceName = item.serviceName; // fallback only by name
+        }
+
+        // Key by ID if available, else by name to avoid crashing when service was deleted
+        const key = serviceId || (serviceName ? `name:${serviceName}` : null);
+        if (!key) return; // nothing to aggregate
+
+        if (!serviceCounts[key]) {
+          serviceCounts[key] = {
+            serviceId: serviceId || undefined,
+            serviceName: serviceName || 'Unknown Service',
             orderCount: 0,
             revenue: 0
           };
         }
-        serviceCounts[serviceId].orderCount += item.quantity;
-        serviceCounts[serviceId].revenue += item.totalPrice;
+        serviceCounts[key].orderCount += Number(item.quantity) || 0;
+        serviceCounts[key].revenue += Number(item.totalPrice) || 0;
       });
     });
 
@@ -177,7 +202,8 @@ async function getBestSellingServices(req, res) {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error('best-selling analytics error:', err);
+    res.status(500).json({ message: err?.message || 'Failed to compute best selling services' });
   }
 }
 

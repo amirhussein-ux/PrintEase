@@ -10,6 +10,8 @@ const {
   listByStore,
   getServiceImage,
   getServicesWithInventoryStatus,
+  listDeleted,
+  restoreService,
 } = require('../controllers/serviceController');
 
 const router = express.Router();
@@ -17,9 +19,11 @@ const router = express.Router();
 // owner
 router.get('/mine', protect, listMyServices);
 router.get('/mine/with-inventory', protect, getServicesWithInventoryStatus);
+router.get('/mine/deleted', protect, listDeleted);
 router.post('/', protect, upload.single('image'), createService);
 router.put('/:id', protect, upload.single('image'), updateService);
 router.delete('/:id', protect, deleteService);
+router.post('/:id/restore', protect, restoreService);
 
 // public
 router.get('/store/:storeId', listByStore);

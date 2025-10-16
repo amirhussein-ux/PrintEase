@@ -18,6 +18,18 @@ router.get("/", protect, async (req, res) => {
   }
 });
 
+// --- Delete all notifications for the authenticated user ---
+router.delete("/delete-all", protect, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    await Notification.deleteMany({ user: userId });
+    res.json({ message: "All notifications deleted" });
+  } catch (err) {
+    console.error("Failed to delete all notifications:", err);
+    res.status(500).json({ message: "Failed to delete all notifications" });
+  }
+});
+
 // --- Mark a single notification as read ---
 router.put("/:id/read", protect, async (req, res) => {
   try {
@@ -48,6 +60,26 @@ router.put("/read-all", protect, async (req, res) => {
   } catch (err) {
     console.error("Failed to mark all notifications as read:", err);
     res.status(500).json({ message: "Failed to mark all notifications as read" });
+  }
+});
+
+// --- Delete a single notification ---
+router.delete("/:id", protect, async (req, res) => {
+  try {
+    const userId = new mongoose.Types.ObjectId(req.user.id);
+    const id = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid notification id" });
+    }
+
+    const result = await Notification.deleteOne({ _id: id, user: userId });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ message: "Notification not found" });
+    }
+    res.json({ message: "Notification deleted" });
+  } catch (err) {
+    console.error("Failed to delete notification:", err);
+    res.status(500).json({ message: "Failed to delete notification" });
   }
 });
 

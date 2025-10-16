@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState, useEffect } from "react";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import { useAuth } from "../../../context/AuthContext";
-import { Dialog, DialogPanel, Transition } from "@headlessui/react";
+import { Dialog, DialogPanel, Transition, Tab } from "@headlessui/react";
 import {
   PlusIcon,
   PencilSquareIcon,
@@ -66,6 +66,7 @@ interface ServiceItem {
   };
   autoDisabled?: boolean; // true if service was auto-disabled due to inventory
   disableReason?: string; // reason for auto-disable
+  deletedAt?: string | null;
 }
 
 type ServiceDraft = {
@@ -113,6 +114,7 @@ type ApiService = {
   };
   autoDisabled?: boolean;
   disableReason?: string;
+  deletedAt?: string | null;
 };
 
 function mapServiceFromApi(s: ApiService): ServiceItem {
@@ -160,6 +162,8 @@ export default function ServiceManagement() {
   const [sortKey, setSortKey] = useState<"name" | "createdAt">("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [loading, setLoading] = useState(false);
+  const [deletedServices, setDeletedServices] = useState<ServiceItem[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<null | string>(null);
   // UI transition helpers
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [contentReady, setContentReady] = useState(false);
@@ -183,6 +187,12 @@ export default function ServiceManagement() {
         if (cancelled) return;
         const inventoryList: InventoryItem[] = inventoryRes.data || [];
         setInventoryItems(inventoryList);
+
+        // Load deleted services
+        const deletedRes = await api.get("/services/mine/deleted");
+        if (cancelled) return;
+        const deletedMapped: ServiceItem[] = (deletedRes.data || []).map(mapServiceFromApi);
+        setDeletedServices(deletedMapped);
       } catch (e: unknown) {
         if (!cancelled) setError(toErrorMessage(e, "Failed to load services"));
       } finally {
@@ -264,6 +274,18 @@ export default function ServiceManagement() {
   if (draft.currency) form.append('currency', draft.currency);
     form.append('active', String(draft.active));
     form.append('variants', JSON.stringify(draft.variants || []));
+    // inventory linkage
+    if (draft.requiredInventory !== undefined) {
+      if (draft.requiredInventory) {
+        form.append('requiredInventory', draft.requiredInventory);
+      } else {
+        // explicit clear when editing and user removed link
+        form.append('requiredInventory', '');
+      }
+    }
+    if (draft.inventoryQuantityPerUnit !== undefined) {
+      form.append('inventoryQuantityPerUnit', String(draft.inventoryQuantityPerUnit));
+    }
     if (draft.imageFile) form.append('image', draft.imageFile);
   if (draft.removeImage) form.append('removeImage', 'true');
     return form;
@@ -305,10 +327,24 @@ export default function ServiceManagement() {
   }
   async function removeService(id: string) {
     try {
-      await api.delete(`/services/${id}`);
+      const res = await api.delete(`/services/${id}`);
+      const deletedAt = (res && res.data && res.data.deletedAt) ? String(res.data.deletedAt) : new Date().toISOString();
+      const removed = services.find(s => s.id === id);
       setServices((prev) => prev.filter((s) => s.id !== id));
+      if (removed) setDeletedServices((prev) => [{ ...removed, deletedAt }, ...prev]);
     } catch (e: unknown) {
       setError(toErrorMessage(e, "Failed to delete service"));
+    }
+  }
+
+  async function restoreService(id: string) {
+    try {
+      const res = await api.post(`/services/${id}/restore`);
+      const restored = mapServiceFromApi(res.data);
+      setDeletedServices((prev) => prev.filter((s) => s.id !== id));
+      setServices((prev) => [restored, ...prev]);
+    } catch (e: unknown) {
+      setError(toErrorMessage(e, "Failed to restore service"));
     }
   }
 
@@ -450,7 +486,28 @@ export default function ServiceManagement() {
           </div>
   </div>
 
-        {/* Services list */}
+        {/* Tabs: Active/Disabled and Deleted */}
+        <Tab.Group>
+          <Tab.List className="mb-4 flex gap-2">
+            <Tab
+              className={({ selected }) =>
+                `px-3 py-1.5 rounded-lg border text-sm ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-transparent border-white/10 text-gray-200 hover:bg-white/10'}`
+              }
+            >
+              Services
+            </Tab>
+            <Tab
+              className={({ selected }) =>
+                `px-3 py-1.5 rounded-lg border text-sm ${selected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-transparent border-white/10 text-gray-200 hover:bg-white/10'}`
+              }
+            >
+              Deleted
+            </Tab>
+          </Tab.List>
+
+          <Tab.Panels>
+            <Tab.Panel>
+              {/* Services list */}
         {error && (
           <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-200 px-3 py-2 text-sm">{error}</div>
         )}
@@ -525,6 +582,10 @@ export default function ServiceManagement() {
                     <span className="px-2 py-1 rounded-full text-xs bg-white/10 border border-white/10">
                       <strong>Product:</strong> {s.inventoryStatus?.name || 'Linked'}
                     </span>
+                  ) : s.inventoryStatus ? (
+                    <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      <strong>Linked via attributes</strong>
+                    </span>
                   ) : (
                     <span className="px-2 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
                       <strong>No product linked</strong>
@@ -578,7 +639,7 @@ export default function ServiceManagement() {
                   <PencilSquareIcon className="h-5 w-5" /> Edit
                 </button>
                 <button
-                  onClick={() => removeService(s.id)}
+                  onClick={() => setShowDeleteConfirm(s.id)}
                   className="inline-flex items-center justify-center gap-1 rounded-lg bg-red-600 text-white hover:bg-red-500 px-3 py-1.5 text-sm border border-red-600"
                 >
                   <TrashIcon className="h-5 w-5" /> Delete
@@ -587,6 +648,46 @@ export default function ServiceManagement() {
             </div>
           ))}
         </div>
+            </Tab.Panel>
+            <Tab.Panel>
+              {/* Deleted services list */}
+              <div className="grid grid-cols-1 gap-4">
+                {deletedServices.length === 0 && (
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-300">No deleted services.</div>
+                )}
+                {deletedServices.map((s) => (
+                  <div key={s.id} className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 p-4 flex items-center gap-4">
+                    {s.imageUrl && (
+                      <img src={s.imageUrl} alt={s.name} className="h-20 w-20 object-cover rounded-md border border-white/10" />
+                    )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-semibold text-white">{s.name}</h3>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full border border-red-400 text-red-300 bg-red-400/10">Deleted</span>
+                      </div>
+                      <div className="text-gray-300 text-sm mt-0.5">{s.description}</div>
+                      {s.deletedAt && (
+                        <div className="mt-1 text-xs text-yellow-200">
+                          This service will be permanently deleted in {
+                            Math.max(0, 30 - Math.floor((Date.now() - new Date(s.deletedAt).getTime()) / (1000 * 60 * 60 * 24)))
+                          } days.
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2 ml-auto">
+                      <button
+                        onClick={() => restoreService(s.id)}
+                        className="inline-flex items-center justify-center gap-1 rounded-lg bg-green-600 text-white hover:bg-green-500 px-3 py-1.5 text-sm border border-green-600"
+                      >
+                        Restore
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Tab.Panel>
+          </Tab.Panels>
+        </Tab.Group>
       </div>
 
       {/* Add/Edit modal */}
@@ -600,6 +701,36 @@ export default function ServiceManagement() {
         onSave={saveService}
         inventoryItems={inventoryItems}
       />
+      {/* Delete confirmation */}
+      <Transition show={!!showDeleteConfirm} as={Fragment}>
+        <Dialog onClose={() => setShowDeleteConfirm(null)} className="relative z-50">
+          <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black/50" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
+              <Transition.Child as={Fragment} enter="ease-out duration-200" enterFrom="opacity-0 translate-y-2 sm:translate-y-0 sm:scale-95" enterTo="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 translate-y-0 sm:scale-100" leaveTo="opacity-0 translate-y-2 sm:translate-y-0 sm:scale-95">
+                <DialogPanel className="w-full max-w-md rounded-xl bg-white text-gray-900 border border-gray-200 shadow-xl p-5">
+                  <Dialog.Title className="text-lg font-semibold">Delete service?</Dialog.Title>
+                  <p className="mt-2 text-sm text-gray-600">This will move the service to Deleted. You can restore it later from the Deleted tab.</p>
+                  <div className="mt-5 flex justify-end gap-2">
+                    <button className="px-4 py-2 rounded-md border border-gray-300" onClick={() => setShowDeleteConfirm(null)}>Cancel</button>
+                    <button
+                      className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-500"
+                      onClick={() => {
+                        if (showDeleteConfirm) removeService(showDeleteConfirm);
+                        setShowDeleteConfirm(null);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </DialogPanel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </DashboardLayout>
   );
 }
@@ -642,30 +773,30 @@ function ServiceModal({
       setDescription(initial?.description ?? "");
       setBasePrice(initial?.basePrice ?? 0);
       setUnit(initial?.unit ?? "per page");
-  setCurrency(initial?.currency ?? 'PHP');
+      setCurrency(initial?.currency ?? 'PHP');
       setActive(initial?.active ?? true);
       setVariants(initial?.variants ?? []);
       setRequiredInventory(initial?.requiredInventory);
       setInventoryQuantityPerUnit(initial?.inventoryQuantityPerUnit ?? 1);
       setImageFile(null);
       setImagePreview(initial?.imageUrl ?? null);
-  setImageOriginalSrc(initial?.imageUrl ?? null);
-  setRemoveImage(false);
+      setImageOriginalSrc(initial?.imageUrl ?? null);
+      setRemoveImage(false);
     }
   }, [open, initial]);
 
   function onSelectImage(file: File | null) {
     setImageFile(file);
     if (file) {
-  const url = URL.createObjectURL(file);
-  // set original src to the newly selected image (revoke previous blob original)
-  setImageOriginalSrc((prev) => {
-    if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
-    return url;
-  });
-  // open cropper with the original selection
-  setShowCropper(url);
-  setRemoveImage(false);
+      const url = URL.createObjectURL(file);
+      // set original src to the newly selected image (revoke previous blob original)
+      setImageOriginalSrc((prev) => {
+        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        return url;
+      });
+      // open cropper with the original selection
+      setShowCropper(url);
+      setRemoveImage(false);
     } else {
       setImagePreview(initial?.imageUrl ?? null);
       setImageOriginalSrc(initial?.imageUrl ?? null);
@@ -817,7 +948,7 @@ function ServiceModal({
                         onChange={(e) => setRequiredInventory(e.target.value || undefined)}
                         className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
                       >
-                        <option value="">— Select product —</option>
+                        <option value="">Select product</option>
                         {inventoryItems.map(ii => (
                           <option key={ii._id} value={ii._id}>{ii.name} (qty {ii.amount})</option>
                         ))}
@@ -1041,6 +1172,7 @@ function ServiceModal({
           </div>
         </div>
       </Dialog>
+
       {showCropper && (
         <CropperModal
           src={showCropper}
