@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { FunnelIcon } from '@heroicons/react/24/outline';
+import { FunnelIcon, ShoppingCartIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import api from '../../../lib/api';
+import { QRCodeCanvas } from 'qrcode.react';
 
 type Service = {
     _id: string;
@@ -16,8 +17,25 @@ type Service = {
     createdAt?: string;
     variants?: Array<{
         label: string;
-        options: Array<{ name: string; priceDelta: number }>;
+        options: Array<{ 
+            name: string; 
+            priceDelta: number;
+            linkedInventoryId?: string;
+            inventoryQuantity?: number;
+        }>;
     }>;
+    // NEW: (if backend provides) linked products
+    attributes?: Array<{ productId: string; quantity?: number; productPrice?: number; sizeName?: string }>;
+};
+
+type CartItem = {
+    service: Service;
+    quantity: number;
+    selectedOptions: Array<{ variantLabel: string; optionName: string }>;
+    files: Array<{ file: File; preview: string }>;
+    notes: string;
+    // NEW: sizes chosen by customer (when applicable)
+    selectedSizes?: Array<{ productId: string; sizeName: string }>;
 };
 
 type LocationState = { storeId?: string } | undefined;
@@ -31,6 +49,9 @@ const formatMoney = (n: number | undefined | null, code: string = 'PHP') => {
         return `${prefix}${n.toFixed(2)}`;
     }
 };
+
+// Add a local type for order status if not present here
+type OrderStatusLocal = 'pending' | 'processing' | 'ready' | 'completed' | 'cancelled';
 
 export default function OrderPage() {
     const { token, continueAsGuest } = useAuth();
@@ -76,6 +97,19 @@ export default function OrderPage() {
 
     // Notification state
     const [notif, setNotif] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
+
+    // Cart state
+    const [cart, setCart] = useState<CartItem[]>([]);
+    const [showCart, setShowCart] = useState(false);
+    
+    // Payment confirmation state
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null);
+    const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'completed' | 'failed'>('pending');
+
+    // NEW: watch order status + QR + receipt
+    const [watchedOrderStatus, setWatchedOrderStatus] = useState<OrderStatusLocal | null>(null);
+    const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
 
     // Pricing
     const unitPrice = useMemo(() => {
@@ -172,6 +206,178 @@ export default function OrderPage() {
         };
     }, [showFilters]);
 
+    // Cart functions
+    const addToCart = () => {
+        if (!selected) return;
+
+        // If service lacks "Size" variant, but linked product has sizes -> enforce selection
+        const hasSizeVariant = (selected.variants || []).some(v => v.label.toLowerCase() === 'size');
+        let selectedSizes: Array<{ productId: string; sizeName: string }> | undefined;
+        if (!hasSizeVariant && selected.attributes && selected.attributes.length > 0) {
+            // support single linked product with sizes for selection UX
+            const productsWithSizes = selected.attributes
+                .map(a => a.productId)
+                .filter(Boolean)
+                .filter((pid, idx, arr) => arr.indexOf(pid) === idx)
+                .map(pid => ({ pid, inv: inventoryCache[pid] }))
+                .filter(x => x.inv && Array.isArray(x.inv.sizes) && x.inv.sizes.length > 0);
+
+            if (productsWithSizes.length === 1) {
+                const pid = productsWithSizes[0].pid!;
+                const choice = sizeChoice[pid];
+                if (!choice) {
+                    setNotif({ type: 'error', message: 'Please select a size.' });
+                    return;
+                }
+                selectedSizes = [{ productId: pid, sizeName: choice }];
+            }
+        }
+
+        const selectedOptions = (selected.variants || []).map(variant => ({
+            variantLabel: variant.label,
+            optionName: variant.options[variantChoices[variant.label] || 0]?.name || ''
+        }));
+
+        const cartItem: CartItem = {
+            service: selected,
+            quantity,
+            selectedOptions,
+            files: files.map(f => ({ file: f.file, preview: f.preview || '' })),
+            notes,
+            selectedSizes,
+        };
+
+        setCart(prev => [...prev, cartItem]);
+        setSelected(null);
+        setVariantChoices({});
+        setQuantity(1);
+        setFiles([]);
+        setNotes('');
+        setSizeChoice({});
+        setNotif({ type: 'success', message: 'Item added to cart!' });
+    };
+
+    const removeFromCart = (index: number) => {
+        setCart(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const updateCartItemQuantity = (index: number, newQuantity: number) => {
+        if (newQuantity <= 0) {
+            removeFromCart(index);
+            return;
+        }
+        setCart(prev => prev.map((item, i) => 
+            i === index ? { ...item, quantity: newQuantity } : item
+        ));
+    };
+
+    const clearCart = () => {
+        setCart([]);
+    };
+
+    // Payment confirmation functions
+    // const checkPaymentStatus = async (orderId: string) => {
+    //     try {
+    //         const response = await api.get(`/orders/${orderId}/payment-status`);
+    //         const status = response.data;
+    //         
+    //         if (status.paymentStatus === 'paid') {
+    //             setPaymentStatus('completed');
+    //             setNotif({ type: 'success', message: 'Payment confirmed! Your order is being processed.' });
+    //         } else {
+    //             setPaymentStatus('pending');
+    //         }
+    //     } catch (e: unknown) {
+    //         setPaymentStatus('failed');
+    //         setNotif({ type: 'error', message: 'Failed to check payment status' });
+    //     }
+    // };
+
+    // Replace immediate “simulate payment” flow with: wait for ready => show QR => wait for owner verify => show receipt
+    useEffect(() => {
+        if (!showPaymentModal || !paymentOrderId) return;
+
+        let cancelled = false;
+        let pollTimer: ReturnType<typeof setInterval> | null = null;
+        let es: EventSource | null = null;
+
+        async function fetchOrderOnce() {
+            try {
+                const res = await api.get(`/orders/${paymentOrderId}`);
+                if (cancelled) return;
+                const o = res.data as { status?: OrderStatusLocal };
+                if (!o?.status) return;
+
+                setWatchedOrderStatus(o.status);
+
+                if (o.status === 'ready' && !showPaymentModal) {
+                    setShowPaymentModal(true);
+                }
+                if (o.status === 'completed') {
+                    setPaymentStatus('completed');
+                    if (!showPaymentModal) setShowPaymentModal(true);
+                    if (!receiptUrl) {
+                        try {
+                            const rec = await api.get(`/orders/${paymentOrderId}/receipt`, { responseType: 'blob' });
+                            const blobUrl = URL.createObjectURL(rec.data);
+                            if (!cancelled) setReceiptUrl(blobUrl);
+                        } catch { /* ignore */ }
+                    }
+                }
+            } catch { /* ignore */ }
+        }
+
+        try {
+            const base = api.defaults.baseURL?.replace(/\/+$/, '') || '';
+            es = new EventSource(`${base}/orders/${paymentOrderId}/events`);
+            es.onmessage = (evt) => {
+                try {
+                    const data = JSON.parse(evt.data || '{}');
+                    if (data?.type === 'status' && data.status) {
+                        setWatchedOrderStatus(data.status);
+                        if (data.status === 'ready' && !showPaymentModal) setShowPaymentModal(true);
+                        if (data.status === 'completed') {
+                            setPaymentStatus('completed');
+                            if (!showPaymentModal) setShowPaymentModal(true);
+                        }
+                    }
+                    if (data?.type === 'receipt' && data.blobUrl && !receiptUrl) {
+                        setReceiptUrl(data.blobUrl);
+                    }
+                } catch { /* ignore */ }
+            };
+            es.onerror = () => {
+                if (!pollTimer) {
+                    fetchOrderOnce();
+                    pollTimer = setInterval(fetchOrderOnce, 3000);
+                }
+            };
+        } catch {
+            fetchOrderOnce();
+            pollTimer = setInterval(fetchOrderOnce, 3000);
+        }
+
+        fetchOrderOnce();
+
+        return () => {
+            cancelled = true;
+            if (pollTimer) clearInterval(pollTimer);
+            if (es) es.close();
+        };
+    }, [paymentOrderId, showPaymentModal, receiptUrl]);
+
+    const cartTotal = useMemo(() => {
+        return cart.reduce((total, item) => {
+            const basePrice = item.service.basePrice || 0;
+            const optionPrices = item.selectedOptions.reduce((sum, option) => {
+                const variant = item.service.variants?.find(v => v.label === option.variantLabel);
+                const optionData = variant?.options.find(o => o.name === option.optionName);
+                return sum + (optionData?.priceDelta || 0);
+            }, 0);
+            return total + (basePrice + optionPrices) * item.quantity;
+        }, 0);
+    }, [cart]);
+
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
         let items = services.filter((s) =>
@@ -254,6 +460,20 @@ export default function OrderPage() {
                                     aria-expanded={showFilters}
                                 >
                                     <FunnelIcon className="h-5 w-5" /> Filter
+                                </button>
+                            </div>
+                            <div className="relative z-[60]">
+                                <button
+                                    onClick={() => setShowCart(true)}
+                                    className="inline-flex items-center justify-center gap-2 px-4 h-11 rounded-full bg-blue-600 text-white border border-blue-500 hover:bg-blue-500"
+                                >
+                                    <ShoppingCartIcon className="h-5 w-5" />
+                                    Cart ({cart.length})
+                                    {cartTotal > 0 && (
+                                        <span className="text-xs bg-blue-500 px-2 py-0.5 rounded-full">
+                                            {formatMoney(cartTotal)}
+                                        </span>
+                                    )}
                                 </button>
                                 {showFilters && filterPos && createPortal(
                                     <div
@@ -402,6 +622,18 @@ export default function OrderPage() {
                                                             {svc.description && (
                                                                 <p className="text-sm text-gray-200 mt-3 line-clamp-3">{svc.description}</p>
                                                             )}
+                                                            {svc.variants && svc.variants.length > 0 && (
+                                                                <div className="mt-2">
+                                                                    <p className="text-xs text-gray-400 mb-1">Available options:</p>
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {svc.variants.map((variant, vIdx) => (
+                                                                            <span key={vIdx} className="text-xs bg-blue-500/20 text-blue-200 px-2 py-1 rounded">
+                                                                                {variant.label}: {variant.options.length} options
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </li>
@@ -472,6 +704,45 @@ export default function OrderPage() {
                                     </div>
                                 </div>
                             </div>
+
+                            {/* NEW: Linked product description and sizes (if no "Size" variant) */}
+                            {(() => {
+                                const hasSizeVariant = (selected.variants || []).some(v => v.label.toLowerCase() === 'size');
+                                if (hasSizeVariant) return null;
+                                if (!selected.attributes || selected.attributes.length === 0) return null;
+                                // single linked inventory flow for size selection
+                                const unique = Array.from(new Set(selected.attributes.map(a => a.productId).filter(Boolean)));
+                                if (unique.length !== 1) return null;
+                                const pid = unique[0];
+                                const inv = inventoryCache[pid];
+                                if (!inv) return null;
+                                return (
+                                    <div className="space-y-2">
+                                        {inv.description && (
+                                            <div className="text-sm text-gray-200">
+                                                <span className="font-semibold">Product details:</span> {inv.description}
+                                            </div>
+                                        )}
+                                        {Array.isArray(inv.sizes) && inv.sizes.length > 0 && (
+                                            <div>
+                                                <label className="block text-xs text-gray-300 mb-1">Available sizes</label>
+                                                <select
+                                                    value={sizeChoice[pid] ?? ''}
+                                                    onChange={(e) => setSizeChoice(prev => ({ ...prev, [pid]: e.target.value }))}
+                                                    className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-white"
+                                                >
+                                                    <option value="">Select size</option>
+                                                    {inv.sizes.map((sz, i) => (
+                                                        <option key={i} value={sz.name}>
+                                                            {sz.name} ({sz.quantity} pcs available)
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
 
                             {/* Attributes */}
                             {(selected.variants || []).length > 0 && (
@@ -645,55 +916,9 @@ export default function OrderPage() {
                                     type="button"
                                     className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold disabled:opacity-60"
                                     disabled={submitting}
-                                    onClick={async () => {
-                                        if (!selected || !derivedStoreId) return;
-                                        if (files.length === 0) {
-                                            setNotif({ type: 'error', message: 'Please upload at least one file before ordering.' });
-                                            return;
-                                        }
-                                        try {
-                                            setSubmitting(true);
-                                            // Ensure auth or guest token present
-                                            if (!token) {
-                                                try {
-                                                    await continueAsGuest();
-                                                } catch {
-                                                    setNotif({ type: 'error', message: 'Unable to start guest session.' });
-                                                    setSubmitting(false);
-                                                    return;
-                                                }
-                                            }
-                                            const options = (selected.variants || []).map((v) => ({
-                                                label: v.label,
-                                                optionIndex: Number.isFinite(variantChoices[v.label]) ? Number(variantChoices[v.label]) : 0,
-                                            }));
-                                            const fd = new FormData();
-                                            fd.append('storeId', derivedStoreId);
-                                            fd.append('serviceId', selected._id);
-                                            fd.append('quantity', String(safeQty));
-                                            fd.append('notes', notes || '');
-                                            fd.append('selectedOptions', JSON.stringify(options));
-                                            if (Array.isArray(files)) {
-                                                for (const f of files) {
-                                                    fd.append('files', f.file, f.file.name);
-                                                }
-                                            }
-                                            const res = await api.post('/orders', fd);
-                                            console.log('Order created', res.data);
-                                            setNotif({ type: 'success', message: 'Order placed successfully!' });
-                                            setSelected(null);
-                                            setFiles([]);
-                                            setNotes('');
-                                        } catch (e: unknown) {
-                                            const err = e as { response?: { data?: { message?: string } }; message?: string };
-                                            const msg = err?.response?.data?.message || err?.message || 'Failed to place order';
-                                            setNotif({ type: 'error', message: msg });
-                                        } finally {
-                                            setSubmitting(false);
-                                        }
-                                    }}
+                                    onClick={addToCart}
                                 >
-                                    {submitting ? 'Ordering…' : 'Order'}
+                                    {submitting ? 'Adding…' : 'Add to Cart'}
                                 </button>
                             </div>
                         </div>
@@ -701,6 +926,304 @@ export default function OrderPage() {
                 </div>
             )}
 
+            {/* Cart Modal */}
+            {showCart && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                    <div className="relative z-10 mx-auto max-w-4xl w-[92%] sm:w-[800px] rounded-xl border border-white/10 bg-gray-900 text-white shadow-xl overflow-hidden">
+                        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/10">
+                            <h2 className="text-lg font-semibold">Shopping Cart ({cart.length} items)</h2>
+                            <button
+                                onClick={() => setShowCart(false)}
+                                className="p-2 rounded-lg hover:bg-white/10"
+                            >
+                                <TrashIcon className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 sm:p-5 max-h-96 overflow-y-auto">
+                            {cart.length === 0 ? (
+                                <div className="text-center text-gray-400 py-8">
+                                    <ShoppingCartIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                    <p>Your cart is empty</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {cart.map((item, index) => (
+                                        <div key={index} className="border border-white/10 rounded-lg p-4">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-white">{item.service.name}</h3>
+                                                    <p className="text-sm text-gray-300">{item.service.description}</p>
+                                                    <div className="mt-2">
+                                                        <p className="text-sm text-gray-400">Quantity: {item.quantity}</p>
+                                                        <p className="text-sm text-gray-400">Unit: {item.service.unit}</p>
+                                                        {item.selectedOptions.length > 0 && (
+                                                            <div className="mt-1">
+                                                                <p className="text-xs text-gray-400">Options:</p>
+                                                                {item.selectedOptions.map((option, optIndex) => (
+                                                                    <span key={optIndex} className="text-xs bg-blue-500/20 text-blue-200 px-2 py-1 rounded mr-1">
+                                                                        {option.variantLabel}: {option.optionName}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        {item.notes && (
+                                                            <p className="text-sm text-gray-400 mt-1">Notes: {item.notes}</p>
+                                                        )}
+                                                        <p className="text-sm text-gray-400 mt-1">Files: {item.files.length}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 ml-4">
+                                                    <div className="text-right">
+                                                        <p className="font-semibold">{formatMoney(
+                                                            (item.service.basePrice + item.selectedOptions.reduce((sum, opt) => {
+                                                                const variant = item.service.variants?.find(v => v.label === opt.variantLabel);
+                                                                const optionData = variant?.options.find(o => o.name === opt.optionName);
+                                                                return sum + (optionData?.priceDelta || 0);
+                                                            }, 0)) * item.quantity,
+                                                            item.service.currency
+                                                        )}</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => updateCartItemQuantity(index, item.quantity - 1)}
+                                                            className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+                                                        >
+                                                            -
+                                                        </button>
+                                                        <span className="px-2 py-1 text-sm">{item.quantity}</span>
+                                                        <button
+                                                            onClick={() => updateCartItemQuantity(index, item.quantity + 1)}
+                                                            className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-sm"
+                                                        >
+                                                            +
+                                                        </button>
+                                                        <button
+                                                            onClick={() => removeFromCart(index)}
+                                                            className="p-1 rounded hover:bg-red-600 text-red-300 ml-2"
+                                                        >
+                                                            <TrashIcon className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {/* Render sizes inside cart items */}
+                                            {item.selectedSizes && item.selectedSizes.length > 0 && (
+                                                <div className="mt-1">
+                                                    <p className="text-xs text-gray-400">Sizes:</p>
+                                                    {item.selectedSizes.map((s, i) => (
+                                                        <span key={i} className="text-xs bg-purple-500/20 text-purple-200 px-2 py-1 rounded mr-1">
+                                                            {s.sizeName}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        {cart.length > 0 && (
+                            <div className="px-4 sm:px-5 py-3 border-t border-white/10">
+                                <div className="flex items-center justify-between">
+                                    <div className="text-lg font-semibold">
+                                        Total: {formatMoney(cartTotal)}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={clearCart}
+                                            className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10"
+                                        >
+                                            Clear Cart
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                if (!derivedStoreId) return;
+                                                try {
+                                                    setSubmitting(true);
+                                                    setNotif(null);
+
+                                                    // Ensure auth or guest token present
+                                                    if (!token) {
+                                                        try {
+                                                            await continueAsGuest();
+                                                        } catch {
+                                                            setNotif({ type: 'error', message: 'Unable to start guest session.' });
+                                                            setSubmitting(false);
+                                                            return;
+                                                        }
+                                                    }
+
+                                                    // Create orders for each cart item
+                                                    const orderIds: string[] = [];
+                                                    for (const item of cart) {
+                                                        const options = item.selectedOptions.map(opt => ({
+                                                            label: opt.variantLabel,
+                                                            optionIndex:
+                                                                item.service.variants?.find(v => v.label === opt.variantLabel)?.options.findIndex(o => o.name === opt.optionName) || 0,
+                                                        }));
+
+                                                        const fd = new FormData();
+                                                        fd.append('storeId', derivedStoreId);
+                                                        fd.append('serviceId', item.service._id);
+                                                        fd.append('quantity', String(item.quantity));
+                                                        fd.append('notes', item.notes || '');
+                                                        fd.append('selectedOptions', JSON.stringify(options));
+
+                                                        // NEW: include selected sizes for size-level deduction
+                                                        if (item.selectedSizes && item.selectedSizes.length > 0) {
+                                                            fd.append('selectedSizes', JSON.stringify(item.selectedSizes));
+                                                        } else {
+                                                            // If a "Size" variant exists and options have linked inventory, pass the pair as well
+                                                            const sizeVariant = (item.service.variants || []).find(v => v.label.toLowerCase() === 'size');
+                                                            if (sizeVariant) {
+                                                                const idx = options.find(o => o.label === sizeVariant.label)?.optionIndex ?? 0;
+                                                                const opt = sizeVariant.options[idx];
+                                                                if (opt?.linkedInventoryId) {
+                                                                    fd.append('selectedSizes', JSON.stringify([{
+                                                                        productId: String(opt.linkedInventoryId),
+                                                                        sizeName: String(opt.name),
+                                                                    }]));
+                                                                }
+                                                            }
+                                                        }
+
+                                                        for (const file of item.files) {
+                                                            fd.append('files', file.file, file.file.name);
+                                                        }
+
+                                                        const response = await api.post('/orders', fd);
+                                                        orderIds.push(response.data._id);
+                                                    }
+
+                                                    setNotif({ type: 'success', message: 'Orders placed successfully! We’ll notify you when it’s ready.' });
+                                                    setCart([]);
+                                                    setShowCart(false);
+                                                    if (orderIds.length > 0) {
+                                                      setPaymentOrderId(orderIds[0]);     // keep the ID to watch
+                                                      setWatchedOrderStatus(null);
+                                                      setReceiptUrl(null);
+                                                      setPaymentStatus('pending');
+                                                      // removed: setShowPaymentModal(true);
+                                                    }
+                                                } catch {
+                                                    setNotif({ type: 'error', message: 'Failed to place order(s).' });
+                                                } finally {
+                                                    setSubmitting(false);
+                                                }
+                                            }}
+                                            className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold disabled:opacity-60"
+                                            disabled={submitting}
+                                        >
+                                            {submitting ? 'Placing…' : 'Place Order'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Payment confirmation modal (new flow) */}
+            {showPaymentModal && paymentOrderId && (
+                <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60" onClick={() => setShowPaymentModal(false)} />
+                    <div className="relative z-10 max-w-md w-full rounded-xl border border-white/10 bg-gray-900 text-white shadow-xl overflow-hidden">
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/10">
+                            <div className="text-lg font-semibold">
+                                Payment Confirmation
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowPaymentModal(false)}
+                                className="p-2 rounded-lg hover:bg-white/10"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        {/* Body */}
+                        <div className="p-4 sm:p-5 space-y-4">
+                            {/* Order status */}
+                            <div className="text-center">
+                                <div className="text-sm text-gray-400 mb-1">Order Status</div>
+                                <div className="text-2xl font-bold">
+                                    {watchedOrderStatus === 'pending' && 'Waiting for confirmation'}
+                                    {watchedOrderStatus === 'processing' && 'Being prepared'}
+                                    {watchedOrderStatus === 'ready' && 'Ready for pickup'}
+                                    {watchedOrderStatus === 'completed' && 'Completed'}
+                                    {watchedOrderStatus === 'cancelled' && 'Cancelled'}
+                                </div>
+                            </div>
+
+                            {/* QR Code / Receipt */}
+                            {(watchedOrderStatus === 'ready' || watchedOrderStatus === 'completed') && (
+                                <div className="space-y-4">
+                                    {watchedOrderStatus === 'ready' && (
+                                        <div className="text-center">
+                                            <div className="text-sm text-gray-400 mb-2">Pickup QR Code</div>
+                                            <div className="flex items-center justify-center">
+                                                <QRCodeCanvas
+                                                    value={`ORDER:${paymentOrderId}`}
+                                                    size={160}
+                                                    includeMargin
+                                                    className="rounded-lg bg-white p-2"
+                                                />
+                                            </div>
+                                            <div className="text-xs text-gray-400 mt-2">
+                                              Show this QR at the counter to proceed.
+                                            </div>
+                                        </div>
+                                    )}
+                                    {watchedOrderStatus === 'completed' && receiptUrl && (
+                                        <div className="text-center">
+                                            <div className="text-sm text-gray-400 mb-2">Receipt</div>
+                                            <a
+                                                href={receiptUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-block px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold"
+                                            >
+                                                View Receipt
+                                            </a>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Common actions */}
+                            <div className="flex flex-col sm:flex-row items-center gap-3">
+                                <button
+                                    onClick={() => setShowPaymentModal(false)}
+                                    className="flex-1 px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 text-sm"
+                                >
+                                    Close
+                                </button>
+                                {(watchedOrderStatus === 'ready' || watchedOrderStatus === 'completed') && (
+                                    <button
+                                        onClick={() => {
+                                            if (watchedOrderStatus === 'ready') {
+                                                setShowPaymentModal(false);
+                                                // Optionally, navigate to a different page or show a success message
+                                            }
+                                            if (watchedOrderStatus === 'completed') {
+                                                // For completed orders, you might want to navigate to the order history or similar
+                                                // navigate('/order-history');
+                                                setShowPaymentModal(false);
+                                            }
+                                        }}
+                                        className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold text-sm"
+                                    >
+                                        {watchedOrderStatus === 'ready' ? 'Got it, pick up soon!' : 'View order history'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

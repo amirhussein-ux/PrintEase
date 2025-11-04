@@ -13,7 +13,10 @@ import {
     ArrowTrendingDownIcon,
     UsersIcon,
     DocumentArrowDownIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    ExclamationTriangleIcon,
+    CheckCircleIcon,
+    EyeIcon, // Icon for viewing individual damage log
 } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
@@ -33,6 +36,20 @@ interface InventoryItem {
     price: number;
     currency: string;
     createdAt: string;
+    // New fields
+    description?: string;
+    expirationDate?: string;
+    isExpired?: boolean;
+    isActive?: boolean;
+    damageReports?: Array<{
+        quantity: number;
+        reason: string;
+        reportedBy: string;
+        reportedAt: string;
+    }>;
+    totalDamaged?: number;
+    // NEW: per-size stock
+    sizes?: Array<{ name: string; quantity: number }>;
 }
 
 interface Employee {
@@ -69,6 +86,27 @@ interface DeletedEmployee {
     deletedAt: string;
 }
 
+// NEW INTERFACE FOR USAGE CHECK RESPONSE
+interface ProductUsageCheck {
+    canDelete: boolean;
+    activeOrdersCount: number;
+    activeOrders: Array<{ id: string; status: string; createdAt: string }>;
+    usedInServices: boolean;
+    servicesCount: number;
+}
+
+// NEW INTERFACE FOR DAMAGE LOG
+interface DamageLogEntry {
+    id: string;
+    productId: string;
+    productName: string;
+    quantity: number;
+    reason: string;
+    reportedBy: string;
+    reportedAt: string;
+}
+
+
 function toErrorMessage(e: unknown, fallback: string): string {
     if (isAxiosError(e)) {
         const data = e.response?.data as { message?: string } | undefined;
@@ -81,12 +119,40 @@ function toErrorMessage(e: unknown, fallback: string): string {
 const Inventory: React.FC = () => {
     // Product state
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "", entryPrice: "" });
+    const [form, setForm] = useState({
+        product: "",
+        category: "",
+        quantity: "",
+        minQuantity: "",
+        unitPrice: "",
+        entryPrice: "",
+        description: "",
+        expirationDate: "",
+        // NEW
+        sizes: [] as Array<{ name: string; quantity: string }>,
+    });
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [products, setProducts] = useState<InventoryItem[]>([]);
     const [product, setProduct] = useState("");
     const [editIndex, setEditIndex] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+
+    // New enhanced features state
+    const [showDamageModal, setShowDamageModal] = useState(false);
+    const [damageForm, setDamageForm] = useState({ quantity: "", reason: "", reportedBy: "" });
+    const [damageProductId, setDamageProductId] = useState<string | null>(null);
+    const [showDamageReports, setShowDamageReports] = useState(false);
+    const [damageReports, setDamageReports] = useState<Array<{
+        quantity: number;
+        reason: string;
+        reportedBy: string;
+        reportedAt: string;
+    }>>([]);
+    
+    // State for deletion guardrail
+    const [productUsageCheck, setProductUsageCheck] = useState<ProductUsageCheck | null>(null);
+    const [showUsageCheckModal, setShowUsageCheckModal] = useState<boolean>(false);
+
 
     const [searchTerm, setSearchTerm] = useState("");
     const [productStatusFilter, setProductStatusFilter] = useState<"ALL" | "LOW" | "OK">("ALL");
@@ -124,7 +190,40 @@ const Inventory: React.FC = () => {
     const [showDeletedProducts, setShowDeletedProducts] = useState(false);
     const [showDeletedEmployees, setShowDeletedEmployees] = useState(false);
 
+    // Damage Reports Log state (to track individual report submissions)
+    const [damageLog, setDamageLog] = useState<DamageLogEntry[]>([]);
+    
+    // NEW STATE: Holds the report object when 'View Reason' is clicked
+    const [viewingDamageLog, setViewingDamageLog] = useState<DamageLogEntry | null>(null);
+
+
     const isMountedRef = useRef(true);
+
+    // Function to retrieve the latest damage reports from products for the DamageLog
+    const reloadDamageLog = useCallback(() => {
+        // This is a simplified client-side log creation by scanning all products
+        // In a real app, this data would ideally come from a dedicated API endpoint /damagelog/mine
+        const logEntries: DamageLogEntry[] = [];
+        products.forEach(p => {
+            if (p.damageReports && p.damageReports.length > 0) {
+                p.damageReports.forEach(report => {
+                    logEntries.push({
+                        id: `${p._id}-${report.reportedAt}`, // Simple unique ID
+                        productId: p._id,
+                        productName: p.name,
+                        quantity: report.quantity,
+                        reason: report.reason,
+                        reportedBy: report.reportedBy,
+                        reportedAt: report.reportedAt,
+                    });
+                });
+            }
+        });
+        
+        // Sort by reportedAt (newest first)
+        logEntries.sort((a, b) => new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime());
+        setDamageLog(logEntries);
+    }, [products]);
 
     const reloadInventoryLists = useCallback(async () => {
         const [inventoryRes, deletedRes] = await Promise.all([
@@ -134,8 +233,17 @@ const Inventory: React.FC = () => {
 
         if (!isMountedRef.current) return;
 
-        const inventoryItems: InventoryItem[] = inventoryRes.data || [];
+        let inventoryItems: InventoryItem[] = inventoryRes.data || [];
         const archivedInventory: DeletedInventoryItem[] = deletedRes.data || [];
+
+        // Normalize amount from sizes if present
+        inventoryItems = inventoryItems.map(p => {
+            if (Array.isArray(p.sizes) && p.sizes.length) {
+                const total = p.sizes.reduce((s, sz) => s + Number(sz.quantity || 0), 0);
+                return { ...p, amount: total };
+            }
+            return p;
+        });
 
         setProducts(inventoryItems);
         setDeletedProducts(archivedInventory);
@@ -180,6 +288,11 @@ const Inventory: React.FC = () => {
         };
     }, [reloadInventoryLists, reloadEmployeeLists]);
 
+    // Effect to reload damage log whenever products update
+    useEffect(() => {
+        reloadDamageLog();
+    }, [products, reloadDamageLog]);
+    
     // Graph data: show current stock levels by category or all products
     const stockAmountData = useMemo(() => {
         if (products.length === 0) {
@@ -278,7 +391,17 @@ const Inventory: React.FC = () => {
     // Product handlers
     const handleCreate = () => {
         setShowModal(true);
-    setForm({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "", entryPrice: "" });
+        setForm({
+            product: "",
+            category: "",
+            quantity: "",
+            minQuantity: "",
+            unitPrice: "",
+            entryPrice: "",
+            description: "",
+            expirationDate: "",
+            sizes: [], // reset sizes
+        });
         setErrors({});
         setEditIndex(null);
     };
@@ -286,10 +409,23 @@ const Inventory: React.FC = () => {
     const validateFields = () => {
         const newErrors: { [key: string]: string } = {};
         if (!form.product.trim()) newErrors.product = "Product name is required.";
-        if (!form.quantity.trim() || isNaN(Number(form.quantity))) newErrors.quantity = "Quantity must be a number.";
         if (!form.minQuantity.trim() || isNaN(Number(form.minQuantity))) newErrors.minQuantity = "Min. Quantity must be a number.";
         if (!form.unitPrice.trim() || isNaN(Number(form.unitPrice))) newErrors.unitPrice = "Unit Price must be a number.";
         if (!form.entryPrice.trim() || isNaN(Number(form.entryPrice))) newErrors.entryPrice = "Entry Price must be a number.";
+        // Sizes validation
+        if (form.sizes.length > 0) {
+            form.sizes.forEach((s, idx) => {
+                if (!s.name.trim()) newErrors[`sizes.${idx}.name`] = "Size name is required.";
+                if (s.quantity.trim() === "" || isNaN(Number(s.quantity)) || Number(s.quantity) < 0) {
+                    newErrors[`sizes.${idx}.quantity`] = "Quantity must be a non-negative number.";
+                }
+            });
+        } else {
+            // fall back to global quantity if no sizes entered
+            if (!form.quantity.trim() || isNaN(Number(form.quantity)) || Number(form.quantity) < 0) {
+                newErrors.quantity = "Quantity must be a non-negative number.";
+            }
+        }
         return newErrors;
     };
 
@@ -299,34 +435,55 @@ const Inventory: React.FC = () => {
         const newErrors = validateFields();
         setErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
-        
+
+        // Compute amount from sizes if provided
+        const sizesPayload = form.sizes
+            .filter(s => s.name.trim())
+            .map(s => ({ name: s.name.trim(), quantity: Number(s.quantity || 0) }));
+        const computedAmount = sizesPayload.length
+            ? sizesPayload.reduce((sum, s) => sum + Number(s.quantity || 0), 0)
+            : Number(form.quantity || 0);
+
         try {
             setError(null);
             if (editIndex !== null) {
-                // Update existing item
                 const res = await api.put(`/inventory/${editIndex}`, {
                     name: form.product,
                     category: form.category || undefined,
-                    amount: Number(form.quantity),
+                    amount: computedAmount,
                     minAmount: Number(form.minQuantity),
                     price: Number(form.unitPrice),
                     entryPrice: Number(form.entryPrice),
+                    description: form.description || undefined,
+                    expirationDate: form.expirationDate || undefined,
+                    // NEW
+                    sizes: sizesPayload.length ? sizesPayload : undefined,
                 });
-                const updated = res.data;
-                setProducts(prev => prev.map(p => p._id === editIndex ? updated : p));
+                const updated = res.data as InventoryItem;
+                // Normalize amount after save
+                const normalized = Array.isArray(updated.sizes) && updated.sizes.length
+                    ? { ...updated, amount: updated.sizes.reduce((s, z) => s + Number(z.quantity || 0), 0) }
+                    : updated;
+                setProducts(prev => prev.map(p => p._id === editIndex ? normalized : p));
                 setProduct(form.product);
             } else {
-                // Create new item
                 const res = await api.post("/inventory", {
                     name: form.product,
                     category: form.category || undefined,
-                    amount: Number(form.quantity),
+                    amount: computedAmount,
                     minAmount: Number(form.minQuantity),
                     price: Number(form.unitPrice),
                     entryPrice: Number(form.entryPrice),
+                    description: form.description || undefined,
+                    expirationDate: form.expirationDate || undefined,
+                    // NEW
+                    sizes: sizesPayload.length ? sizesPayload : undefined,
                 });
-                const created = res.data;
-                setProducts(prev => [created, ...prev]);
+                const created = res.data as InventoryItem;
+                const normalized = Array.isArray(created.sizes) && created.sizes.length
+                    ? { ...created, amount: created.sizes.reduce((s, z) => s + Number(z.quantity || 0), 0) }
+                    : created;
+                setProducts(prev => [normalized, ...prev]);
                 setProduct(form.product);
             }
             setShowModal(false);
@@ -341,16 +498,47 @@ const Inventory: React.FC = () => {
         setForm({
             product: p.name,
             category: p.category || "",
-            quantity: String(p.amount),
+            // quantity becomes computed if sizes are present
+            quantity: String(p.amount ?? 0),
             minQuantity: String(p.minAmount),
             unitPrice: String(p.price),
             entryPrice: String(p.entryPrice),
+            description: p.description || "",
+            expirationDate: p.expirationDate || "",
+            sizes: Array.isArray(p.sizes) && p.sizes.length
+                ? p.sizes.map(s => ({ name: s.name, quantity: String(s.quantity) }))
+                : [], // empty => falls back to simple quantity
         });
         setEditIndex(id);
         setShowModal(true);
         setErrors({});
     };
 
+    // NEW: Function to initiate product deletion check
+    const initiateProductDeletion = async (productId: string) => {
+        setDeleteProductId(productId);
+        try {
+            setError(null);
+            const response = await api.get(`/inventory/${productId}/usage`);
+            setProductUsageCheck(response.data);
+            
+            if (!response.data.canDelete) {
+                // Product has active usage, show the check modal instead of the delete confirmation
+                setShowUsageCheckModal(true);
+                // Clear the deleteProductId state so the simple delete modal doesn't flash
+                setDeleteProductId(null);
+            } else {
+                // Product has no active usage, allow the normal delete confirmation
+                // The simple Confirm Delete Modal is already open via the state set at the beginning
+            }
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to check product usage before deletion."));
+            // Fallback to showing the simple delete confirmation if usage check fails
+            setProductUsageCheck(null);
+        }
+    };
+
+    // MODIFIED: Function to handle final product deletion
     const confirmDeleteProduct = async () => {
         if (!deleteProductId) return;
         const id = deleteProductId;
@@ -358,10 +546,70 @@ const Inventory: React.FC = () => {
 
         try {
             setError(null);
+            // The usage check is now handled in initiateProductDeletion. We can safely delete here.
             await api.delete(`/inventory/${id}`);
             await reloadInventoryLists();
         } catch (e: unknown) {
             setError(toErrorMessage(e, "Failed to delete product"));
+        }
+    };
+
+
+    // MODIFIED: Report damage to inventory item
+    const reportDamage = async () => {
+        if (!damageProductId) return;
+        
+        try {
+            setError(null);
+            const res = await api.post(`/inventory/${damageProductId}/damage`, damageForm);
+            
+            // Find the product name for the log
+            const product = products.find(p => p._id === damageProductId);
+            
+            // Log the report locally
+            if (product) {
+                const newReport: DamageLogEntry = {
+                    id: crypto.randomUUID(),
+                    productId: damageProductId,
+                    productName: product.name,
+                    quantity: Number(damageForm.quantity),
+                    reason: damageForm.reason,
+                    reportedBy: damageForm.reportedBy,
+                    reportedAt: new Date().toISOString(),
+                };
+                setDamageLog(prev => [newReport, ...prev]);
+            }
+
+            setShowDamageModal(false);
+            setDamageForm({ quantity: "", reason: "", reportedBy: "" });
+            setDamageProductId(null);
+            await reloadInventoryLists();
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to report damage"));
+        }
+    };
+
+    // Get damage reports for a product
+    const getDamageReports = async (productId: string) => {
+        try {
+            const response = await api.get(`/inventory/${productId}/damage-reports`);
+            setDamageReports(response.data.damageReports);
+            setShowDamageReports(true);
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to get damage reports"));
+        }
+    };
+
+    // Check for expired products
+    const checkExpiredProducts = async () => {
+        try {
+            const response = await api.post('/inventory/check-expired');
+            if (response.data.expiredCount > 0) {
+                setError(`Found ${response.data.expiredCount} expired products. They have been marked as inactive.`);
+            }
+            await reloadInventoryLists();
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to check expired products"));
         }
     };
 
@@ -446,19 +694,22 @@ const Inventory: React.FC = () => {
         }
     }
 
-    // Improved filteredProducts using useMemo (like Service Management)
+    // Improved filteredProducts: also search sizes by name
     const filteredProducts = useMemo(() => {
-    const base = products.filter(p => {
+        const base = products.filter(p => {
+            const search = searchTerm.toLowerCase();
+            const inSizes = Array.isArray(p.sizes) && p.sizes.some(sz => sz.name.toLowerCase().includes(search));
             const qOK =
-                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (p.category && p.category.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (p._id && p._id.toLowerCase().includes(searchTerm.toLowerCase()));
+                p.name.toLowerCase().includes(search) ||
+                (p.category && p.category.toLowerCase().includes(search)) ||
+                (p._id && p._id.toLowerCase().includes(search)) ||
+                inSizes;
             let statusOK = true;
             if (productStatusFilter === "LOW") statusOK = Number(p.amount) <= Number(p.minAmount);
             if (productStatusFilter === "OK") statusOK = Number(p.amount) > Number(p.minAmount);
             return qOK && statusOK;
         });
-    const sorted = [...base].sort((a, b) => {
+        const sorted = [...base].sort((a, b) => {
             let cmp = 0;
             if (productSortKey === "product") cmp = a.name.localeCompare(b.name);
             else if (productSortKey === "quantity") cmp = Number(a.amount) - Number(b.amount);
@@ -575,6 +826,8 @@ const Inventory: React.FC = () => {
 
     // PDF Export function
     const exportToPDF = async () => {
+        const fileName = `profit-expenses-ledger-${new Date().toISOString().split('T')[0]}.pdf`;
+        
         try {
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pageWidth = pdf.internal.pageSize.getWidth();
@@ -643,11 +896,11 @@ const Inventory: React.FC = () => {
             });
             
             // Save the PDF
-            pdf.save(`profit-expenses-ledger-${new Date().toISOString().split('T')[0]}.pdf`);
+            pdf.save(fileName);
         } catch (error) {
             console.error('Error generating PDF:', error);
             alert('Failed to generate PDF');
-        }
+        } 
     };
 
     return (
@@ -805,6 +1058,9 @@ const Inventory: React.FC = () => {
                         <button className="bg-blue-400 text-white rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-1" onClick={exportToPDF}>
                             <DocumentArrowDownIcon className="w-5 h-5" /> Export PDF
                         </button>
+                        <button className="bg-orange-400 text-white rounded-lg px-4 py-1 font-normal text-[0.95rem] flex items-center gap-1" onClick={checkExpiredProducts}>
+                            <ArrowPathIcon className="w-5 h-5" /> Check Expired
+                        </button>
                         {showProductFilters && (
                             <div className="absolute z-20 mt-2 right-8 w-72 rounded-lg border border-gray-300 bg-white p-3 shadow-xl">
                                 <div className="flex items-center justify-between mb-2">
@@ -893,19 +1149,40 @@ const Inventory: React.FC = () => {
                                     <td>Min. Quantity</td>
                                     <td>Unit Price</td>
                                     <td>Entry Price</td>
+                                    {/* NEW: sizes column */}
+                                    <td>Sizes</td>
                                     <td className="text-right">Actions</td>
                                 </tr>
                             </thead>
                             <tbody>
                                 {!showDeletedProducts && filteredProducts.map((p) => (
-                                    <tr key={p._id} className="text-[0.95rem]">
+                                    <tr key={p._id} className="text-[0.95rem] align-top">
                                         <td>{p._id.slice(-6).toUpperCase()}</td>
-                                        <td>{p.name}</td>
+                                        <td>
+                                            <div className="font-semibold">{p.name}</div>
+                                            {p.category && (
+                                                <div className="text-xs text-gray-600">{p.category} → {p.name}</div>
+                                            )}
+                                        </td>
                                         <td>{p.category || '-'}</td>
                                         <td>{p.amount}</td>
                                         <td>{p.minAmount}</td>
                                         <td>₱{p.price}</td>
                                         <td>₱{p.entryPrice}</td>
+                                        {/* NEW: sizes render */}
+                                        <td>
+                                            {Array.isArray(p.sizes) && p.sizes.length > 0 ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {p.sizes.map((s, i) => (
+                                                        <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-gray-200 text-gray-800 border border-gray-300">
+                                                            {s.name} ({s.quantity} pcs)
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-gray-500">—</span>
+                                            )}
+                                        </td>
                                         <td className="flex gap-1 items-center justify-end py-1">
                                             <button
                                                 className="p-2 rounded-lg hover:bg-blue-200 text-blue-700"
@@ -915,9 +1192,27 @@ const Inventory: React.FC = () => {
                                                 <PencilSquareIcon className="w-4 h-4" />
                                             </button>
                                             <button
+                                                className="p-2 rounded-lg hover:bg-orange-200 text-orange-600"
+                                                title="Report Damage"
+                                                onClick={() => {
+                                                    setDamageProductId(p._id);
+                                                    setShowDamageModal(true);
+                                                }}
+                                            >
+                                                <ArrowTrendingDownIcon className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                className="p-2 rounded-lg hover:bg-purple-200 text-purple-600"
+                                                title="View Damage Reports"
+                                                onClick={() => getDamageReports(p._id)}
+                                            >
+                                                <DocumentArrowDownIcon className="w-4 h-4" />
+                                            </button>
+                                            <button
                                                 className="p-2 rounded-lg hover:bg-red-200 text-red-600"
                                                 title="Delete"
-                                                onClick={() => setDeleteProductId(p._id)}
+                                                // MODIFIED: Use the new initiation function
+                                                onClick={() => initiateProductDeletion(p._id)}
                                             >
                                                 <TrashIcon className="w-4 h-4" />
                                             </button>
@@ -957,7 +1252,7 @@ const Inventory: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Confirm Delete Product Modal */}
+                    {/* Confirm Delete Product Modal (now only for simple deletion) */}
                     <Transition show={deleteProductId !== null} as={Fragment}>
                         <Dialog onClose={() => setDeleteProductId(null)} className="relative z-50">
                             <Transition.Child
@@ -984,13 +1279,13 @@ const Inventory: React.FC = () => {
                                     >
                                         <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
                                             <div className="flex items-center justify-between p-4 border-b border-white/10">
-                                                <Dialog.Title className="text-lg font-semibold">Delete Product</Dialog.Title>
+                                                <Dialog.Title className="text-lg font-semibold">Confirm Deletion</Dialog.Title>
                                                 <button onClick={() => setDeleteProductId(null)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
                                                     <XMarkIcon className="h-5 w-5" />
                                                 </button>
                                             </div>
                                             <div className="p-4 space-y-3 text-sm">
-                                                <p>Are you sure you want to delete the product{productToDeleteName ? ` "${productToDeleteName}"` : ""}? This action cannot be undone.</p>
+                                                <p>Are you sure you want to delete the product{productToDeleteName ? ` "${productToDeleteName}"` : ""}? This product has no active usage and will be moved to deleted items.</p>
                                                 <div className="flex justify-end gap-2 pt-2">
                                                     <button
                                                         type="button"
@@ -1004,7 +1299,7 @@ const Inventory: React.FC = () => {
                                                         onClick={confirmDeleteProduct}
                                                         className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-semibold text-sm inline-flex items-center gap-1"
                                                     >
-                                                        <TrashIcon className="w-4 h-4" /> Delete
+                                                        <TrashIcon className="w-4 h-4" /> Delete Permanently
                                                     </button>
                                                 </div>
                                             </div>
@@ -1014,6 +1309,79 @@ const Inventory: React.FC = () => {
                             </div>
                         </Dialog>
                     </Transition>
+                    
+                    {/* NEW: Product Usage Check Modal (Deletion Guardrail) */}
+                    <Transition show={showUsageCheckModal} as={Fragment}>
+                        <Dialog onClose={() => setShowUsageCheckModal(false)} className="relative z-50">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-200"
+                                enterFrom="opacity-0"
+                                enterTo="opacity-100"
+                                leave="ease-in duration-150"
+                                leaveFrom="opacity-100"
+                                leaveTo="opacity-0"
+                            >
+                                <div className="fixed inset-0 bg-black/50" />
+                            </Transition.Child>
+                            <div className="fixed inset-0 overflow-y-auto p-4 sm:p-6 flex items-center justify-center min-h-screen">
+                                <div className="w-full max-w-lg">
+                                    <Transition.Child
+                                        as={Fragment}
+                                        enter="ease-out duration-200"
+                                        enterFrom="opacity-0 translate-y-2"
+                                        enterTo="opacity-100 translate-y-0"
+                                        leave="ease-in duration-150"
+                                        leaveFrom="opacity-100 translate-y-0"
+                                        leaveTo="opacity-0 translate-y-1"
+                                    >
+                                        <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
+                                            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-red-600/30">
+                                                <Dialog.Title className="text-lg font-semibold flex items-center gap-2">
+                                                    <ExclamationTriangleIcon className="w-6 h-6 text-red-400" />
+                                                    Deletion Blocked: Active Usage Detected
+                                                </Dialog.Title>
+                                                <button onClick={() => setShowUsageCheckModal(false)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+                                                    <XMarkIcon className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                            <div className="p-4 space-y-4 text-sm">
+                                                <p className="font-semibold text-red-300">
+                                                    You cannot delete this product because it is currently linked to active operations.
+                                                </p>
+                                                {productUsageCheck && (
+                                                    <div className="space-y-2">
+                                                        {productUsageCheck.activeOrdersCount > 0 && (
+                                                            <div className="p-3 rounded-lg border border-red-500/50 bg-red-500/10">
+                                                                <p>• **{productUsageCheck.activeOrdersCount} Active Order(s)** are using this product.</p>
+                                                                <p className="text-xs mt-1 text-gray-300">Please complete or cancel these orders before deleting the product.</p>
+                                                            </div>
+                                                        )}
+                                                        {productUsageCheck.servicesCount > 0 && (
+                                                            <div className="p-3 rounded-lg border border-orange-500/50 bg-orange-500/10">
+                                                                <p>• **{productUsageCheck.servicesCount} Service(s)** are actively listing this product as an attribute.</p>
+                                                                <p className="text-xs mt-1 text-gray-300">You must remove the product from all linked services first.</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <div className="flex justify-end pt-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowUsageCheckModal(false)}
+                                                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <CheckIcon className="w-4 h-4" /> Understood
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </DialogPanel>
+                                    </Transition.Child>
+                                </div>
+                            </div>
+                        </Dialog>
+                    </Transition>
+
 
                     {/* Modal for Create/Edit Product (headlessui for cohesive styling) */}
                     <Transition show={showModal} as={Fragment}>
@@ -1124,12 +1492,21 @@ const Inventory: React.FC = () => {
                                                         <input
                                                             type="number"
                                                             min={0}
-                                                            value={form.quantity}
+                                                            value={
+                                                                // show computed total if sizes exist
+                                                                form.sizes.length
+                                                                    ? String(form.sizes.reduce((sum, s) => sum + (Number(s.quantity || 0)), 0))
+                                                                    : form.quantity
+                                                            }
                                                             onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))}
                                                             className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.quantity ? 'border-red-500/60' : 'border-white/10'}`}
                                                             placeholder="0"
+                                                            disabled={form.sizes.length > 0}
                                                         />
                                                         {errors.quantity && <p className="mt-1 text-xs text-red-400">{errors.quantity}</p>}
+                                                        {form.sizes.length > 0 && (
+                                                            <p className="mt-1 text-[11px] text-gray-400">Total is computed from sizes.</p>
+                                                        )}
                                                     </div>
                                                     <div>
                                                         <label className="block text-xs text-gray-300 mb-1">Min. Quantity</label>
@@ -1144,33 +1521,96 @@ const Inventory: React.FC = () => {
                                                         {errors.minQuantity && <p className="mt-1 text-xs text-red-400">{errors.minQuantity}</p>}
                                                     </div>
                                                 </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="block text-xs text-gray-300 mb-1">Unit Price (₱)</label>
-                                                        <input
-                                                            type="number"
-                                                            min={0}
-                                                            step="0.01"
-                                                            value={form.unitPrice}
-                                                            onChange={e => setForm(f => ({ ...f, unitPrice: e.target.value }))}
-                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.unitPrice ? 'border-red-500/60' : 'border-white/10'}`}
-                                                            placeholder="0.00"
-                                                        />
-                                                        {errors.unitPrice && <p className="mt-1 text-xs text-red-400">{errors.unitPrice}</p>}
+
+                                                {/* NEW: Sizes editor */}
+                                                <div>
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="block text-xs text-gray-300 mb-1">Sizes</label>
+                                                        <button
+                                                            type="button"
+                                                            className="text-xs px-2 py-1 rounded border border-white/10 hover:bg-white/10"
+                                                            onClick={() => setForm(f => ({ ...f, sizes: [...f.sizes, { name: "", quantity: "" }] }))}
+                                                        >
+                                                            + Add size
+                                                        </button>
                                                     </div>
-                                                    <div>
-                                                        <label className="block text-xs text-gray-300 mb-1">Entry Price (₱)</label>
-                                                        <input
-                                                            type="number"
-                                                            min={0}
-                                                            step="0.01"
-                                                            value={form.entryPrice}
-                                                            onChange={e => setForm(f => ({ ...f, entryPrice: e.target.value }))}
-                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm ${errors.entryPrice ? 'border-red-500/60' : 'border-white/10'}`}
-                                                            placeholder="0.00"
-                                                        />
-                                                        {errors.entryPrice && <p className="mt-1 text-xs text-red-400">{errors.entryPrice}</p>}
-                                                    </div>
+                                                    {form.sizes.length === 0 ? (
+                                                        <p className="text-xs text-gray-400">No sizes added. You can keep a single quantity or add sizes.</p>
+                                                    ) : (
+                                                        <div className="space-y-2 mt-2">
+                                                            {form.sizes.map((s, idx) => (
+                                                                <div key={idx} className="grid grid-cols-12 gap-2 items-end">
+                                                                    <div className="col-span-6">
+                                                                        <label className="block text-[11px] text-gray-400">Size name</label>
+                                                                        <input
+                                                                            value={s.name}
+                                                                            onChange={e => {
+                                                                                const val = e.target.value;
+                                                                                setForm(f => {
+                                                                                    const next = [...f.sizes];
+                                                                                    next[idx] = { ...next[idx], name: val };
+                                                                                    return { ...f, sizes: next };
+                                                                                });
+                                                                            }}
+                                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 text-sm ${errors[`sizes.${idx}.name`] ? 'border-red-500/60' : 'border-white/10'}`}
+                                                                            placeholder="e.g., Small, Medium, Large"
+                                                                        />
+                                                                        {errors[`sizes.${idx}.name`] && <p className="mt-1 text-xs text-red-400">{errors[`sizes.${idx}.name`]}</p>}
+                                                                    </div>
+                                                                    <div className="col-span-4">
+                                                                        <label className="block text-[11px] text-gray-400">Quantity</label>
+                                                                        <input
+                                                                            type="number"
+                                                                            min={0}
+                                                                            value={s.quantity}
+                                                                            onChange={e => {
+                                                                                const val = e.target.value;
+                                                                                setForm(f => {
+                                                                                    const next = [...f.sizes];
+                                                                                    next[idx] = { ...next[idx], quantity: val };
+                                                                                    return { ...f, sizes: next };
+                                                                                });
+                                                                            }}
+                                                                            className={`w-full rounded-lg bg-gray-800 border px-3 py-2 text-sm ${errors[`sizes.${idx}.quantity`] ? 'border-red-500/60' : 'border-white/10'}`}
+                                                                            placeholder="0"
+                                                                        />
+                                                                        {errors[`sizes.${idx}.quantity`] && <p className="mt-1 text-xs text-red-400">{errors[`sizes.${idx}.quantity`]}</p>}
+                                                                    </div>
+                                                                    <div className="col-span-2 flex justify-end">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="px-2 py-2 rounded-lg hover:bg-red-600/20 text-red-300"
+                                                                            onClick={() => setForm(f => ({ ...f, sizes: f.sizes.filter((_, i) => i !== idx) }))}
+                                                                        >
+                                                                            Remove
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                            <div className="text-xs text-gray-400">
+                                                                Total quantity: {form.sizes.reduce((sum, z) => sum + (Number(z.quantity || 0)), 0)}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-gray-300 mb-1">Description (optional)</label>
+                                                    <textarea
+                                                        rows={2}
+                                                        value={form.description}
+                                                        onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                                                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                                                        placeholder="Product description..."
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-gray-300 mb-1">Expiration Date (optional)</label>
+                                                    <input
+                                                        type="date"
+                                                        value={form.expirationDate}
+                                                        onChange={e => setForm(f => ({ ...f, expirationDate: e.target.value }))}
+                                                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                                                    />
                                                 </div>
                                                 <div className="pt-2 flex justify-end gap-2">
                                                     <button
@@ -1451,6 +1891,297 @@ const Inventory: React.FC = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* Damage Reporting Modal */}
+                    <Transition show={showDamageModal} as={Fragment}>
+                        <Dialog onClose={() => setShowDamageModal(false)} className="relative z-50">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-200"
+                                enterFrom="opacity-0"
+                                enterTo="opacity-100"
+                                leave="ease-in duration-150"
+                                leaveFrom="opacity-100"
+                                leaveTo="opacity-0"
+                            >
+                                <div className="fixed inset-0 bg-black/50" />
+                            </Transition.Child>
+                            <div className="fixed inset-0 overflow-y-auto p-4 sm:p-6 flex items-center justify-center min-h-screen">
+                                <div className="w-full max-w-md">
+                                    <Transition.Child
+                                        as={Fragment}
+                                        enter="ease-out duration-200"
+                                        enterFrom="opacity-0 translate-y-2"
+                                        enterTo="opacity-100 translate-y-0"
+                                        leave="ease-in duration-150"
+                                        leaveFrom="opacity-100 translate-y-0"
+                                        leaveTo="opacity-0 translate-y-1"
+                                    >
+                                        <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
+                                            <div className="flex items-center justify-between p-4 border-b border-white/10">
+                                                <Dialog.Title className="text-lg font-semibold">Report Damage</Dialog.Title>
+                                                <button onClick={() => setShowDamageModal(false)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+                                                    <XMarkIcon className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                            <form
+                                                onSubmit={(e) => { e.preventDefault(); reportDamage(); }}
+                                                className="p-4 space-y-4"
+                                            >
+                                                <div>
+                                                    <label className="block text-xs text-gray-300 mb-1">Damaged Quantity</label>
+                                                    <input
+                                                        type="number"
+                                                        min={1}
+                                                        value={damageForm.quantity}
+                                                        onChange={e => setDamageForm(f => ({ ...f, quantity: e.target.value }))}
+                                                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                                                        placeholder="Enter quantity"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-gray-300 mb-1">Reason for Damage</label>
+                                                    <textarea
+                                                        rows={3}
+                                                        value={damageForm.reason}
+                                                        onChange={e => setDamageForm(f => ({ ...f, reason: e.target.value }))}
+                                                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                                                        placeholder="Describe the damage..."
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs text-gray-300 mb-1">Reported By</label>
+                                                    <input
+                                                        type="text"
+                                                        value={damageForm.reportedBy}
+                                                        onChange={e => setDamageForm(f => ({ ...f, reportedBy: e.target.value }))}
+                                                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600 text-sm"
+                                                        placeholder="Your name"
+                                                        required
+                                                    />
+                                                </div>
+                                                <div className="pt-2 flex justify-end gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowDamageModal(false)}
+                                                        className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <XMarkIcon className="w-4 h-4" /> Cancel
+                                                    </button>
+                                                    <button
+                                                        type="submit"
+                                                        className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-500 font-semibold text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <ArrowTrendingDownIcon className="w-4 h-4" /> Report Damage
+                                                    </button>
+                                                </div>
+                                            </form>
+                                        </DialogPanel>
+                                    </Transition.Child>
+                                </div>
+                            </div>
+                        </Dialog>
+                    </Transition>
+
+                    {/* Damage Reports Modal (for viewing a product's reports) */}
+                    <Transition show={showDamageReports} as={Fragment}>
+                        <Dialog onClose={() => setShowDamageReports(false)} className="relative z-50">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-200"
+                                enterFrom="opacity-0"
+                                enterTo="opacity-100"
+                                leave="ease-in duration-150"
+                                leaveFrom="opacity-100"
+                                leaveTo="opacity-0"
+                            >
+                                <div className="fixed inset-0 bg-black/50" />
+                            </Transition.Child>
+                            <div className="fixed inset-0 overflow-y-auto p-4 sm:p-6 flex items-center justify-center min-h-screen">
+                                <div className="w-full max-w-2xl">
+                                    <Transition.Child
+                                        as={Fragment}
+                                        enter="ease-out duration-200"
+                                        enterFrom="opacity-0 translate-y-2"
+                                        enterTo="opacity-100 translate-y-0"
+                                        leave="ease-in duration-150"
+                                        leaveFrom="opacity-100 translate-y-0"
+                                        leaveTo="opacity-0 translate-y-1"
+                                    >
+                                        <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
+                                            <div className="flex items-center justify-between p-4 border-b border-white/10">
+                                                <Dialog.Title className="text-lg font-semibold">Damage Reports</Dialog.Title>
+                                                <button onClick={() => setShowDamageReports(false)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+                                                    <XMarkIcon className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                            <div className="p-4">
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full border-collapse">
+                                                        <thead>
+                                                            <tr className="font-bold text-sm border-b border-white/10">
+                                                                <td className="py-2">Date</td>
+                                                                <td className="py-2">Quantity</td>
+                                                                <td className="py-2">Reason</td>
+                                                                <td className="py-2">Reported By</td>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {damageReports.map((report, index) => (
+                                                                <tr key={index} className="text-sm border-b border-white/5">
+                                                                    <td className="py-2">{new Date(report.reportedAt).toLocaleDateString()}</td>
+                                                                    <td className="py-2">{report.quantity}</td>
+                                                                    <td className="py-2">{report.reason}</td>
+                                                                    <td className="py-2">{report.reportedBy}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                    {damageReports.length === 0 && (
+                                                        <div className="text-center py-8 text-gray-400">No damage reports found.</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </DialogPanel>
+                                    </Transition.Child>
+                                </div>
+                            </div>
+                        </Dialog>
+                    </Transition>
+                    
+                    {/* NEW: View Damage Reason Modal (Custom Dialog) */}
+                    <Transition show={!!viewingDamageLog} as={Fragment}>
+                        <Dialog onClose={() => setViewingDamageLog(null)} className="relative z-50">
+                            <Transition.Child
+                                as={Fragment}
+                                enter="ease-out duration-200"
+                                enterFrom="opacity-0"
+                                enterTo="opacity-100"
+                                leave="ease-in duration-150"
+                                leaveFrom="opacity-100"
+                                leaveTo="opacity-0"
+                            >
+                                <div className="fixed inset-0 bg-black/50" />
+                            </Transition.Child>
+                            <div className="fixed inset-0 overflow-y-auto p-4 sm:p-6 flex items-center justify-center min-h-screen">
+                                <div className="w-full max-w-md">
+                                    <Transition.Child
+                                        as={Fragment}
+                                        enter="ease-out duration-200"
+                                        enterFrom="opacity-0 translate-y-2"
+                                        enterTo="opacity-100 translate-y-0"
+                                        leave="ease-in duration-150"
+                                        leaveFrom="opacity-100 translate-y-0"
+                                        leaveTo="opacity-0 translate-y-1"
+                                    >
+                                        <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
+                                            <div className="flex items-center justify-between p-4 border-b border-white/10 bg-orange-600/30">
+                                                <Dialog.Title className="text-lg font-semibold flex items-center gap-2 text-orange-200">
+                                                    <ArrowTrendingDownIcon className="w-5 h-5" />
+                                                    Damage Report Details
+                                                </Dialog.Title>
+                                                <button onClick={() => setViewingDamageLog(null)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+                                                    <XMarkIcon className="h-5 w-5" />
+                                                </button>
+                                            </div>
+                                            <div className="p-4 space-y-4 text-sm">
+                                                {viewingDamageLog && (
+                                                    <>
+                                                        <div className="space-y-1">
+                                                            <p className="text-xs text-gray-400">Product</p>
+                                                            <p className="font-semibold text-white">{viewingDamageLog.productName}</p>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div className="space-y-1">
+                                                                <p className="text-xs text-gray-400">Quantity</p>
+                                                                <p className="font-bold text-red-400">{viewingDamageLog.quantity}</p>
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <p className="text-xs text-gray-400">Reported By</p>
+                                                                <p className="font-semibold text-white">{viewingDamageLog.reportedBy}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-xs text-gray-400">Date Reported</p>
+                                                            <p className="font-medium text-gray-300">{new Date(viewingDamageLog.reportedAt).toLocaleString()}</p>
+                                                        </div>
+                                                        <div className="space-y-1 p-3 border border-white/10 rounded-lg bg-gray-800/50">
+                                                            <p className="text-xs text-gray-400">Reason</p>
+                                                            <p className="text-gray-200 whitespace-pre-wrap">{viewingDamageLog.reason}</p>
+                                                        </div>
+                                                    </>
+                                                )}
+                                                <div className="flex justify-end pt-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setViewingDamageLog(null)}
+                                                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold text-sm inline-flex items-center gap-1"
+                                                    >
+                                                        <CheckIcon className="w-4 h-4" /> OK
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </DialogPanel>
+                                    </Transition.Child>
+                                </div>
+                            </div>
+                        </Dialog>
+                    </Transition>
+
+
+                    {/* Damage Reports Log Card (at the very bottom) */}
+                    <div className="mt-6">
+                        <h2 className="text-lg font-bold text-gray-200 mb-3">Damage Reports Log</h2>
+                        <div className="bg-white/90 rounded-xl shadow-md p-3">
+                            {damageLog.length === 0 ? (
+                                <div className="text-center py-4 text-gray-500 text-sm">
+                                    No damage reports have been submitted yet.
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full border-collapse">
+                                        <thead>
+                                            <tr className="font-bold text-[0.95rem] border-b-2 border-gray-400">
+                                                <td className="py-2">Date</td>
+                                                <td className="py-2">Product</td>
+                                                <td className="py-2">Quantity</td>
+                                                <td className="py-2">Reported By</td>
+                                                <td className="text-right py-2">Details</td>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {damageLog.slice(0, 10).map((log, index) => ( // Show top 10 recent reports
+                                                <tr key={index} className="text-sm border-b border-gray-200 hover:bg-gray-100">
+                                                    <td className="py-2">{new Date(log.reportedAt).toLocaleDateString()}</td>
+                                                    <td className="py-2 font-semibold">{log.productName}</td>
+                                                    <td className="py-2 text-red-600">-{log.quantity}</td>
+                                                    <td className="py-2">{log.reportedBy}</td>
+                                                    <td className="text-right py-2">
+                                                        <button
+                                                            className="px-3 py-1 rounded-lg hover:bg-blue-200 text-blue-700 text-xs flex items-center gap-1 ml-auto"
+                                                            title="View Reason"
+                                                            onClick={() => setViewingDamageLog(log)} // Opens the new modal
+                                                        >
+                                                            <EyeIcon className="w-4 h-4" /> View Reason
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {damageLog.length > 10 && (
+                                                <tr>
+                                                    <td colSpan={5} className="py-2 text-center text-xs text-gray-500">
+                                                        Showing {damageLog.length} reports total.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
         </DashboardLayout>

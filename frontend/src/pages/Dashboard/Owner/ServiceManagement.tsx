@@ -34,10 +34,19 @@ const currencySymbol = (code: string) => {
   }
 };
 
-interface VariantOption {
-  name: string; // e.g., A4, Red, Small
-  priceDelta: number; // additional price
+interface Attribute {
+  productId: string;
+  quantity: number;
+  productPrice: number;
+  sizeName?: string;
 }
+
+type ApiAttribute = {
+  productId: string | { _id: string; name?: string; price?: number; sizes?: Array<{ name: string; quantity: number }> };
+  quantity?: number;
+  productPrice?: number;
+  sizeName?: string;
+};
 
 interface ServiceVariant {
   label: string; // e.g., Size, Color, Material
@@ -53,17 +62,11 @@ interface ServiceItem {
   description?: string;
   active: boolean;
   variants?: ServiceVariant[];
+  attributes?: Attribute[];
   createdAt: string; // ISO string for sorting/display
   imageUrl?: string; // derived from backend image endpoint
-  requiredInventory?: string; // inventory item ID
-  inventoryQuantityPerUnit?: number;
   canEnable?: boolean;
-  inventoryStatus?: {
-    name: string;
-    amount: number;
-    minAmount: number;
-    isLowStock: boolean;
-  };
+  computedBasePrice?: number;
   autoDisabled?: boolean; // true if service was auto-disabled due to inventory
   disableReason?: string; // reason for auto-disable
   deletedAt?: string | null;
@@ -71,16 +74,14 @@ interface ServiceItem {
 
 type ServiceDraft = {
   name: string;
-  basePrice: number;
   unit: PricingUnit;
   currency?: string;
   description?: string;
   active: boolean;
-  variants?: ServiceVariant[];
+  // REMOVED: variants?: ServiceVariant[];
+  attributes?: Attribute[];
   imageFile?: File | null;
   removeImage?: boolean;
-  requiredInventory?: string;
-  inventoryQuantityPerUnit?: number;
 };
 
 interface InventoryItem {
@@ -90,6 +91,9 @@ interface InventoryItem {
   minAmount: number;
   price: number;
   currency: string;
+  // NEW
+  sizes?: Array<{ name: string; quantity: number }>;
+  description?: string;
 }
 
 type ApiService = {
@@ -101,21 +105,35 @@ type ApiService = {
   description?: string;
   active: boolean;
   variants?: ServiceVariant[];
+  attributes?: ApiAttribute[];
   createdAt?: string;
   imageFileId?: string;
-  requiredInventory?: string;
-  inventoryQuantityPerUnit?: number;
   canEnable?: boolean;
-  inventoryStatus?: {
-    name: string;
-    amount: number;
-    minAmount: number;
-    isLowStock: boolean;
-  };
+  computedBasePrice?: number;
   autoDisabled?: boolean;
   disableReason?: string;
   deletedAt?: string | null;
 };
+
+// Helper: normalize productId to string and productPrice to number
+function normalizeAttributes(attrs?: ApiAttribute[] | Attribute[]): Attribute[] | undefined {
+  if (!Array.isArray(attrs)) return undefined;
+  return attrs.map((a: any) => {
+    const pid = typeof a.productId === "string" ? a.productId : a.productId?._id;
+    const pPrice =
+      typeof a.productPrice === "number"
+        ? a.productPrice
+        : typeof a.productId === "object" && typeof a.productId?.price === "number"
+        ? a.productId.price
+        : 0;
+    return {
+      productId: pid || "",
+      quantity: Number(a.quantity) || 1,
+      productPrice: pPrice,
+      sizeName: a.sizeName || undefined,
+    } as Attribute;
+  });
+}
 
 function mapServiceFromApi(s: ApiService): ServiceItem {
   return {
@@ -123,16 +141,15 @@ function mapServiceFromApi(s: ApiService): ServiceItem {
     name: s.name,
     basePrice: s.basePrice,
     unit: s.unit,
-  currency: s.currency,
+    currency: s.currency,
     description: s.description ?? undefined,
     active: !!s.active,
     variants: Array.isArray(s.variants) ? s.variants : undefined,
+    attributes: normalizeAttributes(s.attributes),
     createdAt: s.createdAt || new Date().toISOString(),
-  imageUrl: s.imageFileId ? `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/services/${s._id}/image` : undefined,
-    requiredInventory: s.requiredInventory,
-    inventoryQuantityPerUnit: s.inventoryQuantityPerUnit,
+    imageUrl: s.imageFileId ? `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/services/${s._id}/image` : undefined,
     canEnable: s.canEnable,
-    inventoryStatus: s.inventoryStatus,
+    computedBasePrice: s.computedBasePrice,
     autoDisabled: s.autoDisabled,
     disableReason: s.disableReason,
   };
@@ -269,25 +286,13 @@ export default function ServiceManagement() {
     const form = new FormData();
     form.append('name', draft.name);
     if (draft.description) form.append('description', draft.description);
-    form.append('basePrice', String(draft.basePrice));
     form.append('unit', draft.unit);
-  if (draft.currency) form.append('currency', draft.currency);
+    if (draft.currency) form.append('currency', draft.currency);
     form.append('active', String(draft.active));
-    form.append('variants', JSON.stringify(draft.variants || []));
-    // inventory linkage
-    if (draft.requiredInventory !== undefined) {
-      if (draft.requiredInventory) {
-        form.append('requiredInventory', draft.requiredInventory);
-      } else {
-        // explicit clear when editing and user removed link
-        form.append('requiredInventory', '');
-      }
-    }
-    if (draft.inventoryQuantityPerUnit !== undefined) {
-      form.append('inventoryQuantityPerUnit', String(draft.inventoryQuantityPerUnit));
-    }
+    // REMOVED: form.append('variants', JSON.stringify(draft.variants || []));
+    form.append('attributes', JSON.stringify(draft.attributes || []));
     if (draft.imageFile) form.append('image', draft.imageFile);
-  if (draft.removeImage) form.append('removeImage', 'true');
+    if (draft.removeImage) form.append('removeImage', 'true');
     return form;
   }
   async function saveService(item: ServiceDraft) {
@@ -347,6 +352,7 @@ export default function ServiceManagement() {
       setError(toErrorMessage(e, "Failed to restore service"));
     }
   }
+
 
   return (
     <DashboardLayout role={role}>
@@ -576,31 +582,31 @@ export default function ServiceManagement() {
                 <div className="text-gray-300 text-sm mt-0.5">{s.description}</div>
                 <div className="flex flex-wrap gap-3 mt-2 text-sm text-gray-200">
                   <span>
-                    <strong>Pricing:</strong> {money(s.basePrice, s.currency || 'PHP')} {s.unit}
+                    <strong>Pricing:</strong> {money(s.computedBasePrice || s.basePrice, s.currency || 'PHP')} {s.unit}
                   </span>
-                  {s.requiredInventory ? (
-                    <span className="px-2 py-1 rounded-full text-xs bg-white/10 border border-white/10">
-                      <strong>Product:</strong> {s.inventoryStatus?.name || 'Linked'}
-                    </span>
-                  ) : s.inventoryStatus ? (
-                    <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                      <strong>Linked via attributes</strong>
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-                      <strong>No product linked</strong>
-                    </span>
-                  )}
-                  {s.inventoryStatus && (
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      s.inventoryStatus.isLowStock 
-                        ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
-                        : 'bg-green-500/20 text-green-300 border border-green-500/30'
-                    }`}>
-                      <strong>Inventory:</strong> {s.inventoryStatus.name} ({s.inventoryStatus.amount}/{s.inventoryStatus.minAmount})
+                  {s.attributes && s.attributes.length > 0 && (
+                    <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 border border-blue-500/30 text-blue-200">
+                      <strong>Products:</strong> {s.attributes.length} linked
                     </span>
                   )}
                 </div>
+                {/* NEW: show linked products with size */}
+                {s.attributes && s.attributes.length > 0 && (
+                  <div className="mt-2 text-xs text-gray-200">
+                    <div className="text-gray-300 mb-1">Linked items:</div>
+                    <ul className="list-disc ml-5 space-y-1">
+                      {s.attributes.map((a, idx) => {
+                        const inv = inventoryItems.find(it => it._id === a.productId);
+                        const nm = inv?.name || a.productId; // a.productId is always string now
+                        return (
+                          <li key={idx}>
+                            {nm}{a.sizeName ? ` → ${a.sizeName}` : ''} × {a.quantity}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
                 {s.disableReason && (
                   <div className="mt-2 text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
                     <strong>Disable Reason:</strong> {s.disableReason}
@@ -731,6 +737,7 @@ export default function ServiceManagement() {
           </div>
         </Dialog>
       </Transition>
+
     </DashboardLayout>
   );
 }
@@ -750,34 +757,29 @@ function ServiceModal({
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [basePrice, setBasePrice] = useState<number>(initial?.basePrice ?? 0);
   const [unit, setUnit] = useState<PricingUnit>(initial?.unit ?? "per page");
   const [currency, setCurrency] = useState<string>(initial?.currency ?? 'PHP');
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
-  const [variants, setVariants] = useState<ServiceVariant[]>(initial?.variants ?? []);
-  // link service to inventory
-  const [requiredInventory, setRequiredInventory] = useState<string | undefined>(initial?.requiredInventory);
-  const [inventoryQuantityPerUnit, setInventoryQuantityPerUnit] = useState<number>(initial?.inventoryQuantityPerUnit ?? 1);
+  // REMOVED: const [variants, setVariants] = useState<ServiceVariant[]>(initial?.variants ?? []);
+  const [attributes, setAttributes] = useState<Attribute[]>(normalizeAttributes(initial?.attributes) ?? []);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(initial?.imageUrl ?? null);
   const [showCropper, setShowCropper] = useState<string | null>(null); // holds objectURL to crop
   const [removeImage, setRemoveImage] = useState<boolean>(false);
   const [imageOriginalSrc, setImageOriginalSrc] = useState<string | null>(initial?.imageUrl ?? null);
-  // track which variant option input is focused for suggestion dropdown
-  const [focusedOption, setFocusedOption] = useState<{ v: number; o: number } | null>(null);
+  // REMOVED: track which variant option input is focused for suggestion dropdown
+  // const [focusedOption, setFocusedOption] = useState<{ v: number; o: number } | null>(null);
 
   // sync when opening for edit
   useEffect(() => {
     if (open) {
       setName(initial?.name ?? "");
       setDescription(initial?.description ?? "");
-      setBasePrice(initial?.basePrice ?? 0);
       setUnit(initial?.unit ?? "per page");
       setCurrency(initial?.currency ?? 'PHP');
       setActive(initial?.active ?? true);
-      setVariants(initial?.variants ?? []);
-      setRequiredInventory(initial?.requiredInventory);
-      setInventoryQuantityPerUnit(initial?.inventoryQuantityPerUnit ?? 1);
+      // REMOVED: setVariants(initial?.variants ?? []);
+      setAttributes(initial?.attributes ?? []);
       setImageFile(null);
       setImagePreview(initial?.imageUrl ?? null);
       setImageOriginalSrc(initial?.imageUrl ?? null);
@@ -803,6 +805,8 @@ function ServiceModal({
     }
   }
 
+  // REMOVED: Variant management functions
+  /*
   function addVariant() {
     setVariants((v) => [...v, { label: "Attribute", options: [{ name: "Option", priceDelta: 0 }] }]);
   }
@@ -827,19 +831,54 @@ function ServiceModal({
   function removeVariantOption(vIdx: number, oIdx: number) {
     setVariants((v) => v.map((it, i) => (i === vIdx ? { ...it, options: it.options.filter((_, j) => j !== oIdx) } : it)));
   }
+  */
+
+  // Attribute management functions (RESTORED)
+  function addAttribute() {
+    setAttributes(prev => [...prev, { productId: '', quantity: 1, productPrice: 0 }]);
+  }
+
+  function removeAttribute(index: number) {
+    setAttributes(prev => prev.filter((_, i) => i !== index));
+  }
+
+  function updateAttribute(index: number, updates: Partial<Attribute>) {
+    setAttributes(prev => prev.map((attr, i) => 
+      i === index ? { ...attr, ...updates } : attr
+    ));
+  }
+
+  function updateAttributeProduct(index: number, productId: string) {
+    const product = inventoryItems.find(item => item._id === productId);
+    updateAttribute(index, { 
+      productId, 
+      productPrice: product?.price || 0,
+      sizeName: undefined,
+    });
+  }
+
+  // Compute base price from attributes (RESTORED)
+  const computedBasePrice = useMemo(() => {
+    return attributes.reduce((total, attr) => {
+      return total + (attr.productPrice * attr.quantity);
+    }, 0);
+  }, [attributes]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const draft: ServiceDraft = {
       name: name.trim(),
       description: description.trim() || undefined,
-      basePrice: Math.max(0, Number(basePrice) || 0),
       unit,
-  currency,
+      currency,
       active,
-      variants: variants.length ? variants : undefined,
-      requiredInventory,
-      inventoryQuantityPerUnit,
+      // ensure attributes contain productId string only
+      attributes: attributes.length ? attributes.map(a => ({
+        productId: a.productId,
+        quantity: a.quantity,
+        productPrice: a.productPrice,
+        sizeName: a.sizeName,
+      })) : undefined,
       imageFile,
       removeImage,
     };
@@ -891,19 +930,14 @@ function ServiceModal({
                       />
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-300 mb-1">Base price</label>
+                      <label className="block text-xs text-gray-300 mb-1">Computed Base Price</label>
                       <div className="flex items-center gap-2">
                         <span className="text-gray-400 text-sm">{currencySymbol(currency)}</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          step="0.01"
-                          value={basePrice}
-                          onChange={(e) => setBasePrice(parseFloat(e.target.value) || 0)}
-                          className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                        />
+                        <div className="w-full rounded-lg bg-gray-700 border border-white/10 px-3 py-2 text-white font-semibold">
+                          {computedBasePrice.toFixed(2)}
+                        </div>
                       </div>
+                      <p className="text-xs text-gray-400 mt-1">Automatically calculated from linked products</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -939,35 +973,96 @@ function ServiceModal({
                       </select>
                     </div>
                   </div>
-                  {/* Inventory linking */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-300 mb-1">Linked product</label>
-                      <select
-                        value={requiredInventory || ''}
-                        onChange={(e) => setRequiredInventory(e.target.value || undefined)}
-                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  {/* Linked Products (Attributes) - RESTORED and FIXED for name display*/}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-medium text-gray-300">Linked Products (Attributes)</label>
+                      <button
+                        type="button"
+                        onClick={addAttribute}
+                        className="inline-flex items-center gap-1 text-xs text-blue-300 hover:text-blue-200"
                       >
-                        <option value="">Select product</option>
-                        {inventoryItems.map(ii => (
-                          <option key={ii._id} value={ii._id}>{ii.name} (qty {ii.amount})</option>
-                        ))}
-                      </select>
+                        <PlusIcon className="h-4 w-4" /> Add Product
+                      </button>
                     </div>
-                    <div>
-                      <label className="block text-xs text-gray-300 mb-1">Inventory units per service</label>
-                      <input
-                        type="number"
-                        min={0}
-                        step="1"
-                        value={inventoryQuantityPerUnit}
-                        onChange={(e) => setInventoryQuantityPerUnit(Math.max(0, parseInt(e.target.value || '0', 10)))}
-                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      />
+                    <div className="space-y-3">
+                      {attributes.map((attr, index) => {
+                        const selectedProduct = inventoryItems.find(item => item._id === attr.productId);
+
+                        return (
+                        <div key={index} className="grid grid-cols-1 sm:grid-cols-6 gap-3 p-3 border border-white/10 rounded-lg bg-gray-800/50">
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs text-gray-300 mb-1">Product</label>
+                            <select
+                              value={attr.productId}
+                              onChange={(e) => updateAttributeProduct(index, e.target.value)}
+                              className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                            >
+                              <option value="">Select product</option>
+                              {inventoryItems.map(item => (
+                                <option key={item._id} value={item._id}>
+                                  {item.name} ({currencySymbol(item.currency)} {item.price.toFixed(2)})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* NEW: size selector for this product */}
+                          <div className="sm:col-span-2">
+                            <label className="block text-xs text-gray-300 mb-1">Size</label>
+                            <select
+                              value={attr.sizeName || ""}
+                              onChange={(e) => updateAttribute(index, { sizeName: e.target.value || undefined })}
+                              className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                              disabled={!selectedProduct || !(selectedProduct.sizes && selectedProduct.sizes.length)}
+                            >
+                              <option value="">{selectedProduct?.sizes?.length ? 'Select size' : 'No sizes'}</option>
+                              {selectedProduct?.sizes?.map((sz, i) => (
+                                <option key={i} value={sz.name}>
+                                  {sz.name} ({sz.quantity} pcs)
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs text-gray-300 mb-1">Quantity</label>
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.1"
+                              value={attr.quantity}
+                              onChange={(e) => updateAttribute(index, { quantity: parseFloat(e.target.value) || 0 })}
+                              className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                            />
+                          </div>
+                          <div className="flex items-end gap-2">
+                            <div className="flex-1">
+                              <label className="block text-xs text-gray-300 mb-1">Product Price</label>
+                              <div className="rounded-lg bg-gray-700 border border-white/10 px-3 py-2 text-white font-semibold">
+                                {currencySymbol(currency)} {attr.productPrice.toFixed(2)}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeAttribute(index)}
+                              className="p-2 rounded-lg hover:bg-red-600 text-red-300"
+                              title="Remove product"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </div>
+                      );})}
+                      {attributes.length === 0 && (
+                        <div className="text-center text-gray-400 py-4 border border-dashed border-white/10 rounded-lg">
+                          <p className="text-sm">No products linked yet</p>
+                          <p className="text-xs">Add products to automatically calculate the base price</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
-                  {/* Inventory requirements removed. When inventory exists, show suggestion dropdown for attribute option names. */}
                   <div>
                     <label className="block text-xs text-gray-300 mb-1">Description</label>
                     <textarea
@@ -1044,119 +1139,8 @@ function ServiceModal({
                     </div>
                   </div>
 
-                  {/* Dynamic attributes (sizes/colors/etc.) */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold">Attributes</div>
-                      <button
-                        type="button"
-                        onClick={addVariant}
-                        className="inline-flex items-center gap-1 text-sm text-blue-300 hover:text-blue-200"
-                      >
-                        <PlusIcon className="h-4 w-4" /> Add attribute
-                      </button>
-                    </div>
-                    {variants.length === 0 && (
-                      <div className="text-xs text-gray-400">Add attributes like Size, Color, Material, etc.</div>
-                    )}
-                    <div className="space-y-3">
-                      {variants.map((v, vIdx) => (
-                        <div key={vIdx} className="rounded-lg border border-white/10 p-3">
-                          <div className="flex items-center gap-2">
-                            <input
-                              value={v.label}
-                              onChange={(e) => updateVariantLabel(vIdx, e.target.value)}
-                              className="flex-1 rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                              placeholder="Attribute label (e.g., Size)"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeVariant(vIdx)}
-                              className="p-2 rounded-lg hover:bg-white/10"
-                              title="Remove attribute"
-                            >
-                              <TrashIcon className="h-5 w-5 text-red-300" />
-                            </button>
-                          </div>
-                          <div className="mt-2 space-y-2">
-                            {v.options.map((o, oIdx) => {
-                              // suggestion list from inventory item names (unique)
-                              const suggestionSet = new Set(inventoryItems.map(ii => ii.name).filter(Boolean));
-                              const suggestions = Array.from(suggestionSet).sort((a,b)=>a.localeCompare(b));
-                              const filteredSuggestions = o.name.trim() ? suggestions.filter(s => s.toLowerCase().includes(o.name.toLowerCase())) : suggestions;
-                              const isFocused = focusedOption && focusedOption.v === vIdx && focusedOption.o === oIdx;
-                              return (
-                                <div key={oIdx} className="grid grid-cols-5 gap-2 items-start relative">
-                                  <div className="col-span-3">
-                                    <div className="relative">
-                                      <input
-                                        value={o.name}
-                                        onChange={(e) => updateVariantOption(vIdx, oIdx, { name: e.target.value })}
-                                        onFocus={() => setFocusedOption({ v: vIdx, o: oIdx })}
-                                        onBlur={() => setTimeout(() => {
-                                          setFocusedOption(prev => (prev && prev.v === vIdx && prev.o === oIdx) ? null : prev);
-                                        }, 120)}
-                                        className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                        placeholder="Option (e.g., Size A4 / Material PVC)"
-                                        aria-haspopup="listbox"
-                                      />
-                                      {isFocused && suggestions.length > 0 && (
-                                        <div className="absolute z-40 mt-1 w-full rounded-md border border-white/10 bg-gray-900 shadow-lg max-h-48 overflow-auto">
-                                          {filteredSuggestions.length === 0 && (
-                                            <div className="px-3 py-2 text-xs text-gray-500">No matches</div>
-                                          )}
-                                          {filteredSuggestions.map(s => (
-                                            <div
-                                              key={s}
-                                              role="option"
-                                              onMouseDown={(e) => { e.preventDefault(); updateVariantOption(vIdx, oIdx, { name: s }); setFocusedOption(null); }}
-                                              className={`px-3 py-1.5 text-sm cursor-pointer hover:bg-white/10 ${s === o.name ? 'bg-white/10' : ''}`}
-                                            >
-                                              {s}
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="col-span-2 flex items-center gap-2">
-                                    <span className="text-gray-400 text-sm">+{currencySymbol(currency)}</span>
-                                    <input
-                                      type="number"
-                                      inputMode="decimal"
-                                      min={0}
-                                      step="0.01"
-                                      value={o.priceDelta}
-                                      onChange={(e) =>
-                                        updateVariantOption(vIdx, oIdx, { priceDelta: parseFloat(e.target.value) || 0 })
-                                      }
-                                      className="w-full rounded-lg bg-gray-800 border border-white/10 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                      placeholder="0"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => removeVariantOption(vIdx, oIdx)}
-                                      className="p-2 rounded-lg hover:bg-white/10"
-                                      title="Remove option"
-                                    >
-                                      <TrashIcon className="h-5 w-5 text-red-300" />
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                            <button
-                              type="button"
-                              onClick={() => addVariantOption(vIdx)}
-                              className="inline-flex items-center gap-1 text-xs text-blue-300 hover:text-blue-200"
-                            >
-                              <PlusIcon className="h-4 w-4" /> Add option
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  {/* Dynamic attributes (sizes/colors/etc.) - REMOVED */}
+                  {/* The entire block for dynamic attributes has been removed */}
 
                   <div className="pt-2 flex justify-end gap-2">
                     <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10">
@@ -1200,5 +1184,3 @@ function ServiceModal({
     </Transition>
   );
 }
-
-
