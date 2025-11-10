@@ -53,6 +53,11 @@ const orderSchema = new mongoose.Schema(
     subtotal: { type: Number, required: true, min: 0 },
     currency: { type: String, default: 'PHP' },
     paymentStatus: { type: String, enum: ['unpaid', 'paid', 'refunded'], default: 'unpaid' },
+    // Payment details
+    paymentAmount: { type: Number, min: 0 },
+    paymentMethod: { type: String, enum: ['cash', 'gcash', 'card', 'other'], default: 'cash' },
+    changeGiven: { type: Number, min: 0 },
+    receiptIssuedAt: { type: Date },
   // QR pickup
   pickupToken: { type: String },
   pickupTokenExpires: { type: Date },

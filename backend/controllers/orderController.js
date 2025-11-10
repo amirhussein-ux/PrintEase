@@ -226,11 +226,9 @@ exports.getOrderById = async (req, res) => {
 exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-  const { status: incomingStatus, paymentStatus } = req.body || {};
-    const order = await Order.findById(id).populate("store");
-    if (!order) return res.status(404).json({ message: "Order not found" });
-
-    const previousStatus = order.status;
+    const { status: incomingStatus, paymentStatus, paymentAmount, paymentMethod } = req.body || {};
+    const order = await Order.findById(id).populate('store');
+    if (!order) return res.status(404).json({ message: 'Order not found' });
 
     // --- Update status ---
     if (incomingStatus) {
@@ -238,102 +236,120 @@ exports.updateOrderStatus = async (req, res) => {
       if (newStatus === 'in progress') newStatus = 'processing';
       order.status = newStatus;
 
-      // Update stage timestamps
-      if (newStatus === 'processing' && !order.stageTimestamps.processing) {
-        order.stageTimestamps.processing = new Date();
-      } else if (newStatus === 'ready' && !order.stageTimestamps.ready) {
-        order.stageTimestamps.ready = new Date();
-      } else if (newStatus === 'completed' && !order.stageTimestamps.completed) {
-        order.stageTimestamps.completed = new Date();
-      }
+      // Stage timestamps
+      if (newStatus === 'processing' && !order.stageTimestamps.processing) order.stageTimestamps.processing = new Date();
+      if (newStatus === 'ready' && !order.stageTimestamps.ready) order.stageTimestamps.ready = new Date();
+      if (newStatus === 'completed' && !order.stageTimestamps.completed) order.stageTimestamps.completed = new Date();
 
-      const shouldDeduct = !order.inventoryDeducted && ["processing","ready","completed","in progress"].includes(newStatus);
+      const shouldDeduct = !order.inventoryDeducted && ['processing','ready','completed','in progress'].includes(newStatus);
       if (shouldDeduct) {
         try {
           await reduceInventoryForOrder(order);
           order.inventoryDeducted = true;
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('[inventory] deduction applied for order', order._id);
-          }
         } catch (invErr) {
           return res.status(400).json({ message: invErr.message || 'Inventory deduction failed' });
         }
       }
 
-      // 'ready': create pickup token (48h validity)
-      if (newStatus === "ready") {
-        order.pickupToken = crypto.randomBytes(16).toString("hex");
+      if (newStatus === 'ready') {
+        order.pickupToken = crypto.randomBytes(16).toString('hex');
         order.pickupTokenExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
         order.pickupVerifiedAt = undefined;
       }
-
-      // 'completed': clear token and set pickup time (inventory already deducted earlier if needed)
-      if (newStatus === "completed") {
+      if (newStatus === 'completed') {
         order.pickupToken = undefined;
         order.pickupTokenExpires = undefined;
         if (!order.pickupVerifiedAt) order.pickupVerifiedAt = new Date();
       }
     }
 
+    const prevPaymentStatus = order.paymentStatus;
     if (paymentStatus) order.paymentStatus = paymentStatus;
+    if (typeof paymentAmount === 'number' && paymentAmount >= 0) {
+      order.paymentAmount = paymentAmount;
+      order.changeGiven = Math.max(0, paymentAmount - (order.subtotal || 0));
+    }
+    if (paymentMethod) order.paymentMethod = paymentMethod;
 
     await order.save();
 
-    // --- Notify customer with time estimates ---
+
     try {
-      const io = req.app.get("io");
-      const onlineUsers = req.app.get("onlineUsers");
-  const customerId = order.user ? order.user.toString() : null;
-  if (customerId) {
+      const io = req.app.get('io');
+      const onlineUsers = req.app.get('onlineUsers') || {};
+      const customerId = order.user ? order.user.toString() : null;
+      if (customerId) {
         let timeEstimate = '';
-        if (order.status === 'processing') {
-          timeEstimate = `Estimated completion: ${order.timeEstimates.processing} hours`;
-        } else if (order.status === 'ready') {
-          timeEstimate = `Ready for pickup!`;
-        } else if (order.status === 'completed') {
-          timeEstimate = `Order completed!`;
-        }
+        if (order.status === 'processing') timeEstimate = `Estimated completion: ${order.timeEstimates.processing} hours`;
+        else if (order.status === 'ready') timeEstimate = 'Ready for pickup!';
+        else if (order.status === 'completed') timeEstimate = 'Order completed!';
 
         const customerNotif = await Notification.create({
           user: customerId,
-          type: "customer", 
+            type: 'customer',
           title: `Order #${order._id.slice(-6)} status updated`,
           description: `Your order is now marked as "${order.status}". ${timeEstimate}`,
         });
+        if (onlineUsers[customerId]?.socketId) io.to(onlineUsers[customerId].socketId).emit('newNotification', customerNotif);
+      }
 
-        // Emit in real-time if online
-        if (onlineUsers[customerId]) {
-          io.to(onlineUsers[customerId]).emit("newNotification", customerNotif);
+      const paymentJustCompleted = (prevPaymentStatus !== 'paid' && order.paymentStatus === 'paid');
+      if (order.paymentStatus === 'paid' && order.status === 'completed') {
+        if (!order.receiptIssuedAt) {
+          order.receiptIssuedAt = new Date();
+          await order.save();
         }
-  }
+        const payload = {
+          orderId: order._id.toString(),
+          paymentAmount: order.paymentAmount ?? null,
+          changeGiven: order.changeGiven ?? null,
+          currency: order.currency || 'PHP',
+        };
+        const ownerId = order.store && order.store.owner ? String(order.store.owner) : null;
+        if (ownerId && onlineUsers[ownerId]?.socketId) io.to(onlineUsers[ownerId].socketId).emit('payment_verified', payload);
+        if (order.user && onlineUsers[order.user.toString()]?.socketId) io.to(onlineUsers[order.user.toString()].socketId).emit('receipt_ready', payload);
+      }
     } catch (notifyErr) {
-      console.error("Notification emit error:", notifyErr);
+      console.error('Notification emit error:', notifyErr);
     }
 
     res.json(order);
   } catch (err) {
-    console.error("updateOrderStatus error:", err);
+    console.error('updateOrderStatus error:', err);
     res.status(500).json({ message: err.message });
   }
 };
 
-// QR shows token; owner scans to confirm
 exports.confirmPickupByToken = async (req, res) => {
   try {
     const { token } = req.params;
     if (!token) return res.status(400).json({ message: 'Token required' });
-    const order = await Order.findOne({ pickupToken: token });
+    const order = await Order.findOne({ pickupToken: token }).populate({ path: 'store', populate: { path: 'owner' } });
     if (!order) return res.status(404).json({ message: 'Invalid token' });
-    if (!order.pickupTokenExpires || order.pickupTokenExpires < new Date()) {
-      return res.status(400).json({ message: 'Token expired' });
-    }
-    order.status = 'completed';
-    order.paymentStatus = 'paid';
+    if (!order.pickupTokenExpires || order.pickupTokenExpires < new Date()) return res.status(400).json({ message: 'Token expired' });
+
     order.pickupVerifiedAt = new Date();
     order.pickupToken = undefined;
     order.pickupTokenExpires = undefined;
     await order.save();
-    res.json({ message: 'Pickup confirmed', order });
+
+    try {
+      const io = req.app.get('io');
+      const onlineUsers = req.app.get('onlineUsers') || {};
+      const ownerId = order.store && order.store.owner ? String(order.store.owner._id || order.store.owner) : null;
+      if (ownerId && onlineUsers[ownerId]?.socketId) {
+        io.to(onlineUsers[ownerId].socketId).emit('payment_required', {
+          orderId: order._id.toString(),
+          subtotal: order.subtotal,
+            currency: order.currency || 'PHP',
+          customerId: order.user ? order.user.toString() : null,
+        });
+      }
+    } catch (emitErr) {
+      console.error('Failed emitting payment_required:', emitErr);
+    }
+
+    res.json({ message: 'Pickup verified. Awaiting payment verification.', order });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
