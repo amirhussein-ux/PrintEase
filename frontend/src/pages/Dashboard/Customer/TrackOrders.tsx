@@ -1,6 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
 import DashboardLayout from '../../Dashboard/shared_components/DashboardLayout';
+import jsPDF from 'jspdf';
+import logoDark from '../../../assets/PrintEase-logo-dark.png';
+import { useSocket } from '../../../context/SocketContext';
 import api from '../../../lib/api';
 
 type OrderStatus = 'pending' | 'processing' | 'ready' | 'completed' | 'cancelled';
@@ -30,6 +33,11 @@ type Order = {
   createdAt?: string;
   updatedAt?: string;
   pickupToken?: string;
+  paymentStatus?: 'unpaid' | 'paid' | 'refunded';
+  paymentAmount?: number;
+  paymentMethod?: string;
+  changeGiven?: number;
+  receiptIssuedAt?: string;
   timeEstimates?: {
     processing: number;
     ready: number;
@@ -107,6 +115,31 @@ export default function TrackOrders() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | OrderStatus>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  // Track which order IDs have their QR visible
+  const [openQR, setOpenQR] = useState<Record<string, boolean>>({});
+  // Keep refs to QR canvases for download/fullscreen
+  const qrCanvasRefs = useRef<Record<string, HTMLCanvasElement | null>>({});
+  // Which order's QR is enlarged in a modal (null = none)
+  const [enlargeQrFor, setEnlargeQrFor] = useState<string | null>(null);
+  // Receipt modal
+  const [showReceiptFor, setShowReceiptFor] = useState<string | null>(null);
+  const { socket } = useSocket();
+  const [storeCache, setStoreCache] = useState<Record<string, { name: string; addressLine?: string; city?: string; state?: string; country?: string; postal?: string; mobile?: string }>>({});
+
+  // Close modal on ESC and lock body scroll when open
+  useEffect(() => {
+    if (!enlargeQrFor) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEnlargeQrFor(null);
+    };
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [enlargeQrFor]);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,6 +162,55 @@ export default function TrackOrders() {
       cancelled = true;
     };
   }, []);
+
+  // Fetch store info on-demand for receipt
+  // Fetch (and cache) store info; return it immediately for use in rendering or PDF
+  const getStoreInfo = useCallback(async (storeId: string) => {
+    if (!storeId) return null;
+    if (storeCache[storeId]) return storeCache[storeId];
+    try {
+      const res = await api.get('/print-store/list');
+      const list = (Array.isArray(res.data) ? res.data : []) as Array<{
+        _id: string; name?: string; mobile?: string; address?: { addressLine?: string; city?: string; state?: string; country?: string; postal?: string }
+      }>;
+      const s = list.find((x) => String(x._id) === String(storeId));
+      if (!s) return null;
+      const info = {
+        name: s.name || 'PrintEase Store',
+        addressLine: s.address?.addressLine,
+        city: s.address?.city,
+        state: s.address?.state,
+        country: s.address?.country,
+        postal: s.address?.postal,
+        mobile: s.mobile,
+      };
+      setStoreCache(prev => ({ ...prev, [storeId]: info }));
+      return info;
+    } catch {
+      return null;
+    }
+  }, [storeCache]);
+
+  // Live socket update for receipt_ready (after ensureStoreInfo is defined)
+  useEffect(() => {
+    if (!socket) return;
+    const handler = (payload: { orderId: string; paymentAmount?: number; changeGiven?: number }) => {
+      setOrders(prev => prev.map(o => o._id === payload.orderId ? { ...o, paymentStatus: 'paid' as const } : o));
+      setShowReceiptFor(payload.orderId);
+      // Preload store info so receipt modal shows proper header immediately
+      const ordFound = orders.find(o => o._id === payload.orderId);
+      if (ordFound) void getStoreInfo(ordFound.store);
+    };
+    socket.on('receipt_ready', handler);
+    return () => { socket.off('receipt_ready', handler); };
+  }, [socket, orders, getStoreInfo]);
+
+  // When opening receipt manually (or via auto open), ensure store info is loaded
+  useEffect(() => {
+    if (!showReceiptFor) return;
+    const ord = orders.find(o => o._id === showReceiptFor);
+    if (ord) void getStoreInfo(ord.store);
+  }, [showReceiptFor, orders, getStoreInfo]);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = { all: orders.length, pending: 0, processing: 0, ready: 0, completed: 0, cancelled: 0 };
@@ -155,15 +237,15 @@ export default function TrackOrders() {
     return `#${id.slice(-6).toUpperCase()}`;
   }
 
-  // UTC date formatter
+  // Local date/time formatter
   function formatDateUTC(iso?: string) {
     if (!iso) return '';
     try {
       const d = new Date(iso);
-      return d.toLocaleString('en-US', {
+      return d.toLocaleString(undefined, {
         year: 'numeric', month: 'numeric', day: 'numeric',
         hour: 'numeric', minute: '2-digit', second: '2-digit',
-        hour12: true, timeZone: 'UTC'
+        hour12: true
       });
     } catch {
       return iso;
@@ -333,14 +415,85 @@ export default function TrackOrders() {
                         </div>
                       </div>
                     )}
+                    {o.status === 'completed' && o.paymentStatus === 'paid' && (
+                      <div className="mt-3">
+                        <button
+                          onClick={() => setShowReceiptFor(o._id)}
+                          className="px-3 py-1.5 rounded-lg text-sm border bg-green-600 border-green-600 text-white hover:bg-green-500"
+                        >
+                          View Receipt
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 {o.status === 'ready' && o.pickupToken && (
                   <div className="mt-4 p-5 rounded-lg border border-white/10 bg-white/5 text-center w-fill mx-auto">
-                    <div className="text-xs text-gray-200 mb-1 p-2">Show this QR at pickup:</div>
-                    <div className="bg-white inline-block p-2 rounded mx-auto">
-                      <QRCode value={`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/orders/pickup/${o.pickupToken}/confirm`} size={128} includeMargin={false} />
-                    </div>
+                    {!openQR[o._id] ? (
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="text-xs text-gray-200">Ready for pickup. Show QR at counter when asked.</div>
+                        <div>
+                          <button
+                            onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: true }))}
+                            className="px-3 py-1.5 rounded-lg text-sm border bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500"
+                          >
+                            Show QR
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="text-xs text-gray-200">Show this QR at pickup:</div>
+                        <div className="bg-white inline-block p-2 rounded mx-auto">
+                          <QRCode
+                            value={`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/orders/pickup/${o.pickupToken}/confirm`}
+                            size={180}
+                            includeMargin={false}
+                            ref={(el: HTMLCanvasElement | null) => {
+                              qrCanvasRefs.current[o._id] = el;
+                            }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              const canvas = qrCanvasRefs.current[o._id];
+                              try {
+                                if (canvas) {
+                                  const url = canvas.toDataURL('image/png');
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = `${shortId(o._id)}-pickup-qr.png`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                } else {
+                                  alert('QR not ready yet.');
+                                }
+                              } catch (err) {
+                                console.error('QR download failed', err);
+                                alert('Download failed.');
+                              }
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-sm border bg-gray-100 text-gray-900 hover:bg-gray-200"
+                          >
+                            Download
+                          </button>
+                          <button
+                            onClick={() => setEnlargeQrFor(o._id)}
+                            className="px-3 py-1.5 rounded-lg text-sm border bg-gray-100 text-gray-900 hover:bg-gray-200"
+                          >
+                            Enlarge
+                          </button>
+                          <button
+                            onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: false }))}
+                            className="px-3 py-1.5 rounded-lg text-sm border bg-transparent text-gray-200 hover:bg-white/10"
+                          >
+                            Hide
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -348,6 +501,160 @@ export default function TrackOrders() {
           })}
         </div>
       </div>
+      {/* QR Modal */}
+      {enlargeQrFor && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          aria-modal="true"
+          role="dialog"
+          onClick={() => setEnlargeQrFor(null)}
+        >
+          <div
+            className="relative bg-white rounded-xl shadow-xl p-4 md:p-6 w-[92vw] max-w-md md:max-w-lg max-h-[92vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-4 right-4 bg-white px-2.5 py-1 text-sm font-bold rounded-full  cursor-pointer transition-colors hover:bg-gray-100 hover:shadow-md"
+              onClick={() => setEnlargeQrFor(null)}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <div className="flex flex-col items-center gap-3">
+              <div className="text-sm text-gray-700 font-medium">Pickup QR</div>
+              <div className="bg-white p-2 rounded">
+                {(() => {
+                  const ord = orders.find((x) => x._id === enlargeQrFor);
+                  const url = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/orders/pickup/${ord?.pickupToken}/confirm`;
+                  return (
+                    <div
+                      className="mx-auto"
+                      style={{ width: 'min(88vw, 80vh, 480px)' }}
+                    >
+                      <QRCode
+                        value={url}
+                        size={1024}
+                        includeMargin={false}
+                        style={{ width: '100%', height: 'auto', display: 'block' }}
+                      />
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    try {
+                      const canvas = document.createElement('canvas');
+                      const size = 1024;
+                      canvas.width = size;
+                      canvas.height = size;
+                      const ctx = canvas.getContext('2d');
+                      if (!ctx) throw new Error('no canvas');
+                      const small = qrCanvasRefs.current[enlargeQrFor];
+                      if (small) {
+                        const link = document.createElement('a');
+                        link.href = small.toDataURL('image/png');
+                        link.download = `${shortId(enlargeQrFor)}-pickup-qr.png`;
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                      }
+                    } catch (e) {
+                      console.warn('QR download failed', e);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded-lg text-sm border bg-gray-100 text-gray-900 hover:bg-gray-200"
+                >
+                  Download
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Receipt Modal */}
+      {showReceiptFor && (() => {
+        const ord = orders.find(o => o._id === showReceiptFor);
+        if (!ord) return null;
+        const first = ord.items[0];
+        return (
+          <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" role="dialog" aria-modal>
+            <div className="relative bg-white rounded-xl shadow-xl p-5 w-[92vw] max-w-lg">
+              <button
+                className="absolute top-3 right-3 bg-white rounded-full border border-gray-300 shadow px-2.5 py-1 text-sm font-bold hover:bg-gray-100"
+                onClick={() => setShowReceiptFor(null)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Payment Receipt</h3>
+              <p className="text-xs text-gray-600 mb-4">Order <span className="font-mono">{shortId(ord._id)}</span> · {ord.receiptIssuedAt ? new Date(ord.receiptIssuedAt).toLocaleString() : ''}</p>
+              <div className="space-y-3 text-sm text-gray-800">
+                <div className="flex justify-between"><span>Service</span><span className="font-medium truncate max-w-[55%]">{first?.serviceName || 'Service'}</span></div>
+                <div className="flex justify-between"><span>Quantity</span><span>{first?.quantity}</span></div>
+                <div className="flex justify-between"><span>Subtotal</span><span className="font-medium">{money(ord.subtotal, ord.currency || 'PHP')}</span></div>
+                <div className="flex justify-between"><span>Paid</span><span>{money(ord.paymentAmount || ord.subtotal, ord.currency || 'PHP')}</span></div>
+                <div className="flex justify-between"><span>Change</span><span>{money(ord.changeGiven || 0, ord.currency || 'PHP')}</span></div>
+                <div className="flex justify-between"><span>Method</span><span className="uppercase font-medium">{ord.paymentMethod || 'cash'}</span></div>
+              </div>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  onClick={() => setShowReceiptFor(null)}
+                  className="px-4 py-2 rounded-lg border bg-white text-gray-800 hover:bg-gray-50"
+                >Close</button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const store = await getStoreInfo(ord.store);
+                      const doc = new jsPDF({ unit: 'pt', format: 'A4' });
+                      const pageWidth = doc.internal.pageSize.getWidth();
+                      // Header logo
+                      try {
+                        doc.addImage(logoDark as unknown as string, 'PNG', pageWidth/2 - 80, 24, 160, 50);
+                      } catch (logoErr) {
+                        console.warn('Logo add failed', logoErr);
+                      }
+                      doc.setFontSize(14).setFont('helvetica','bold');
+                      doc.text((store?.name || 'PrintEase Store'), pageWidth/2, 100, { align: 'center' });
+                      doc.setFontSize(10).setFont('helvetica','normal');
+                      const addrParts = [store?.addressLine, store?.city, store?.state, store?.country, store?.postal].filter(Boolean) as string[];
+                      if (addrParts.length) doc.text(addrParts.join(', '), pageWidth/2, 116, { align: 'center' });
+                      if (store?.mobile) doc.text(`Contact: ${store.mobile}`, pageWidth/2, 130, { align: 'center' });
+                      doc.setDrawColor(180).line(40, 150, pageWidth - 40, 150);
+                      doc.setFontSize(12).setFont('helvetica','bold');
+                      doc.text('PAYMENT RECEIPT', pageWidth/2, 170, { align: 'center' });
+                      doc.setFontSize(9).setFont('helvetica','normal');
+                      doc.text(`Order ${shortId(ord._id)}${ord.receiptIssuedAt ? ` · ${new Date(ord.receiptIssuedAt).toLocaleString()}` : ''}`, pageWidth/2, 186, { align: 'center' });
+
+                      let y = 210;
+                      const line = (label: string, value: string) => {
+                        doc.setFont('helvetica','normal').setFontSize(10);
+                        doc.text(label, 50, y);
+                        doc.text(value, pageWidth - 50, y, { align: 'right' });
+                        y += 16;
+                      };
+                      line('Service', String(first?.serviceName || 'Service'));
+                      line('Quantity', String(first?.quantity || 0));
+                      line('Subtotal', money(ord.subtotal, ord.currency || 'PHP'));
+                      line('Amount Paid', money(ord.paymentAmount || ord.subtotal, ord.currency || 'PHP'));
+                      line('Change', money(ord.changeGiven || 0, ord.currency || 'PHP'));
+                      line('Payment Method', String(ord.paymentMethod || 'cash').toUpperCase());
+                      y += 10;
+                      doc.setFontSize(9).text('Thank you for choosing PrintEase!', pageWidth/2, y, { align: 'center' });
+                      doc.save(`${shortId(ord._id)}-receipt.pdf`);
+                    } catch (err) {
+                      console.error('PDF receipt failed', err);
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500"
+                >Download PDF</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </DashboardLayout>
   );
 }

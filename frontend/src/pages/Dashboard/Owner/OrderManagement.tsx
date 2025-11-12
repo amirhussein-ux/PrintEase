@@ -373,12 +373,13 @@ export default function OrderManagement() {
 										<div className="text-white font-semibold">{money(total, currency)}</div>
 										<div className="text-xs text-gray-200">Total</div>
 										<div className="mt-2 flex sm:justify-end gap-2">
-											{canAdvance && (
+											{/* The following conditional rendering and onClick handler is modified to exclude 'completed' status advancement */}
+											{canAdvance && canAdvance !== 'completed' && (
 												<button
 													disabled={updatingId === o._id}
 													onClick={() => {
 														const ns = nextStatus(o.status);
-														if (ns) updateStatus(o._id, ns);
+														if (ns && ns !== 'completed') updateStatus(o._id, ns);
 													}}
 													className={`px-3 py-1.5 rounded-lg text-sm border ${
 														o.status === 'pending'
@@ -444,4 +445,3 @@ export default function OrderManagement() {
 		</DashboardLayout>
 	);
 }
-
