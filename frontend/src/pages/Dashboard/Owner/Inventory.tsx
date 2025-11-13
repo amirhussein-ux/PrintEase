@@ -851,32 +851,37 @@ const Inventory: React.FC = () => {
                                         {/* Product Selection */}
                                         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200 lg:col-span-2">
                                             <h3 className="text-lg font-semibold text-gray-800 mb-4">Product Selection</h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                                <button
-                                                    onClick={() => setProduct("ALL")}
-                                                    className={`p-4 rounded-xl border-2 transition-all duration-300 text-left ${
-                                                        product === "ALL" || !product
-                                                            ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
-                                                            : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:shadow-sm"
-                                                    }`}
-                                                >
-                                                    <div className="font-semibold text-sm">All Products</div>
-                                                    <div className="text-xs text-gray-500 mt-1">{products.length} items</div>
-                                                </button>
-                                                {products.slice(0, 7).map((p) => (
-                                                    <button
-                                                        key={p._id}
-                                                        onClick={() => setProduct(p.name)}
-                                                        className={`p-4 rounded-xl border-2 transition-all duration-300 text-left ${
-                                                            product === p.name
-                                                                ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
-                                                                : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:shadow-sm"
-                                                        }`}
-                                                    >
-                                                        <div className="font-semibold text-sm truncate">{p.name}</div>
-                                                        <div className="text-xs text-gray-500 mt-1">Stock: {p.amount}</div>
-                                                    </button>
-                                                ))}
+                                            <div className="relative">
+                                                <div className="overflow-x-auto pb-4">
+                                                    <div className="flex gap-3 min-w-max">
+                                                        <button
+                                                            onClick={() => setProduct("ALL")}
+                                                            className={`p-4 rounded-xl border-2 transition-all duration-300 text-left min-w-[140px] ${
+                                                                product === "ALL" || !product
+                                                                    ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                                                                    : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:shadow-sm"
+                                                            }`}
+                                                        >
+                                                            <div className="font-semibold text-sm">All Products</div>
+                                                            <div className="text-xs text-gray-500 mt-1">{products.length} items</div>
+                                                        </button>
+                                                        {products.map((p) => (
+                                                            <button
+                                                                key={p._id}
+                                                                onClick={() => setProduct(p.name)}
+                                                                className={`p-4 rounded-xl border-2 transition-all duration-300 text-left min-w-[140px] ${
+                                                                    product === p.name
+                                                                        ? "border-blue-500 bg-blue-50 text-blue-700 shadow-md"
+                                                                        : "border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:shadow-sm"
+                                                                }`}
+                                                            >
+                                                                <div className="font-semibold text-sm truncate">{p.name}</div>
+                                                                <div className="text-xs text-gray-500 mt-1">Stock: {p.amount}</div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none" />
                                             </div>
                                         </div>
                                     </div>

@@ -49,6 +49,14 @@ const STATUS_LABELS: { label: string; value: Exclude<OrderStatus, 'cancelled'> }
 	{ label: 'Completed', value: 'completed' },
 ];
 
+const DATE_FILTERS = [
+	{ label: 'All Time', value: 'all' },
+	{ label: 'Today', value: 'today' },
+	{ label: 'Past Week', value: 'week' },
+	{ label: 'Past 30 Days', value: '30days' },
+	{ label: 'Past Year', value: 'year' },
+];
+
 function money(v: number, currency: string = 'PHP') {
 	try {
 		return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(v);
@@ -120,6 +128,32 @@ function formatDateUTC(iso?: string) {
 	}
 }
 
+function getDateRange(filter: string): { start: Date; end: Date } | null {
+	const now = new Date();
+	const end = new Date();
+	
+	switch (filter) {
+		case 'today':
+			const startOfToday = new Date(now);
+			startOfToday.setHours(0, 0, 0, 0);
+			return { start: startOfToday, end };
+		case 'week':
+			const startOfWeek = new Date(now);
+			startOfWeek.setDate(now.getDate() - 7);
+			return { start: startOfWeek, end };
+		case '30days':
+			const startOf30Days = new Date(now);
+			startOf30Days.setDate(now.getDate() - 30);
+			return { start: startOf30Days, end };
+		case 'year':
+			const startOfYear = new Date(now);
+			startOfYear.setFullYear(now.getFullYear() - 1);
+			return { start: startOfYear, end };
+		default:
+			return null;
+	}
+}
+
 export default function OrderManagement() {
 	const [storeId, setStoreId] = useState<string | null>(null);
 	const [orders, setOrders] = useState<Order[]>([]);
@@ -130,6 +164,9 @@ export default function OrderManagement() {
 	const [error, setError] = useState<string | null>(null);
 	const [activeTab, setActiveTab] = useState<Exclude<OrderStatus, 'cancelled'>>('pending');
 	const [updatingId, setUpdatingId] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState('');
+	const [dateFilter, setDateFilter] = useState<string>('all');
+	const [showDateFilter, setShowDateFilter] = useState(false);
 	const navigate = useNavigate();
 
 	useEffect(() => {
@@ -192,9 +229,43 @@ export default function OrderManagement() {
 		return map as Record<Exclude<OrderStatus, 'cancelled'>, number>;
 	}, [orders]);
 
-	const filtered = useMemo(() => orders.filter((o) => o.status === activeTab), [orders, activeTab]);
+	// Filter orders based on active tab, search query, and date filter
+	const filtered = useMemo(() => {
+		return orders.filter((order) => {
+			// Status filter
+			if (order.status !== activeTab) return false;
+			
+			// Date filter
+			if (dateFilter !== 'all' && order.createdAt) {
+				const dateRange = getDateRange(dateFilter);
+				if (dateRange) {
+					const orderDate = new Date(order.createdAt);
+					if (orderDate < dateRange.start || orderDate > dateRange.end) {
+						return false;
+					}
+				}
+			}
+			
+			// Search filter
+			if (searchQuery.trim()) {
+				const query = searchQuery.toLowerCase();
+				const matchesId = order._id.toLowerCase().includes(query);
+				const matchesService = order.items.some(item => 
+					item.serviceName?.toLowerCase().includes(query)
+				);
+				const matchesNotes = order.notes?.toLowerCase().includes(query);
+				const matchesFiles = order.files.some(file => 
+					file.filename?.toLowerCase().includes(query)
+				);
+				
+				return matchesId || matchesService || matchesNotes || matchesFiles;
+			}
+			
+			return true;
+		});
+	}, [orders, activeTab, searchQuery, dateFilter]);
 
-		async function updateStatus(id: string, status: Exclude<OrderStatus, 'cancelled'>) {
+	async function updateStatus(id: string, status: Exclude<OrderStatus, 'cancelled'>) {
 		try {
 			setUpdatingId(id);
 				const payload: Record<string, unknown> = { status };
@@ -261,32 +332,120 @@ export default function OrderManagement() {
 			<div className="max-w-7xl mx-auto">
 				{pageHeader}
 
-				{/* Filter header */}
+				{/* Filter header with integrated search and filter */}
 				<div className="mb-8">
-					<div className="inline-flex flex-wrap gap-3 bg-gray-800/50 border border-gray-600 rounded-2xl p-3 backdrop-blur-sm">
-						{STATUS_LABELS.map(({ label, value }) => {
-							const active = activeTab === value;
-							return (
-								<button
-									key={value}
-									onClick={() => setActiveTab(value)}
-									className={`inline-flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out transform hover:scale-105 ${
-										active
-											? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 scale-105'
-											: 'bg-transparent text-gray-200 border border-gray-600 hover:bg-gray-700/50'
-									}`}
-								>
-									<span>{label}</span>
-									<span className={`text-xs px-2 py-1 rounded-full border ${
-										active
-											? 'border-white/30 bg-white/20 text-white'
-											: 'border-gray-500 bg-gray-700/50 text-gray-200'
-									}`}>
-										{counts[value] ?? 0}
-									</span>
-								</button>
-							);
-						})}
+					<div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+						{/* Combined Status Tabs, Search and Filter */}
+						<div className="flex flex-col sm:flex-row gap-4 w-full">
+							{/* Status Tabs */}
+							<div className="inline-flex flex-wrap gap-3 bg-gray-800/50 border border-gray-600 rounded-2xl p-3 backdrop-blur-sm">
+								{STATUS_LABELS.map(({ label, value }) => {
+									const active = activeTab === value;
+									return (
+										<button
+											key={value}
+											onClick={() => setActiveTab(value)}
+											className={`inline-flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out transform hover:scale-105 ${
+												active
+													? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 scale-105'
+													: 'bg-transparent text-gray-200 border border-gray-600 hover:bg-gray-700/50'
+											}`}
+										>
+											<span>{label}</span>
+											<span className={`text-xs px-2 py-1 rounded-full border ${
+												active
+													? 'border-white/30 bg-white/20 text-white'
+													: 'border-gray-500 bg-gray-700/50 text-gray-200'
+											}`}>
+												{counts[value] ?? 0}
+											</span>
+										</button>
+									);
+								})}
+							</div>
+
+							{/* Search and Filter Container */}
+							<div className="flex flex-col sm:flex-row gap-3 flex-1 max-w-lg">
+								{/* Modern Search Bar */}
+								<div className="relative flex-1">
+									<div className="relative group">
+										<div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+											<svg className="h-4 w-4 text-gray-400 group-focus-within:text-blue-400 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+											</svg>
+										</div>
+										<input
+											type="text"
+											placeholder="Search orders..."
+											value={searchQuery}
+											onChange={(e) => setSearchQuery(e.target.value)}
+											className="w-full pl-11 pr-11 py-3.5 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm transition-all duration-300 hover:border-gray-500"
+										/>
+										{searchQuery && (
+											<button
+												onClick={() => setSearchQuery('')}
+												className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-white transition-colors duration-200"
+											>
+												<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+												</svg>
+											</button>
+										)}
+									</div>
+								</div>
+
+								{/* Date Filter Dropdown */}
+								<div className="relative">
+									<button
+										onClick={() => setShowDateFilter(!showDateFilter)}
+										className="flex items-center gap-2 px-4 py-3.5 bg-gray-800/50 border border-gray-600 rounded-xl text-white hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm transition-all duration-300 min-w-[120px] justify-center"
+									>
+										<svg className="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+										</svg>
+										<span className="text-sm font-medium">Filter</span>
+										<svg className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${showDateFilter ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+										</svg>
+									</button>
+
+									{/* Dropdown Menu */}
+									{showDateFilter && (
+										<div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl backdrop-blur-sm z-10">
+											<div className="p-2 space-y-1">
+												{DATE_FILTERS.map((filter) => (
+													<button
+														key={filter.value}
+														onClick={() => {
+															setDateFilter(filter.value);
+															setShowDateFilter(false);
+														}}
+														className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+															dateFilter === filter.value
+																? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
+																: 'text-gray-200 hover:bg-gray-700/50'
+														}`}
+													>
+														{filter.label}
+													</button>
+												))}
+											</div>
+										</div>
+									)}
+								</div>
+							</div>
+						</div>
+					</div>
+
+					{/* Results Count */}
+					<div className="mt-4 text-sm text-gray-400">
+						Showing {filtered.length} of {orders.filter(o => o.status === activeTab).length} orders
+						{searchQuery && (
+							<span> for "<span className="text-white">{searchQuery}</span>"</span>
+						)}
+						{dateFilter !== 'all' && (
+							<span> from <span className="text-white">{DATE_FILTERS.find(f => f.value === dateFilter)?.label}</span></span>
+						)}
 					</div>
 				</div>
 
@@ -332,9 +491,29 @@ export default function OrderManagement() {
 				<div className={`grid grid-cols-1 gap-6 transition-all duration-300 ${contentReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
 					{!loading && filtered.length === 0 && (
 						<div className="rounded-2xl border border-gray-600 bg-gray-800/50 p-12 text-center text-gray-300 backdrop-blur-sm transition-all duration-300 ease-out hover:scale-[1.02]">
-							<div className="text-6xl mb-4">📦</div>
-							<h3 className="text-xl font-semibold mb-2">No orders in this status</h3>
-							<p className="text-gray-400">Orders will appear here as customers place them.</p>
+							<div className="text-6xl mb-4">
+								{searchQuery || dateFilter !== 'all' ? '🔍' : '📦'}
+							</div>
+							<h3 className="text-xl font-semibold mb-2">
+								{searchQuery || dateFilter !== 'all' ? 'No matching orders' : 'No orders in this status'}
+							</h3>
+							<p className="text-gray-400">
+								{searchQuery || dateFilter !== 'all' 
+									? 'Try adjusting your search or filter criteria'
+									: 'Orders will appear here as customers place them.'
+								}
+							</p>
+							{(searchQuery || dateFilter !== 'all') && (
+								<button
+									onClick={() => {
+										setSearchQuery('');
+										setDateFilter('all');
+									}}
+									className="mt-4 px-4 py-2 text-sm text-blue-300 hover:text-blue-200 transition-colors duration-200"
+								>
+									Clear filters
+								</button>
+							)}
 						</div>
 					)}
 					{filtered.map((o) => {
