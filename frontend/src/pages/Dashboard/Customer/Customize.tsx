@@ -273,102 +273,220 @@ const Customize: React.FC = () => {
 
   return (
     <DashboardLayout role="customer">
-      <div className="w-full">
+      <div className="w-full max-w-7xl mx-auto">
+        {/* Header Section */}
         <div className="mt-6 text-center">
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-widest text-white">
-            CUSTOMIZE YOUR PRODUCT
+          <h1 className="text-3xl md:text-4xl font-bold text-white tracking-wide">
+            Customize your Product
           </h1>
+          <p className="text-gray-400 mt-2 text-sm md:text-base">Design your perfect product with real-time 3D preview</p>
         </div>
-        <div className="mt-8 flex flex-1 min-h-[70vh] rounded-xl border border-white/10 bg-gray-900 shadow-lg overflow-hidden">
-          {/* Sidebar */}
-          <aside className="w-96 border-r border-white/10 bg-gray-800/80 p-6 flex flex-col gap-6">
-            <div>
-              <label htmlFor="product-select" className="block text-sm text-gray-300 font-bold mb-2">Select Product</label>
-              <select id="product-select" value={selectedProduct || ""} onChange={(e) => handleProductSelect(e.target.value)}
-                className="w-full p-2.5 bg-gray-700 border border-white/10 rounded-lg text-white appearance-none focus:ring-blue-500 focus:border-blue-500">
-                <option value="" disabled>Choose a product</option>
-                {availableProducts.map((product) => (<option key={product} value={product}>{product}</option>))}
+
+        {/* Main Content */}
+        <div className="mt-8 flex flex-col lg:flex-row gap-6 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 p-6 shadow-2xl border border-gray-700">
+          
+          {/* Sidebar - Enhanced Design */}
+          <aside className="w-full lg:w-96 bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700 p-6 flex flex-col gap-6 shadow-lg">
+            {/* Product Selection */}
+            <div className="space-y-2">
+              <label htmlFor="product-select" className="block text-sm font-semibold text-gray-200 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                SELECT PRODUCT
+              </label>
+              <select 
+                id="product-select" 
+                value={selectedProduct || ""} 
+                onChange={(e) => handleProductSelect(e.target.value)}
+                className="w-full p-3 bg-gray-700/80 border border-gray-600 rounded-xl text-white font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 hover:bg-gray-700"
+              >
+                <option value="" disabled className="text-gray-400">Choose a product...</option>
+                {availableProducts.map((product) => (
+                  <option key={product} value={product} className="bg-gray-800">{product}</option>
+                ))}
               </select>
             </div>
+
             {selectedProduct && currentProductInfo && (
               <>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center text-gray-300 cursor-pointer transition-colors h-24 ${isDraggingOver ? 'border-blue-500 bg-blue-900/50' : 'border-white/20 hover:border-blue-500'}`}
-                >
-                  <div className="flex flex-col items-center gap-2 pointer-events-none">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                    <span className="text-sm font-semibold">Upload or Drag your Design</span>
-                  </div>
-                  <input type="file" accept="image/png, image/jpeg" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                </div>
-
-                {preview && (
-                  <div className="w-full h-32 bg-black/40 border border-white/10 rounded-lg p-2">
-                    <img src={preview} alt="Preview" className="w-full h-full object-contain" />
-                  </div>
-                )}
-
-                <div className="space-y-6 pt-4 border-t border-white/20">
-                    <div>
-                      <label className="block text-white text-sm font-bold mb-2">Select Color</label>
-                      <div className="flex gap-3 flex-wrap"> 
-                        {Object.entries(currentProductInfo.variations).map(([colorName, colorData]) => (
-                            <button key={colorName} onClick={() => handleColorSelect(colorName)}
-                                className={`w-8 h-8 rounded-full border-2 transition-transform transform hover:scale-110 ${selectedColor === colorName ? 'border-blue-400 scale-110' : 'border-white/30'}`}
-                                style={{ backgroundColor: colorData.colorCode }} title={colorName} />
-                        ))}
+                {/* File Upload - Enhanced */}
+                <div className="space-y-4">
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${
+                      isDraggingOver 
+                        ? 'border-blue-400 bg-blue-900/20 scale-[1.02]' 
+                        : 'border-gray-600 hover:border-blue-400 hover:bg-gray-700/50'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-3 pointer-events-none">
+                      <div className="p-3 bg-blue-500/10 rounded-full">
+                        <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                      </div>
+                      <div>
+                        <span className="text-sm font-semibold text-gray-200 block">Upload Your Design</span>
+                        <span className="text-xs text-gray-400 mt-1 block">PNG or JPG • Drag & Drop</span>
                       </div>
                     </div>
+                    <input type="file" accept="image/png, image/jpeg" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                  </div>
+                </div>
 
+                {/* Customization Options */}
+                <div className="space-y-6 pt-4 border-t border-gray-700">
+                  {/* Color Selection */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-200 mb-3 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
+                      </svg>
+                      PRODUCT COLOR
+                    </label>
+                    <div className="flex gap-2 flex-wrap"> 
+                      {Object.entries(currentProductInfo.variations).map(([colorName, colorData]) => (
+                        <button 
+                          key={colorName} 
+                          onClick={() => handleColorSelect(colorName)}
+                          className={`w-10 h-10 rounded-xl border-3 transition-all duration-200 transform hover:scale-110 shadow-lg ${
+                            selectedColor === colorName 
+                              ? 'border-blue-400 scale-110 ring-2 ring-blue-400/30' 
+                              : 'border-gray-600 hover:border-gray-400'
+                          }`}
+                          style={{ backgroundColor: colorData.colorCode }} 
+                          title={colorName} 
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Design Controls */}
                   {texture && (
-                    <>
+                    <div className="space-y-4">
+                      {/* Scale Control */}
                       <div>
-                        <label className="block text-white text-sm font-bold mb-2">Image Scale: {decalScale.toFixed(2)}</label>
-                        <input type="range" min={decalScaleRange.minScale} max={decalScaleRange.maxScale} step="0.01" value={decalScale}
-                            onChange={(e) => setDecalScale(parseFloat(e.target.value))} className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer" />
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="block text-sm font-semibold text-gray-200">DESIGN SCALE</label>
+                          <span className="text-xs font-mono bg-gray-700 px-2 py-1 rounded text-blue-300">
+                            {decalScale.toFixed(2)}
+                          </span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min={decalScaleRange.minScale} 
+                          max={decalScaleRange.maxScale} 
+                          step="0.01" 
+                          value={decalScale}
+                          onChange={(e) => setDecalScale(parseFloat(e.target.value))} 
+                          className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                        />
                       </div>
+
+                      {/* Position Control */}
                       <div>
-                        <label className="block text-white text-sm font-bold mb-2">Image Position</label>
-                        <div className="grid grid-cols-3 grid-rows-2 gap-2 w-32 mx-auto">
+                        <label className="block text-sm font-semibold text-gray-200 mb-3">DESIGN POSITION</label>
+                        <div className="bg-gray-700/50 rounded-xl p-4">
+                          <div className="grid grid-cols-3 grid-rows-3 gap-3 w-40 mx-auto">
                             <div className="col-start-2 row-start-1 flex justify-center">
-                                <button onClick={() => setDecalPosition(p => [p[0], p[1] + 0.02, p[2]])} className="bg-blue-600/50 hover:bg-blue-600/80 text-white p-2 rounded transform transition hover:scale-110">↑</button>
+                              <button 
+                                onClick={() => setDecalPosition(p => [p[0], p[1] + 0.02, p[2]])} 
+                                className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl transform transition-all duration-200 hover:scale-110 shadow-md flex items-center justify-center"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                </svg>
+                              </button>
                             </div>
                             <div className="col-start-1 row-start-2 flex justify-center">
-                                <button onClick={() => setDecalPosition(p => [p[0] - 0.02, p[1], p[2]])} className="bg-blue-600/50 hover:bg-blue-600/80 text-white p-2 rounded transform transition hover:scale-110">←</button>
-                            </div>
-                            <div className="col-start-3 row-start-2 flex justify-center">
-                                <button onClick={() => setDecalPosition(p => [p[0] + 0.02, p[1], p[2]])} className="bg-blue-600/50 hover:bg-blue-600/80 text-white p-2 rounded transform transition hover:scale-110">→</button>
+                              <button 
+                                onClick={() => setDecalPosition(p => [p[0] - 0.02, p[1], p[2]])} 
+                                className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl transform transition-all duration-200 hover:scale-110 shadow-md flex items-center justify-center"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                              </button>
                             </div>
                             <div className="col-start-2 row-start-2 flex justify-center">
-                                <button onClick={() => setDecalPosition(p => [p[0], p[1] - 0.02, p[2]])} className="bg-blue-600/50 hover:bg-blue-600/80 text-white p-2 rounded transform transition hover:scale-110">↓</button>
+                              <div className="w-10 h-10 bg-gray-600 rounded-lg flex items-center justify-center text-xs text-gray-400 font-mono">
+                                POS
+                              </div>
                             </div>
+                            <div className="col-start-3 row-start-2 flex justify-center">
+                              <button 
+                                onClick={() => setDecalPosition(p => [p[0] + 0.02, p[1], p[2]])} 
+                                className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl transform transition-all duration-200 hover:scale-110 shadow-md flex items-center justify-center"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                            </div>
+                            <div className="col-start-2 row-start-3 flex justify-center">
+                              <button 
+                                onClick={() => setDecalPosition(p => [p[0], p[1] - 0.02, p[2]])} 
+                                className="bg-blue-600 hover:bg-blue-500 text-white p-3 rounded-xl transform transition-all duration-200 hover:scale-110 shadow-md flex items-center justify-center"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               </>
             )}
 
-            {notification && <div className="text-red-400 text-xs mt-1">{notification}</div>}
+            {/* Notification */}
+            {notification && (
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <div className="text-red-400 text-sm font-medium flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {notification}
+                </div>
+              </div>
+            )}
 
-            <div className="mt-auto flex gap-3">
-              <button type="button" onClick={handleReset} 
-                className="flex-1 py-2.5 rounded-lg bg-gray-700 hover:bg-gray-600 font-semibold text-white text-sm border border-white/10 shadow-sm transition">
+            {/* Action Buttons */}
+            <div className="mt-auto flex gap-3 pt-4 border-t border-gray-700">
+              <button 
+                type="button" 
+                onClick={handleReset} 
+                className="flex-1 py-3.5 rounded-xl bg-gray-700 hover:bg-gray-600 font-semibold text-white text-sm border border-gray-600 shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
                 Reset
               </button>
-              <button type="button" onClick={handleBuy} disabled={!selectedProduct}
-                className="flex-1 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold text-white text-sm shadow-md disabled:opacity-50 transition">
-                Buy
+              <button 
+                type="button" 
+                onClick={handleBuy} 
+                disabled={!selectedProduct}
+                className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 font-semibold text-white text-sm shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                </svg>
+                Buy Now
               </button>
             </div>
           </aside>
-          <main className="flex-1 flex items-center justify-center bg-gray-900 p-4">
-            <div className="w-full h-full border border-white/20 rounded-lg overflow-hidden">
+
+          {/* 3D Preview Area - Fixed to stay at top */}
+          <main className="flex-1 flex items-start justify-center bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border border-gray-700 p-6 shadow-2xl">
+            <div className="w-full h-[600px] rounded-xl border-2 border-gray-700 overflow-hidden bg-gradient-to-b from-gray-900 to-gray-800 shadow-inner">
               <ErrorBoundary>
                 {selectedProduct && selectedColor && currentVariation ? (
                   <Canvas 
@@ -401,30 +519,78 @@ const Customize: React.FC = () => {
                     <OrbitControls enablePan={false} minDistance={2} maxDistance={10} autoRotate={!isDragging} autoRotateSpeed={1.5} />
                   </Canvas>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400 text-xl font-medium">
-                    Please select a product to begin customizing.
+                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
+                    <svg className="w-16 h-16 mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    <p className="text-xl font-medium text-gray-300 mb-2">Ready to Create?</p>
+                    <p className="text-sm text-gray-500 text-center max-w-sm">
+                      Select a product and start customizing with your own design
+                    </p>
                   </div>
                 )}
               </ErrorBoundary>
             </div>
           </main>
         </div>
-        {(showModal || modalClosing) && createPortal(
-            <div className={`fixed inset-0 bg-black/50 flex items-center justify-center z-50 ${modalClosing ? "animate-fadeOut" : "animate-fadeIn"}`}>
-              <div className="bg-gray-800 p-6 rounded-lg w-80 text-white flex flex-col gap-4 shadow-xl">
-                <p className="text-center text-lg font-bold">Proceed to Order?</p>
-                <p className="text-center text-sm text-gray-300">Your customized product is ready!</p>
-                <div className="flex justify-center gap-4 mt-2">
-                  <button className="bg-gray-700 px-4 py-2 rounded-lg hover:bg-gray-600 font-bold text-sm" onClick={handleCloseModal}>No, thanks</button>
-                  <button className="bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-500 font-bold text-sm" onClick={() => navigate("/dashboard/customer")}>Yes, Proceed</button>
-                </div>
-              </div>
-            </div>, document.body
-        )}
       </div>
+
+      {/* Modal */}
+      {(showModal || modalClosing) && createPortal(
+        <div className={`fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 ${modalClosing ? "animate-fadeOut" : "animate-fadeIn"}`}>
+          <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-8 rounded-2xl w-96 border border-gray-700 shadow-2xl transform transition-all duration-300 scale-100">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Ready to Order?</h3>
+              <p className="text-gray-300 text-sm">Your customized product is looking amazing!</p>
+            </div>
+            <div className="flex justify-center gap-3">
+              <button 
+                className="flex-1 py-3 rounded-xl bg-gray-700 hover:bg-gray-600 font-semibold text-white text-sm transition-all duration-200"
+                onClick={handleCloseModal}
+              >
+                Continue Editing
+              </button>
+              <button 
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 font-semibold text-white text-sm shadow-lg transition-all duration-200"
+                onClick={() => navigate("/dashboard/customer")}
+              >
+                Proceed to Order
+              </button>
+            </div>
+          </div>
+        </div>, 
+        document.body
+      )}
+
       <style>{`
         @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } } .animate-fadeIn { animation: fadeIn 0.3s ease forwards; }
         @keyframes fadeOut { from { opacity: 1 } to { opacity: 0 } } .animate-fadeOut { animation: fadeOut 0.3s ease forwards; }
+        
+        .slider-thumb::-webkit-slider-thumb {
+          appearance: none;
+          height: 20px;
+          width: 20px;
+          border-radius: 50%;
+          background: #3b82f6;
+          cursor: pointer;
+          border: 2px solid #1e40af;
+          box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+        }
+        
+        .slider-thumb::-moz-range-thumb {
+          height: 20px;
+          width: 20px;
+          border-radius: 50%;
+          background: #3b82f6;
+          cursor: pointer;
+          border: 2px solid #1e40af;
+          box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+        }
       `}</style>
     </DashboardLayout>
   );
