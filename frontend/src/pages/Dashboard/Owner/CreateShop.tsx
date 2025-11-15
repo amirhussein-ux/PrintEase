@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import api from "../../../lib/api";
 import CropperModal from '../../../components/CropperModal';
 import PrintEaseLogo from "../../../assets/PrintEase-Logo.png";
+import { useAuth } from "../../../context/AuthContext";
 
 /* map imports */
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
@@ -32,6 +33,7 @@ const DefaultMarkerIcon = L.icon({
 L.Marker.prototype.options.icon = DefaultMarkerIcon;
 
 export default function CreateShop() {
+  const { user } = useAuth();
   // verification input removed
   const [storeName, setStoreName] = useState("");
   const [tin, setTin] = useState("");
@@ -50,6 +52,11 @@ export default function CreateShop() {
   const [showCropper, setShowCropper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
+  useEffect(() => {
+    if (user && user.role !== 'owner') {
+      navigate('/dashboard/owner', { replace: true });
+    }
+  }, [user, navigate]);
   const [headerImgLoaded, setHeaderImgLoaded] = useState(false);
   const [logoImgLoaded, setLogoImgLoaded] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);

@@ -5,14 +5,19 @@ import { AiOutlineEdit, AiOutlineDelete, AiOutlineArrowLeft } from 'react-icons/
 import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
 import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
 import { useAuth } from "../../../context/AuthContext";
-import api from '../../../lib/api';
 import CropperModal from '../../../components/CropperModal';
+
+const OWNER_DASHBOARD_ROLES = ["Operations Manager", "Front Desk", "Inventory & Supplies", "Printer Operator"] as const;
+type OwnerDashboardRole = typeof OWNER_DASHBOARD_ROLES[number];
+const isOwnerDashboardRole = (role?: string | null): role is OwnerDashboardRole =>
+  !!role && OWNER_DASHBOARD_ROLES.includes(role as OwnerDashboardRole);
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const backPath = location.state?.from || (user?.role === 'owner' ? '/dashboard/owner' : '/dashboard/customer');
+  const isOwnerContext = user?.role === 'owner' || (user?.role === 'employee' && isOwnerDashboardRole(user.employeeRole));
+  const backPath = location.state?.from || (isOwnerContext ? '/dashboard/owner' : '/dashboard/customer');
 
   const [firstName, setFirstName] = useState(user?.firstName || '');
   const [lastName, setLastName] = useState(user?.lastName || '');
@@ -105,7 +110,7 @@ export default function Profile() {
   ];
   const currentAvatarUrl = user?.avatarUrl || null;
 
-  const gradientClass = user?.role === 'owner'
+  const gradientClass = isOwnerContext
     ? 'bg-gradient-to-r from-[#0f172a] via-[#1e3a8a]/90 to-white'
     : 'bg-gradient-to-r from-blue-900 via-indigo-900 to-black';
 
@@ -122,7 +127,7 @@ export default function Profile() {
         <div className="max-w-3xl mx-auto mt-20 relative">
           <button
             type="button"
-            onClick={() => navigate(user?.role === 'owner' ? '/dashboard/owner' : backPath)}
+            onClick={() => navigate(backPath)}
             className="absolute -top-12 left-0 flex items-center gap-2 bg-indigo-700 bg-opacity-70 text-white font-semibold text-sm rounded-full px-4 py-2 shadow-md transition-transform duration-200 hover:bg-opacity-90 hover:scale-105"
           >
             <AiOutlineArrowLeft size={20} /> Back

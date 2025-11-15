@@ -1,11 +1,14 @@
 const User = require("../models/userModel");
+const Employee = require('../models/employeeModel');
 const jwt = require("jsonwebtoken");
 const mongoose = require('mongoose');
 
 // Generate JWT
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
+const generateToken = ({ id, role, kind = 'user', store, expiresIn = '7d' }) => {
+  const payload = { id, role, kind };
+  if (store) payload.store = store;
+  return jwt.sign(payload, process.env.JWT_SECRET, {
+    expiresIn,
   });
 };
 
@@ -70,7 +73,7 @@ exports.registerUser = async (req, res) => {
         email: user.email,
         role: user.role,
       },
-      token: generateToken(user._id, user.role),
+      token: generateToken({ id: user._id, role: user.role }),
     });
   } catch (error) {
     // Simplify Mongoose validation errors and return 400
@@ -94,32 +97,63 @@ exports.registerUser = async (req, res) => {
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
 
-    console.log("Login attempt:", email);
+    const normalizedEmail = String(email).trim().toLowerCase();
+    console.log("Login attempt:", normalizedEmail);
 
-    const user = await User.findOne({ email });
-    console.log("User found:", user);
+    const user = await User.findOne({ email: normalizedEmail });
 
-    if (!user) {
+    if (user) {
+      const isMatch = await user.matchPassword(password);
+      console.log("Password match (user):", isMatch);
+      if (!isMatch) {
+        return res.status(400).json({ message: "Invalid email or password" });
+      }
+
+      return res.json({
+        user: {
+          _id: user._id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          role: user.role,
+        },
+        token: generateToken({ id: user._id, role: user.role }),
+      });
+    }
+
+    const employee = await Employee.findOne({ email: normalizedEmail, active: true }).select('+passwordHash');
+    if (!employee) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    const isMatch = await user.matchPassword(password);
-    console.log("Password match:", isMatch);
-
-    if (!isMatch) {
+    const employeeMatch = await employee.matchPassword(password);
+    console.log("Password match (employee):", employeeMatch);
+    if (!employeeMatch) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
+
+    const [firstName, ...rest] = employee.fullName.split(' ').filter(Boolean);
+    const lastName = rest.join(' ');
 
     res.json({
       user: {
-        _id: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
+        _id: employee._id,
+        firstName: firstName || employee.fullName,
+        lastName,
+        email: employee.email,
+        role: 'employee',
+        store: employee.store,
+        storeId: employee.store,
+        phone: employee.phone || '',
+        avatar: employee.avatar || null,
+        fullName: employee.fullName,
+        employeeRole: employee.role,
       },
-      token: generateToken(user._id, user.role),
+      token: generateToken({ id: employee._id, role: 'employee', kind: 'employee', store: employee.store }),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -132,9 +166,7 @@ exports.generateGuestToken = (req, res) => {
     const guestId = "guest_" + Date.now();
     const role = "guest";
 
-    const token = jwt.sign({ id: guestId, role }, process.env.JWT_SECRET, {
-      expiresIn: "1d",
-    });
+    const token = generateToken({ id: guestId, role, expiresIn: '1d' });
 
     res.json({
       user: {

@@ -8,11 +8,15 @@ export interface User {
   firstName?: string;
   lastName?: string;
   email?: string | null;
-  role: "owner" | "customer" | "guest";
+  role: "owner" | "customer" | "guest" | "employee";
+  employeeRole?: string;
   address?: string;
   phone?: string;
   avatarUrl?: string;
   avatarFileId?: string;
+  storeId?: string;
+  store?: string;
+  fullName?: string;
 }
 
 export interface AuthContextType {
@@ -55,8 +59,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // ----- Methods -----
   const login = async (email: string, password: string): Promise<User> => {
-    const res = await api.post("/auth/login", { email, password });
-    const userData: User = res.data.user;
+  const res = await api.post("/auth/login", { email, password });
+  const userData: User = res.data.user;
     const userToken: string = res.data.token;
 
     setUser(userData);
@@ -134,6 +138,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 };
 
 // ----- Hook -----
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth must be used within AuthProvider");

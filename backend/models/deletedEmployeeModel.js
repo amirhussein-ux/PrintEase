@@ -10,6 +10,8 @@ const deletedEmployeeSchema = new mongoose.Schema(
     phone: { type: String, trim: true },
     active: { type: Boolean, default: true },
     deletedAt: { type: Date, default: Date.now },
+    passwordHash: { type: String, select: false },
+    avatar: { type: String },
   },
   { timestamps: false }
 );

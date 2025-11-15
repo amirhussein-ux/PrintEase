@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, Fragment, useRef, useCallback } from "react";
-import { Dialog, DialogPanel, Transition } from "@headlessui/react";
+import { Dialog, DialogPanel, Transition, Listbox } from "@headlessui/react";
 import {
     PencilSquareIcon,
     TrashIcon,
@@ -13,13 +13,17 @@ import {
     ArrowTrendingDownIcon,
     UsersIcon,
     DocumentArrowDownIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    PhotoIcon,
+    ChevronUpDownIcon
 } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import api from "../../../lib/api";
 import { isAxiosError } from "axios";
 import jsPDF from 'jspdf';
+import CropperModal from "../../../components/CropperModal";
+import { useAuth } from "../../../context/AuthContext";
 
 
 // Types
@@ -43,6 +47,8 @@ interface Employee {
     phone?: string;
     active: boolean;
     createdAt: string;
+    avatar?: string;
+    avatarUrl?: string;
 }
 
 interface DeletedInventoryItem {
@@ -67,7 +73,58 @@ interface DeletedEmployee {
     phone?: string;
     active: boolean;
     deletedAt: string;
+    avatar?: string;
+    avatarUrl?: string;
 }
+
+interface EmployeeFormState {
+    fullName: string;
+    role: string;
+    email: string;
+    phone: string;
+    password: string;
+    confirmPassword: string;
+}
+
+const createEmptyEmployeeForm = (): EmployeeFormState => ({
+    fullName: "",
+    role: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirmPassword: "",
+});
+
+const createEmptyProductForm = () => ({
+    product: "",
+    category: "",
+    quantity: "",
+    minQuantity: "",
+    unitPrice: "",
+    entryPrice: "",
+});
+
+const EMPLOYEE_ROLE_OPTIONS = [
+    "Operations Manager",
+    "Front Desk",
+    "Inventory & Supplies",
+    "Printer Operator",
+];
+
+const revokeBlobUrl = (url: string | null) => {
+    if (url && url.startsWith("blob:")) {
+        URL.revokeObjectURL(url);
+    }
+};
+
+const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+};
 
 function toErrorMessage(e: unknown, fallback: string): string {
     if (isAxiosError(e)) {
@@ -79,14 +136,27 @@ function toErrorMessage(e: unknown, fallback: string): string {
 }
 
 const Inventory: React.FC = () => {
+    const { user } = useAuth();
+    const isOwner = user?.role === "owner";
+    const isOperationsManager = user?.role === "employee" && user?.employeeRole === "Operations Manager";
+    const isInventoryStaff = user?.role === "employee" && user?.employeeRole === "Inventory & Supplies";
+    const hasInventoryAccess = Boolean(isOwner || isOperationsManager || isInventoryStaff);
+    const canViewEmployees = Boolean(isOwner || isOperationsManager);
+    const showEmployeeSections = canViewEmployees && !isInventoryStaff;
+    const summaryGridClasses = showEmployeeSections
+        ? "grid sm:grid-cols-2 md:grid-cols-4 gap-2 mb-4"
+        : "grid sm:grid-cols-2 md:grid-cols-3 gap-2 mb-4";
+    const canManageEmployees = Boolean(isOwner);
+
     // Product state
     const [showModal, setShowModal] = useState(false);
-    const [form, setForm] = useState({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "", entryPrice: "" });
+    const [form, setForm] = useState(createEmptyProductForm);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [products, setProducts] = useState<InventoryItem[]>([]);
     const [product, setProduct] = useState("");
     const [editIndex, setEditIndex] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isSavingProduct, setIsSavingProduct] = useState(false);
 
     const [searchTerm, setSearchTerm] = useState("");
     const [productStatusFilter, setProductStatusFilter] = useState<"ALL" | "LOW" | "OK">("ALL");
@@ -97,7 +167,7 @@ const Inventory: React.FC = () => {
     // Employee state
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [showEmployeeModal, setShowEmployeeModal] = useState(false);
-    const [employeeForm, setEmployeeForm] = useState({ fullName: "", role: "" });
+    const [employeeForm, setEmployeeForm] = useState<EmployeeFormState>(() => createEmptyEmployeeForm());
     const [employeeErrors, setEmployeeErrors] = useState<{ [key: string]: string }>({});
     const [employeeSearch, setEmployeeSearch] = useState("");
     const [employeeRoleFilter, setEmployeeRoleFilter] = useState<"ALL" | "Manager" | "Staff">("ALL");
@@ -105,6 +175,93 @@ const Inventory: React.FC = () => {
     const [employeeSortDir, setEmployeeSortDir] = useState<"asc" | "desc">("asc");
     const [showEmployeeFilters, setShowEmployeeFilters] = useState(false);
     const [editEmployeeIndex, setEditEmployeeIndex] = useState<string | null>(null);
+    const [employeeAvatarPreview, setEmployeeAvatarPreview] = useState<string | null>(null);
+    const [employeeAvatarFile, setEmployeeAvatarFile] = useState<File | null>(null);
+    const [employeeAvatarExisting, setEmployeeAvatarExisting] = useState<string | null>(null);
+    const [employeeAvatarRemoved, setEmployeeAvatarRemoved] = useState(false);
+    const [employeeAvatarDragActive, setEmployeeAvatarDragActive] = useState(false);
+    const [employeeCropperSrc, setEmployeeCropperSrc] = useState<string | null>(null);
+    const employeeAvatarInputRef = useRef<HTMLInputElement | null>(null);
+    const [isSavingEmployee, setIsSavingEmployee] = useState(false);
+    const currentEmployeeAvatar = employeeAvatarPreview || employeeAvatarExisting;
+
+    useEffect(() => {
+        return () => {
+            revokeBlobUrl(employeeAvatarPreview);
+        };
+    }, [employeeAvatarPreview]);
+
+    useEffect(() => {
+        return () => {
+            revokeBlobUrl(employeeCropperSrc);
+        };
+    }, [employeeCropperSrc]);
+
+    const resetEmployeeModalState = () => {
+        setEmployeeForm(createEmptyEmployeeForm());
+        setEmployeeErrors({});
+        revokeBlobUrl(employeeAvatarPreview);
+        setEmployeeAvatarPreview(null);
+        setEmployeeAvatarFile(null);
+        setEmployeeAvatarExisting(null);
+        setEmployeeAvatarRemoved(false);
+        setEmployeeAvatarDragActive(false);
+        if (employeeCropperSrc) {
+            revokeBlobUrl(employeeCropperSrc);
+            setEmployeeCropperSrc(null);
+        }
+        setIsSavingEmployee(false);
+        setEditEmployeeIndex(null);
+    };
+
+    const openEmployeeAvatarDialog = () => {
+        employeeAvatarInputRef.current?.click();
+    };
+
+    const triggerEmployeeCropper = (file: File) => {
+        if (!file.type.startsWith("image/")) {
+            setEmployeeErrors(prev => ({ ...prev, avatar: "Please upload an image file." }));
+            return;
+        }
+        setEmployeeErrors(prev => {
+            if (!prev.avatar) return prev;
+            const rest = { ...prev };
+            delete rest.avatar;
+            return rest;
+        });
+        setEmployeeAvatarExisting(null);
+        setEmployeeAvatarRemoved(false);
+        const objectUrl = URL.createObjectURL(file);
+        setEmployeeCropperSrc(prev => {
+            revokeBlobUrl(prev);
+            return objectUrl;
+        });
+    };
+
+    const handleEmployeeAvatarInput = (files: FileList | null) => {
+        const file = files?.[0] || null;
+        if (!file) return;
+        triggerEmployeeCropper(file);
+        setEmployeeAvatarRemoved(false);
+    };
+
+    const handleEmployeeAvatarDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setEmployeeAvatarDragActive(false);
+        const file = e.dataTransfer.files?.[0] || null;
+        if (!file) return;
+        triggerEmployeeCropper(file);
+        setEmployeeAvatarRemoved(false);
+    };
+
+    const handleEmployeeAvatarRemove = () => {
+        revokeBlobUrl(employeeAvatarPreview);
+        setEmployeeAvatarPreview(null);
+        setEmployeeAvatarFile(null);
+        setEmployeeAvatarRemoved(true);
+        setEmployeeAvatarExisting(null);
+    };
 
     // Delete safeguards
     const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
@@ -124,9 +281,25 @@ const Inventory: React.FC = () => {
     const [showDeletedProducts, setShowDeletedProducts] = useState(false);
     const [showDeletedEmployees, setShowDeletedEmployees] = useState(false);
 
+    useEffect(() => {
+        if (!canManageEmployees) {
+            setShowDeletedEmployees(false);
+            if (showEmployeeModal) {
+                setShowEmployeeModal(false);
+            }
+        }
+    }, [canManageEmployees, showEmployeeModal]);
+
     const isMountedRef = useRef(true);
 
     const reloadInventoryLists = useCallback(async () => {
+        if (!hasInventoryAccess) {
+            if (isMountedRef.current) {
+                setProducts([]);
+                setDeletedProducts([]);
+            }
+            return;
+        }
         const [inventoryRes, deletedRes] = await Promise.all([
             api.get("/inventory/mine"),
             api.get("/inventory/deleted"),
@@ -144,22 +317,30 @@ const Inventory: React.FC = () => {
             if (!current || current === "ALL") return "ALL";
             return inventoryItems.some(p => p.name === current) ? current : inventoryItems[0].name;
         });
-    }, []);
+    }, [hasInventoryAccess]);
 
     const reloadEmployeeLists = useCallback(async () => {
-        const [employeeRes, deletedRes] = await Promise.all([
-            api.get("/employees/mine"),
-            api.get("/employees/deleted"),
-        ]);
+        if (!canViewEmployees) {
+            if (isMountedRef.current) {
+                setEmployees([]);
+                setDeletedEmployees([]);
+            }
+            return;
+        }
+
+        const employeePromise = api.get("/employees/mine");
+        const deletedPromise = canManageEmployees ? api.get("/employees/deleted") : null;
+        const employeeRes = await employeePromise;
+        const deletedRes = deletedPromise ? await deletedPromise : null;
 
         if (!isMountedRef.current) return;
 
         const employeeList: Employee[] = employeeRes.data || [];
-        const archivedEmployees: DeletedEmployee[] = deletedRes.data || [];
+        const archivedEmployees: DeletedEmployee[] = deletedRes?.data || [];
 
         setEmployees(employeeList);
         setDeletedEmployees(archivedEmployees);
-    }, []);
+    }, [canViewEmployees, canManageEmployees]);
 
     // Load data from backend
     useEffect(() => {
@@ -180,193 +361,6 @@ const Inventory: React.FC = () => {
         };
     }, [reloadInventoryLists, reloadEmployeeLists]);
 
-    // Graph data: show current stock levels by category or all products
-    const stockAmountData = useMemo(() => {
-        if (products.length === 0) {
-            return [{ month: "No Data", amount: 0 }];
-        }
-        
-        if (product && product !== "ALL") {
-            // Show data for selected product only
-            const selectedProduct = products.find(p => p.name === product);
-            if (!selectedProduct) return [{ month: "No Data", amount: 0 }];
-            
-            return [
-                { month: "Current", amount: selectedProduct.amount },
-                { month: "Min Required", amount: selectedProduct.minAmount }
-            ];
-        } else {
-            // Show data for all products grouped by category
-            const categoryData = products.reduce((acc, p) => {
-                const category = p.category || "Uncategorized";
-                if (!acc[category]) {
-                    acc[category] = { amount: 0, minAmount: 0 };
-                }
-                acc[category].amount += p.amount;
-                acc[category].minAmount += p.minAmount;
-                return acc;
-            }, {} as Record<string, { amount: number; minAmount: number }>);
-            
-            const entries = Object.entries(categoryData);
-            if (entries.length === 0) {
-                return [{ month: "No Data", amount: 0 }];
-            }
-            
-            return entries.map(([category, data]) => ({
-                month: category.length > 8 ? category.substring(0, 8) + "..." : category,
-                amount: data.amount
-            }));
-        }
-    }, [products, product]);
-
-    const stockPriceData = useMemo(() => {
-        if (products.length === 0) {
-            return [{ month: "No Data", prize: 0 }];
-        }
-        
-        if (product && product !== "ALL") {
-            // Show price data for selected product
-            const selectedProduct = products.find(p => p.name === product);
-            if (!selectedProduct) return [{ month: "No Data", prize: 0 }];
-            
-            return [
-                { month: "Unit Price", prize: selectedProduct.price },
-                { month: "Total Value", prize: selectedProduct.price * selectedProduct.amount }
-            ];
-        } else {
-            // Show total value by category
-            const categoryData = products.reduce((acc, p) => {
-                const category = p.category || "Uncategorized";
-                if (!acc[category]) {
-                    acc[category] = 0;
-                }
-                acc[category] += p.price * p.amount;
-                return acc;
-            }, {} as Record<string, number>);
-            
-            const entries = Object.entries(categoryData);
-            if (entries.length === 0) {
-                return [{ month: "No Data", prize: 0 }];
-            }
-            
-            return entries.map(([category, value]) => ({
-                month: category.length > 8 ? category.substring(0, 8) + "..." : category,
-                prize: value
-            }));
-        }
-    }, [products, product]);
-
-    // Calculate profit and expenses
-    const profitAndExpenses = useMemo(() => {
-        const totalStockValue = products.reduce((sum, p) => sum + (p.price * p.amount), 0);
-        const totalEntryCost = products.reduce((sum, p) => sum + (p.entryPrice * p.amount), 0);
-        const grossProfit = totalStockValue - totalEntryCost;
-        const profitMargin = totalEntryCost > 0 ? (grossProfit / totalEntryCost) * 100 : 0;
-        
-        // Calculate estimated expenses (you can modify this logic based on your business needs)
-        const estimatedExpenses = totalEntryCost * 0.1; // 10% of entry cost as estimated expenses
-        
-        return {
-            totalStockValue,
-            totalEntryCost,
-            grossProfit,
-            profitMargin,
-            estimatedExpenses
-        };
-    }, [products]);
-
-    // Product handlers
-    const handleCreate = () => {
-        setShowModal(true);
-    setForm({ product: "", category: "", quantity: "", minQuantity: "", unitPrice: "", entryPrice: "" });
-        setErrors({});
-        setEditIndex(null);
-    };
-
-    const validateFields = () => {
-        const newErrors: { [key: string]: string } = {};
-        if (!form.product.trim()) newErrors.product = "Product name is required.";
-        if (!form.quantity.trim() || isNaN(Number(form.quantity))) newErrors.quantity = "Quantity must be a number.";
-        if (!form.minQuantity.trim() || isNaN(Number(form.minQuantity))) newErrors.minQuantity = "Min. Quantity must be a number.";
-        if (!form.unitPrice.trim() || isNaN(Number(form.unitPrice))) newErrors.unitPrice = "Unit Price must be a number.";
-        if (!form.entryPrice.trim() || isNaN(Number(form.entryPrice))) newErrors.entryPrice = "Entry Price must be a number.";
-        return newErrors;
-    };
-
-    // removed unused generateProductId that was part of previous local-only ID creation
-
-    const handleSave = async () => {
-        const newErrors = validateFields();
-        setErrors(newErrors);
-        if (Object.keys(newErrors).length > 0) return;
-        
-        try {
-            setError(null);
-            if (editIndex !== null) {
-                // Update existing item
-                const res = await api.put(`/inventory/${editIndex}`, {
-                    name: form.product,
-                    category: form.category || undefined,
-                    amount: Number(form.quantity),
-                    minAmount: Number(form.minQuantity),
-                    price: Number(form.unitPrice),
-                    entryPrice: Number(form.entryPrice),
-                });
-                const updated = res.data;
-                setProducts(prev => prev.map(p => p._id === editIndex ? updated : p));
-                setProduct(form.product);
-            } else {
-                // Create new item
-                const res = await api.post("/inventory", {
-                    name: form.product,
-                    category: form.category || undefined,
-                    amount: Number(form.quantity),
-                    minAmount: Number(form.minQuantity),
-                    price: Number(form.unitPrice),
-                    entryPrice: Number(form.entryPrice),
-                });
-                const created = res.data;
-                setProducts(prev => [created, ...prev]);
-                setProduct(form.product);
-            }
-            setShowModal(false);
-        } catch (e: unknown) {
-            setError(toErrorMessage(e, "Failed to save product"));
-        }
-    };
-
-    const handleEdit = (id: string) => {
-        const p = products.find(prod => prod._id === id);
-        if (!p) return;
-        setForm({
-            product: p.name,
-            category: p.category || "",
-            quantity: String(p.amount),
-            minQuantity: String(p.minAmount),
-            unitPrice: String(p.price),
-            entryPrice: String(p.entryPrice),
-        });
-        setEditIndex(id);
-        setShowModal(true);
-        setErrors({});
-    };
-
-    const confirmDeleteProduct = async () => {
-        if (!deleteProductId) return;
-        const id = deleteProductId;
-        setDeleteProductId(null);
-
-        try {
-            setError(null);
-            await api.delete(`/inventory/${id}`);
-            await reloadInventoryLists();
-        } catch (e: unknown) {
-            setError(toErrorMessage(e, "Failed to delete product"));
-        }
-    };
-
-    const handleCancel = () => setShowModal(false);
-
     // Category dropdown state
     const [showCategoryMenu, setShowCategoryMenu] = useState(false);
     const [categoryHighlight, setCategoryHighlight] = useState<number>(-1);
@@ -376,7 +370,7 @@ const Inventory: React.FC = () => {
     const categorySuggestions = useMemo(() => {
         const set = new Set<string>();
         products.forEach(p => { if (p.category) set.add(p.category); });
-        return Array.from(set).sort((a,b)=>a.localeCompare(b));
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
     }, [products]);
 
     const filteredCategorySuggestions = useMemo(() => {
@@ -392,9 +386,102 @@ const Inventory: React.FC = () => {
             setShowCategoryMenu(false);
             setCategoryHighlight(-1);
         }
-        document.addEventListener('mousedown', onDocClick);
-        return () => document.removeEventListener('mousedown', onDocClick);
+        document.addEventListener("mousedown", onDocClick);
+        return () => document.removeEventListener("mousedown", onDocClick);
     }, []);
+
+    const resetProductForm = () => {
+        setForm(createEmptyProductForm());
+        setErrors({});
+        setEditIndex(null);
+    };
+
+    const validateProductFields = () => {
+        const newErrors: { [key: string]: string } = {};
+        if (!form.product.trim()) newErrors.product = "Product name is required.";
+        const qty = Number(form.quantity);
+        if (!Number.isFinite(qty) || qty < 0) newErrors.quantity = "Quantity must be a non-negative number.";
+        const minQty = Number(form.minQuantity);
+        if (!Number.isFinite(minQty) || minQty < 0) newErrors.minQuantity = "Min quantity must be a non-negative number.";
+        const unitPrice = Number(form.unitPrice);
+        if (!Number.isFinite(unitPrice) || unitPrice < 0) newErrors.unitPrice = "Unit price must be a non-negative number.";
+        const entryPrice = Number(form.entryPrice);
+        if (!Number.isFinite(entryPrice) || entryPrice < 0) newErrors.entryPrice = "Entry price must be a non-negative number.";
+        return newErrors;
+    };
+
+    const handleCreate = () => {
+        resetProductForm();
+        setShowModal(true);
+    };
+
+    const handleEdit = (id: string) => {
+        const item = products.find(p => p._id === id);
+        if (!item) return;
+        setForm({
+            product: item.name,
+            category: item.category || "",
+            quantity: String(item.amount ?? ""),
+            minQuantity: String(item.minAmount ?? ""),
+            unitPrice: String(item.price ?? ""),
+            entryPrice: String(item.entryPrice ?? ""),
+        });
+        setErrors({});
+        setEditIndex(id);
+        setShowModal(true);
+        setProduct(prev => (prev === "ALL" || !prev ? item.name : prev));
+    };
+
+    const handleCancel = () => {
+        resetProductForm();
+        setShowModal(false);
+    };
+
+    const handleSave = async () => {
+        const newErrors = validateProductFields();
+        setErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) return;
+
+        const payload = {
+            name: form.product.trim(),
+            category: form.category.trim() || undefined,
+            amount: Number(form.quantity) || 0,
+            minAmount: Number(form.minQuantity) || 0,
+            price: Number(form.unitPrice) || 0,
+            entryPrice: Number(form.entryPrice) || 0,
+            currency: "PHP",
+        };
+
+        try {
+            setIsSavingProduct(true);
+            setError(null);
+            if (editIndex) {
+                await api.put(`/inventory/${editIndex}`, payload);
+            } else {
+                await api.post("/inventory", payload);
+            }
+            await reloadInventoryLists();
+            resetProductForm();
+            setShowModal(false);
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to save product"));
+        } finally {
+            setIsSavingProduct(false);
+        }
+    };
+
+    const confirmDeleteProduct = async () => {
+        if (!deleteProductId) return;
+        const id = deleteProductId;
+        setDeleteProductId(null);
+        try {
+            setError(null);
+            await api.delete(`/inventory/${id}`);
+            await reloadInventoryLists();
+        } catch (e: unknown) {
+            setError(toErrorMessage(e, "Failed to delete product"));
+        }
+    };
 
     function openCategoryMenu() {
         if (!categorySuggestions.length) return;
@@ -406,23 +493,22 @@ const Inventory: React.FC = () => {
         setForm(f => ({ ...f, category: value }));
         setShowCategoryMenu(false);
         setCategoryHighlight(-1);
-        // re-focus input for quick editing
-        requestAnimationFrame(()=>categoryInputRef.current?.focus());
+        requestAnimationFrame(() => categoryInputRef.current?.focus());
     }
 
     function onCategoryKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-        if (!showCategoryMenu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        if (!showCategoryMenu && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
             openCategoryMenu();
             e.preventDefault();
             return;
         }
         if (!showCategoryMenu) return;
-        if (e.key === 'Escape') {
+        if (e.key === "Escape") {
             setShowCategoryMenu(false);
             setCategoryHighlight(-1);
             return;
         }
-        if (e.key === 'ArrowDown') {
+        if (e.key === "ArrowDown") {
             e.preventDefault();
             setCategoryHighlight(h => {
                 const list = filteredCategorySuggestions;
@@ -430,7 +516,7 @@ const Inventory: React.FC = () => {
                 const next = h + 1 >= list.length ? 0 : h + 1;
                 return next;
             });
-        } else if (e.key === 'ArrowUp') {
+        } else if (e.key === "ArrowUp") {
             e.preventDefault();
             setCategoryHighlight(h => {
                 const list = filteredCategorySuggestions;
@@ -438,7 +524,7 @@ const Inventory: React.FC = () => {
                 const next = h - 1 < 0 ? list.length - 1 : h - 1;
                 return next;
             });
-        } else if (e.key === 'Enter') {
+        } else if (e.key === "Enter") {
             if (categoryHighlight >= 0 && categoryHighlight < filteredCategorySuggestions.length) {
                 e.preventDefault();
                 selectCategory(filteredCategorySuggestions[categoryHighlight]);
@@ -468,9 +554,79 @@ const Inventory: React.FC = () => {
         return sorted;
     }, [products, searchTerm, productStatusFilter, productSortKey, productSortDir]);
 
+    const stockAmountData = useMemo(() => {
+        if (!products.length) return [];
+        if (!product || product === "ALL") {
+            const buckets = new Map<string, number>();
+            products.forEach((p) => {
+                const key = p.category?.trim() || "Uncategorized";
+                buckets.set(key, (buckets.get(key) || 0) + Math.max(Number(p.amount) || 0, 0));
+            });
+            return Array.from(buckets.entries()).map(([category, amount]) => ({ month: category, amount }));
+        }
+        const target = products.find((p) => p.name === product);
+        if (!target) return [];
+        return [{ month: target.name, amount: Math.max(Number(target.amount) || 0, 0) }];
+    }, [product, products]);
+
+    const stockPriceData = useMemo(() => {
+        if (!products.length) return [];
+        if (!product || product === "ALL") {
+            const buckets = new Map<string, number>();
+            products.forEach((p) => {
+                const key = p.category?.trim() || "Uncategorized";
+                const totalValue = Math.max(Number(p.amount) || 0, 0) * Math.max(Number(p.price) || 0, 0);
+                buckets.set(key, (buckets.get(key) || 0) + totalValue);
+            });
+            return Array.from(buckets.entries()).map(([category, prize]) => ({ month: category, prize }));
+        }
+        const target = products.find((p) => p.name === product);
+        if (!target) return [];
+        const prize = Math.max(Number(target.amount) || 0, 0) * Math.max(Number(target.price) || 0, 0);
+        return [{ month: target.name, prize }];
+    }, [product, products]);
+
+    const profitAndExpenses = useMemo(() => {
+        const totals = filteredProducts.reduce(
+            (acc, item) => {
+                const quantity = Number(item.amount) || 0;
+                const unitPrice = Number(item.price) || 0;
+                const entryPrice = Number(item.entryPrice) || 0;
+                const minAmount = Math.max(Number(item.minAmount) || 0, 0);
+
+                acc.totalStockValue += unitPrice * quantity;
+                acc.totalEntryCost += entryPrice * quantity;
+
+                const deficit = Math.max(minAmount - quantity, 0);
+                acc.restockBuffer += deficit * entryPrice;
+
+                return acc;
+            },
+            {
+                totalStockValue: 0,
+                totalEntryCost: 0,
+                restockBuffer: 0,
+            }
+        );
+
+        const grossProfit = totals.totalStockValue - totals.totalEntryCost;
+        const profitMargin = totals.totalStockValue > 0 ? (grossProfit / totals.totalStockValue) * 100 : 0;
+        const safetyExpenses = totals.totalEntryCost * 0.1;
+        const estimatedExpenses = totals.restockBuffer > 0 ? totals.restockBuffer : safetyExpenses;
+
+        return {
+            totalStockValue: totals.totalStockValue,
+            totalEntryCost: totals.totalEntryCost,
+            grossProfit,
+            profitMargin,
+            estimatedExpenses,
+        };
+    }, [filteredProducts]);
+
     // Employee filter and sort (like Service Management)
     const filteredEmployees = useMemo(() => {
-    const base = employees.filter(e => {
+        if (!canViewEmployees) return [];
+        const base = employees.filter(e => {
             const qOK =
                 e.fullName.toLowerCase().includes(employeeSearch.toLowerCase()) ||
                 e.role.toLowerCase().includes(employeeSearch.toLowerCase());
@@ -478,67 +634,111 @@ const Inventory: React.FC = () => {
             if (employeeRoleFilter !== "ALL") roleOK = e.role === employeeRoleFilter;
             return qOK && roleOK;
         });
-    const sorted = [...base].sort((a, b) => {
+        const sorted = [...base].sort((a, b) => {
             let cmp = 0;
             if (employeeSortKey === "fullName") cmp = a.fullName.localeCompare(b.fullName);
             else if (employeeSortKey === "role") cmp = a.role.localeCompare(b.role);
             return employeeSortDir === "asc" ? cmp : -cmp;
         });
         return sorted;
-    }, [employees, employeeSearch, employeeRoleFilter, employeeSortKey, employeeSortDir]);
+    }, [employees, employeeSearch, employeeRoleFilter, employeeSortKey, employeeSortDir, canViewEmployees]);
+
 
     // Employee handlers
     const handleAddEmployee = () => {
+        if (!canManageEmployees) return;
+        resetEmployeeModalState();
         setShowEmployeeModal(true);
-        setEmployeeForm({ fullName: "", role: "" });
-        setEmployeeErrors({});
-        setEditEmployeeIndex(null);
     };
 
     const validateEmployeeFields = () => {
         const newErrors: { [key: string]: string } = {};
         if (!employeeForm.fullName.trim()) newErrors.fullName = "Full name is required.";
-        if (!employeeForm.role.trim()) newErrors.role = "Role is required.";
+        const roleValue = employeeForm.role.trim();
+        if (!roleValue) newErrors.role = "Role is required.";
+        else if (!EMPLOYEE_ROLE_OPTIONS.includes(roleValue)) newErrors.role = "Please select a valid role.";
+        const email = employeeForm.email.trim();
+        if (!email) newErrors.email = "Email address is required.";
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Enter a valid email address.";
+        const phone = employeeForm.phone.trim();
+        if (!phone) newErrors.phone = "Phone number is required.";
+        else if (!/^\+?[0-9\s-]{7,15}$/.test(phone)) newErrors.phone = "Enter a valid phone number.";
+        const wantsPassword = editEmployeeIndex === null || employeeForm.password.trim().length > 0 || employeeForm.confirmPassword.trim().length > 0;
+        if (wantsPassword) {
+            const password = employeeForm.password.trim();
+            const confirm = employeeForm.confirmPassword.trim();
+            if (!password) newErrors.password = "Password is required.";
+            else if (password.length < 6) newErrors.password = "Password must be at least 6 characters.";
+            if (!confirm) newErrors.confirmPassword = "Confirm your password.";
+            else if (password !== confirm) newErrors.confirmPassword = "Passwords do not match.";
+        }
         return newErrors;
     };
 
     const handleSaveEmployee = async () => {
+        if (!canManageEmployees) return;
         const newErrors = validateEmployeeFields();
         setEmployeeErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
         
         try {
             setError(null);
+            setIsSavingEmployee(true);
+            const payload: Record<string, unknown> = {
+                fullName: employeeForm.fullName.trim(),
+                role: employeeForm.role.trim(),
+                email: employeeForm.email.trim(),
+                phone: employeeForm.phone.trim(),
+            };
+            if (employeeForm.password.trim()) {
+                payload.password = employeeForm.password.trim();
+            }
+            if (employeeAvatarRemoved) {
+                payload.avatar = "";
+            } else if (employeeAvatarFile) {
+                payload.avatar = await fileToBase64(employeeAvatarFile);
+            }
+
             if (editEmployeeIndex !== null) {
-                // Update existing employee
-                const res = await api.put(`/employees/${editEmployeeIndex}`, employeeForm);
+                const res = await api.put(`/employees/${editEmployeeIndex}`, payload);
                 const updated = res.data;
                 setEmployees(prev => prev.map(e => e._id === editEmployeeIndex ? updated : e));
             } else {
-                // Create new employee
-                const res = await api.post("/employees", employeeForm);
+                const res = await api.post("/employees", payload);
                 const created = res.data;
                 setEmployees(prev => [created, ...prev]);
             }
+            resetEmployeeModalState();
             setShowEmployeeModal(false);
         } catch (e: unknown) {
             setError(toErrorMessage(e, "Failed to save employee"));
+        } finally {
+            setIsSavingEmployee(false);
         }
     };
 
     const handleEditEmployee = (id: string) => {
+        if (!canManageEmployees) return;
         const e = employees.find(emp => emp._id === id);
         if (!e) return;
+        resetEmployeeModalState();
         setEmployeeForm({
             fullName: e.fullName,
             role: e.role,
+            email: e.email || "",
+            phone: e.phone || "",
+            password: "",
+            confirmPassword: "",
         });
+        setEmployeeAvatarExisting(e.avatarUrl || e.avatar || null);
+        setEmployeeAvatarRemoved(false);
         setEditEmployeeIndex(id);
         setShowEmployeeModal(true);
         setEmployeeErrors({});
     };
 
     const confirmDeleteEmployee = async () => {
+        if (!canManageEmployees) return;
         if (!deleteEmployeeId) return;
         const id = deleteEmployeeId;
         setDeleteEmployeeId(null);
@@ -562,6 +762,7 @@ const Inventory: React.FC = () => {
     };
 
     const restoreDeletedEmployee = async (archivedId: string) => {
+        if (!canManageEmployees) return;
         try {
             setError(null);
             await api.post(`/employees/deleted/${archivedId}/restore`);
@@ -571,7 +772,10 @@ const Inventory: React.FC = () => {
         }
     };
 
-    const handleCancelEmployee = () => setShowEmployeeModal(false);
+    const handleCancelEmployee = () => {
+        resetEmployeeModalState();
+        setShowEmployeeModal(false);
+    };
 
     // PDF Export function
     const exportToPDF = async () => {
@@ -650,12 +854,22 @@ const Inventory: React.FC = () => {
         }
     };
 
+    if (!hasInventoryAccess) {
+        return (
+            <DashboardLayout role="owner">
+                <div className="max-w-4xl mx-auto text-center text-white mt-12">
+                    <p>You do not have permission to manage inventory.</p>
+                </div>
+            </DashboardLayout>
+        );
+    }
+
     return (
         <DashboardLayout role="owner">
             <div className="transition-all duration-300 font-crimson p-8">
                 <div className="w-full max-w-7xl mx-auto space-y-4">
                     {/* Summary Cards */}
-                    <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    <div className={summaryGridClasses}>
                         <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
                             <span className="text-lg bg-white rounded-full p-1">
                                 <BanknotesIcon className="w-5 h-5 text-gray-700" />
@@ -686,13 +900,15 @@ const Inventory: React.FC = () => {
                             <div className="text-gray-800 text-[0.7rem] uppercase">Est. Expenses</div>
                             <div className="text-gray-600 text-[0.6rem] text-center">(10% of entry cost)</div>
                         </div>
-                        <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
-                            <span className="text-lg bg-white rounded-full p-1">
-                                <UsersIcon className="w-5 h-5 text-blue-700" />
-                            </span>
-                            <div className="text-base font-bold text-gray-900">{employees.length}</div>
-                            <div className="text-gray-800 text-[0.7rem] uppercase">Employees</div>
-                        </div>
+                        {showEmployeeSections && (
+                            <div className="bg-white/90 rounded-xl shadow-md p-2 flex flex-col items-center">
+                                <span className="text-lg bg-white rounded-full p-1">
+                                    <UsersIcon className="w-5 h-5 text-blue-700" />
+                                </span>
+                                <div className="text-base font-bold text-gray-900">{employees.length}</div>
+                                <div className="text-gray-800 text-[0.7rem] uppercase">Employees</div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Error Display */}
@@ -1048,7 +1264,7 @@ const Inventory: React.FC = () => {
                                                 </button>
                                             </div>
                                             <form
-                                                onSubmit={(e) => { e.preventDefault(); handleSave(); }}
+                                                onSubmit={(e) => { e.preventDefault(); void handleSave(); }}
                                                 className="p-4 space-y-4"
                                             >
                                                 <div>
@@ -1182,9 +1398,11 @@ const Inventory: React.FC = () => {
                                                     </button>
                                                     <button
                                                         type="submit"
-                                                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 font-semibold text-sm inline-flex items-center gap-1"
+                                                        disabled={isSavingProduct}
+                                                        className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed font-semibold text-sm inline-flex items-center gap-1"
                                                     >
-                                                        <CheckIcon className="w-4 h-4" /> {editIndex !== null ? 'Save changes' : 'Create product'}
+                                                        <CheckIcon className="w-4 h-4" />
+                                                        {isSavingProduct ? 'Saving...' : editIndex !== null ? 'Save changes' : 'Create product'}
                                                     </button>
                                                 </div>
                                             </form>
@@ -1195,6 +1413,8 @@ const Inventory: React.FC = () => {
                         </Dialog>
                     </Transition>
 
+                    {showEmployeeSections && (
+                        <>
                     {/* Employee List Section - identical to Product Table UI */}
                     <div className="bg-white/90 rounded-xl shadow-md p-3 mt-4">
                         <div className="flex justify-between items-center mb-2">
@@ -1430,26 +1650,240 @@ const Inventory: React.FC = () => {
 
                     {/* Modal for Add/Edit Employee */}
                     {showEmployeeModal && (
-                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                            <div className="bg-white rounded-xl shadow-lg w-full max-w-xs p-4 relative">
-                                <button className="absolute top-2 right-2 cursor-pointer text-[1.1rem]" onClick={handleCancelEmployee} aria-label="Close">
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+                            <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+                                <button
+                                    type="button"
+                                    onClick={handleCancelEmployee}
+                                    className="absolute right-4 top-4 rounded-full p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                    aria-label="Close"
+                                >
                                     <XMarkIcon className="w-5 h-5" />
                                 </button>
-                                <div className="font-bold text-lg text-center mb-2">{editEmployeeIndex !== null ? "Edit Employee" : "Add Employee"}</div>
-                                <input className="rounded-lg px-3 py-1 bg-gray-400 text-black mb-1 text-[0.95rem]" placeholder="Full Name" value={employeeForm.fullName} onChange={e => setEmployeeForm(f => ({ ...f, fullName: e.target.value }))} />
-                                {employeeErrors.fullName && <div className="text-red-500 text-xs mb-1">{employeeErrors.fullName}</div>}
-                                <input className="rounded-lg px-3 py-1 bg-gray-400 text-black mb-1 text-[0.95rem]" placeholder="Role" value={employeeForm.role} onChange={e => setEmployeeForm(f => ({ ...f, role: e.target.value }))} />
-                                {employeeErrors.role && <div className="text-red-500 text-xs mb-1">{employeeErrors.role}</div>}
-                                <div className="flex gap-2 mt-2">
-                                    <button className="bg-red-400 text-white rounded-lg px-4 py-1 font-bold flex-1 text-[0.95rem] inline-flex items-center justify-center gap-1" onClick={handleCancelEmployee}>
-                                        <XMarkIcon className="w-4 h-4" /> Cancel
-                                    </button>
-                                    <button className="bg-green-400 text-white rounded-lg px-4 py-1 font-bold flex-1 text-[0.95rem] inline-flex items-center justify-center gap-1" onClick={handleSaveEmployee}>
-                                        <CheckIcon className="w-4 h-4" /> Save
-                                    </button>
-                                </div>
+                                <h2 className="mb-4 text-center text-xl font-bold text-gray-900">
+                                    {editEmployeeIndex !== null ? "Edit Employee" : "Add Employee"}
+                                </h2>
+                                <form
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        void handleSaveEmployee();
+                                    }}
+                                    className="space-y-5"
+                                >
+                                    <div className="flex flex-col items-center gap-3">
+                                        <div
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={openEmployeeAvatarDialog}
+                                            onKeyDown={(e) => {
+                                                if (e.key === "Enter" || e.key === " ") {
+                                                    e.preventDefault();
+                                                    openEmployeeAvatarDialog();
+                                                }
+                                            }}
+                                            onDragOver={(e) => {
+                                                e.preventDefault();
+                                                setEmployeeAvatarDragActive(true);
+                                            }}
+                                            onDragEnter={(e) => {
+                            e.preventDefault();
+                            setEmployeeAvatarDragActive(true);
+                        }}
+                                            onDragLeave={(e) => {
+                                                e.preventDefault();
+                                                setEmployeeAvatarDragActive(false);
+                                            }}
+                                            onDrop={handleEmployeeAvatarDrop}
+                                            className={`relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-dashed transition ${employeeAvatarDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50"}`}
+                                            aria-label="Upload avatar"
+                                        >
+                                            {currentEmployeeAvatar ? (
+                                                <img src={currentEmployeeAvatar} alt="Employee avatar" className="h-full w-full object-cover" />
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center text-center text-xs text-gray-500">
+                                                    <PhotoIcon className="mb-1 h-8 w-8 text-gray-400" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            className="hidden"
+                                            ref={employeeAvatarInputRef}
+                                            onChange={(e) => {
+                                                handleEmployeeAvatarInput(e.target.files);
+                                                e.target.value = "";
+                                            }}
+                                        />
+                                        {currentEmployeeAvatar && (
+                                            <button
+                                                type="button"
+                                                onClick={handleEmployeeAvatarRemove}
+                                                className="text-xs font-medium text-red-500 hover:text-red-600"
+                                            >
+                                                Remove photo
+                                            </button>
+                                        )}
+                                        {employeeErrors.avatar && (
+                                            <p className="text-xs text-red-500">{employeeErrors.avatar}</p>
+                                        )}
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label className="mb-1 block text-xs font-semibold text-gray-700">Full Name</label>
+                                            <input
+                                                value={employeeForm.fullName}
+                                                onChange={e => setEmployeeForm(f => ({ ...f, fullName: e.target.value }))}
+                                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.fullName ? "border-red-400" : "border-gray-300"}`}
+                                                placeholder="Juan Dela Cruz"
+                                            />
+                                            {employeeErrors.fullName && <p className="mt-1 text-xs text-red-500">{employeeErrors.fullName}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="mb-1 block text-xs font-semibold text-gray-700">Role</label>
+                                            <Listbox
+                                                value={employeeForm.role}
+                                                onChange={(value: string) => {
+                                                    setEmployeeForm(f => ({ ...f, role: value }));
+                                                }}
+                                            >
+                                                <div className="relative">
+                                                    <Listbox.Button
+                                                        className={`w-full cursor-pointer rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.role ? "border-red-400" : "border-gray-300"} flex items-center justify-between text-left`}
+                                                        aria-describedby={employeeErrors.role ? "employee-role-error" : undefined}
+                                                    >
+                                                        <span className={employeeForm.role ? "text-gray-900" : "text-gray-500"}>
+                                                            {employeeForm.role || "Select a role"}
+                                                        </span>
+                                                        <ChevronUpDownIcon className="h-5 w-5 text-gray-500" aria-hidden="true" />
+                                                    </Listbox.Button>
+                                                    <Transition
+                                                        as={Fragment}
+                                                        leave="transition ease-in duration-100"
+                                                        leaveFrom="opacity-100"
+                                                        leaveTo="opacity-0"
+                                                    >
+                                                        <Listbox.Options className="absolute left-0 right-0 z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-gray-200 bg-white py-1 text-sm shadow-lg focus:outline-none">
+                                                            {EMPLOYEE_ROLE_OPTIONS.map(option => (
+                                                                <Listbox.Option
+                                                                    key={option}
+                                                                    value={option}
+                                                                    className={({ active }) =>
+                                                                        `flex cursor-pointer items-center justify-between px-3 py-2 ${active ? "bg-blue-100 text-blue-900" : "text-gray-900"}`
+                                                                    }
+                                                                >
+                                                                    {({ selected }) => (
+                                                                        <>
+                                                                            <span className={`truncate ${selected ? "font-semibold" : ""}`}>{option}</span>
+                                                                            {selected && <CheckIcon className="h-4 w-4 text-blue-600" aria-hidden="true" />}
+                                                                        </>
+                                                                    )}
+                                                                </Listbox.Option>
+                                                            ))}
+                                                        </Listbox.Options>
+                                                    </Transition>
+                                                </div>
+                                            </Listbox>
+                                            {employeeErrors.role && <p id="employee-role-error" className="mt-1 text-xs text-red-500">{employeeErrors.role}</p>}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label className="mb-1 block text-xs font-semibold text-gray-700">Email Address</label>
+                                            <input
+                                                type="email"
+                                                value={employeeForm.email}
+                                                onChange={e => setEmployeeForm(f => ({ ...f, email: e.target.value }))}
+                                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.email ? "border-red-400" : "border-gray-300"}`}
+                                                placeholder="employee@printease.com"
+                                            />
+                                            {employeeErrors.email && <p className="mt-1 text-xs text-red-500">{employeeErrors.email}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="mb-1 block text-xs font-semibold text-gray-700">Phone Number</label>
+                                            <input
+                                                type="tel"
+                                                value={employeeForm.phone}
+                                                onChange={e => setEmployeeForm(f => ({ ...f, phone: e.target.value }))}
+                                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.phone ? "border-red-400" : "border-gray-300"}`}
+                                                placeholder="09XX XXX XXXX"
+                                            />
+                                            {employeeErrors.phone && <p className="mt-1 text-xs text-red-500">{employeeErrors.phone}</p>}
+                                        </div>
+                                    </div>
+
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <div>
+                                            <label className="mb-1 block text-xs font-semibold text-gray-700">Password</label>
+                                            <input
+                                                type="password"
+                                                value={employeeForm.password}
+                                                onChange={e => setEmployeeForm(f => ({ ...f, password: e.target.value }))}
+                                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.password ? "border-red-400" : "border-gray-300"}`}
+                                                placeholder={editEmployeeIndex !== null ? "Leave blank to keep current" : "At least 6 characters"}
+                                            />
+                                            {employeeErrors.password && <p className="mt-1 text-xs text-red-500">{employeeErrors.password}</p>}
+                                        </div>
+                                        <div>
+                                            <label className="mb-1 block text-xs font-semibold text-gray-700">Confirm Password</label>
+                                            <input
+                                                type="password"
+                                                value={employeeForm.confirmPassword}
+                                                onChange={e => setEmployeeForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                                                className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.confirmPassword ? "border-red-400" : "border-gray-300"}`}
+                                                placeholder="Repeat password"
+                                            />
+                                            {employeeErrors.confirmPassword && <p className="mt-1 text-xs text-red-500">{employeeErrors.confirmPassword}</p>}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-end gap-3 pt-2">
+                                        <button
+                                            type="button"
+                                            onClick={handleCancelEmployee}
+                                            className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100"
+                                        >
+                                            <XMarkIcon className="h-4 w-4" /> Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isSavingEmployee}
+                                            className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
+                                        >
+                                            <CheckIcon className="h-4 w-4" /> {isSavingEmployee ? "Saving..." : editEmployeeIndex !== null ? "Save Changes" : "Add Employee"}
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
+                    )}
+
+                    {employeeCropperSrc && (
+                        <CropperModal
+                            src={employeeCropperSrc}
+                            aspect={1}
+                            theme="light"
+                            onCancel={() => {
+                                revokeBlobUrl(employeeCropperSrc);
+                                setEmployeeCropperSrc(null);
+                            }}
+                            onApply={(file) => {
+                                const previewUrl = URL.createObjectURL(file);
+                                setEmployeeAvatarPreview(prev => {
+                                    revokeBlobUrl(prev);
+                                    return previewUrl;
+                                });
+                                setEmployeeAvatarFile(file);
+                                setEmployeeAvatarExisting(null);
+                                setEmployeeAvatarRemoved(false);
+                                revokeBlobUrl(employeeCropperSrc);
+                                setEmployeeCropperSrc(null);
+                            }}
+                        />
+                    )}
+                        </>
                     )}
                 </div>
             </div>

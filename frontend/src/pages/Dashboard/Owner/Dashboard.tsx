@@ -184,7 +184,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
 }
 
 // Main dashboard
-const OwnerDashboardContent: React.FC = () => {
+const DashboardContent: React.FC = () => {
   const [year, setYear] = useState(2025)
   const [selectedServiceId, setSelectedServiceId] = useState<string>('ALL')
   const [showModal, setShowModal] = useState(false)
@@ -576,4 +576,4 @@ const OwnerDashboardContent: React.FC = () => {
   )
 }
 
-export default OwnerDashboardContent
+export default DashboardContent

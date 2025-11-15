@@ -1,26 +1,25 @@
 const InventoryItem = require('../models/inventoryItemModel');
 const DeletedInventoryItem = require('../models/deletedInventoryItemModel');
-const PrintStore = require('../models/printStoreModel');
+const { getManagedStore, AccessError } = require('../utils/storeAccess');
 
-async function getOwnerStore(userId) {
-  return PrintStore.findOne({ owner: userId });
-}
+const STORE_STAFF_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
 exports.listMyInventory = async (req, res) => {
   try {
-    const store = await getOwnerStore(req.user.id);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const store = await getManagedStore(req, { allowEmployeeRoles: STORE_STAFF_ROLES });
     const items = await InventoryItem.find({ store: store._id }).sort({ createdAt: -1 });
     res.json(items);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
 
 exports.createItem = async (req, res) => {
   try {
-    const store = await getOwnerStore(req.user.id);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+  const store = await getManagedStore(req, { allowEmployeeRoles: STORE_STAFF_ROLES });
   const { name, amount = 0, minAmount = 0, entryPrice = 0, price = 0, currency = 'PHP', category } = req.body;
     const doc = await InventoryItem.create({
       store: store._id,
@@ -34,6 +33,9 @@ exports.createItem = async (req, res) => {
     });
     res.status(201).json(doc);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     if (err && err.code === 11000) {
       return res.status(409).json({ message: 'Item with this name already exists' });
     }
@@ -43,8 +45,7 @@ exports.createItem = async (req, res) => {
 
 exports.updateItem = async (req, res) => {
   try {
-    const store = await getOwnerStore(req.user.id);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+  const store = await getManagedStore(req, { allowEmployeeRoles: STORE_STAFF_ROLES });
     const { id } = req.params;
     const item = await InventoryItem.findOne({ _id: id, store: store._id });
     if (!item) return res.status(404).json({ message: 'Item not found' });
@@ -61,6 +62,9 @@ exports.updateItem = async (req, res) => {
     await item.save();
     res.json(item);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     if (err && err.code === 11000) {
       return res.status(409).json({ message: 'Item with this name already exists' });
     }
@@ -70,8 +74,7 @@ exports.updateItem = async (req, res) => {
 
 exports.deleteItem = async (req, res) => {
   try {
-    const store = await getOwnerStore(req.user.id);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+  const store = await getManagedStore(req, { allowEmployeeRoles: STORE_STAFF_ROLES });
     const { id } = req.params;
     const item = await InventoryItem.findOne({ _id: id, store: store._id });
     if (!item) return res.status(404).json({ message: 'Item not found' });
@@ -99,25 +102,29 @@ exports.deleteItem = async (req, res) => {
 
     res.json({ success: true, archived });
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
 
 exports.listDeletedItems = async (req, res) => {
   try {
-    const store = await getOwnerStore(req.user.id);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+  const store = await getManagedStore(req, { allowEmployeeRoles: STORE_STAFF_ROLES });
     const items = await DeletedInventoryItem.find({ store: store._id }).sort({ deletedAt: -1 });
     res.json(items);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
 
 exports.restoreDeletedItem = async (req, res) => {
   try {
-    const store = await getOwnerStore(req.user.id);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+  const store = await getManagedStore(req, { allowEmployeeRoles: STORE_STAFF_ROLES });
     const { deletedId } = req.params;
     const archived = await DeletedInventoryItem.findOne({ _id: deletedId, store: store._id });
     if (!archived) return res.status(404).json({ message: 'Archived inventory item not found' });
@@ -148,19 +155,24 @@ exports.restoreDeletedItem = async (req, res) => {
 
     res.json(restored);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
 
 exports.purgeDeletedItem = async (req, res) => {
   try {
-    const store = await getOwnerStore(req.user.id);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+  const store = await getManagedStore(req, { allowEmployeeRoles: STORE_STAFF_ROLES });
     const { deletedId } = req.params;
     const archived = await DeletedInventoryItem.findOneAndDelete({ _id: deletedId, store: store._id });
     if (!archived) return res.status(404).json({ message: 'Archived inventory item not found' });
     res.json({ success: true });
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };

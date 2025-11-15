@@ -1,13 +1,9 @@
 const Service = require('../models/serviceModel');
-const PrintStore = require('../models/printStoreModel');
 const InventoryItem = require('../models/inventoryItemModel');
 const mongoose = require('mongoose');
+const { getManagedStore, AccessError } = require('../utils/storeAccess');
 
-// Helper: get store for current owner
-async function getOwnerStore(userId) {
-  const store = await PrintStore.findOne({ owner: userId });
-  return store;
-}
+const EMPLOYEE_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
 // Helper: validate inventory requirements
 async function validateInventoryRequirements(storeId, requiredInventory, inventoryQuantityPerUnit) {
@@ -77,9 +73,7 @@ async function autoDisableServicesBasedOnInventory(storeId) {
 // Create service for owner's store
 exports.createService = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const store = await getOwnerStore(userId);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+  const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
 
   let { name, description, basePrice, unit, currency, active = true, variants = [], requiredInventory, inventoryQuantityPerUnit = 1 } = req.body;
     // type coercion for multipart fields
@@ -163,6 +157,12 @@ exports.createService = async (req, res) => {
       return res.status(201).json(svc);
     }
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
+    if (err && err.code === 11000) {
+      return res.status(409).json({ message: 'Service with this name already exists' });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -170,8 +170,7 @@ exports.createService = async (req, res) => {
 // Update service (owner only, must belong to owner's store)
 exports.updateService = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const store = await getOwnerStore(userId);
+  const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
     const { id } = req.params;
     const svc = await Service.findOne({ _id: id, store: store._id });
@@ -256,7 +255,7 @@ exports.updateService = async (req, res) => {
     await svc.save();
     // Build enriched response with inventory status
     try {
-      await svc.populate('requiredInventory');
+  const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
       const canEnable = await canEnableService(svc);
       let inventoryStatus = null;
       if (svc.requiredInventory) {
@@ -302,9 +301,7 @@ exports.updateService = async (req, res) => {
 // Soft delete service (owner only)
 exports.deleteService = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const store = await getOwnerStore(userId);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
     const { id } = req.params;
     const svc = await Service.findOne({ _id: id, store: store._id });
     if (!svc) return res.status(404).json({ message: 'Service not found' });
@@ -313,6 +310,9 @@ exports.deleteService = async (req, res) => {
     await svc.save();
     res.json({ success: true, deletedAt: svc.deletedAt });
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -320,12 +320,13 @@ exports.deleteService = async (req, res) => {
 // List services for current owner
 exports.listMyServices = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const store = await getOwnerStore(userId);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
     const list = await Service.find({ store: store._id, deletedAt: null }).sort({ createdAt: -1 });
     res.json(list);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -360,9 +361,7 @@ exports.getServiceImage = async (req, res) => {
 // Get services with inventory status for owner
 exports.getServicesWithInventoryStatus = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const store = await getOwnerStore(userId);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
     
     // First, auto-disable services based on inventory
     await autoDisableServicesBasedOnInventory(store._id);
@@ -425,6 +424,9 @@ exports.getServicesWithInventoryStatus = async (req, res) => {
     
     res.json(servicesWithStatus);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -432,12 +434,13 @@ exports.getServicesWithInventoryStatus = async (req, res) => {
 // List soft-deleted services for current owner
 exports.listDeleted = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const store = await getOwnerStore(userId);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
     const list = await Service.find({ store: store._id, deletedAt: { $ne: null } }).sort({ deletedAt: -1 });
     res.json(list);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -445,9 +448,7 @@ exports.listDeleted = async (req, res) => {
 // Restore a soft-deleted service
 exports.restoreService = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const store = await getOwnerStore(userId);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
     const { id } = req.params;
     const svc = await Service.findOne({ _id: id, store: store._id });
     if (!svc) return res.status(404).json({ message: 'Service not found' });
@@ -456,6 +457,9 @@ exports.restoreService = async (req, res) => {
     await svc.save();
     res.json(svc);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };

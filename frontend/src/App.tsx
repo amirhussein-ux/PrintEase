@@ -11,10 +11,9 @@ import PrivateRoute from "./components/PrivateRoute";
 
 // Customer Pages
 import Customize from "./pages/Dashboard/Customer/Customize";
-import ChatCustomer from "./pages/Dashboard/Customer/ChatCustomer";
 
-// Owner Pages
-import ChatOwner from "./pages/Dashboard/Owner/ChatOwner";
+// Shared Chat Views
+import { ChatCustomer, ChatOwner } from "./pages/Dashboard/shared_components/Chat";
 
 function App() {
   return (

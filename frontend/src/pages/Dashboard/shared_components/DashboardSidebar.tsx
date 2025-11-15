@@ -1,6 +1,7 @@
 "use client"
 
 import { NavLink } from "react-router-dom"
+import { useAuth } from "../../../context/AuthContext"
 import {
   HomeIcon,
   ClipboardDocumentListIcon,
@@ -18,6 +19,15 @@ interface DashboardSidebarProps {
 }
 
 export default function DashboardSidebar({ role, className, closeSidebar, centered }: DashboardSidebarProps) {
+  const { user } = useAuth()
+  const isOwner = user?.role === "owner"
+  const employeeRole = user?.role === "employee" ? user.employeeRole : null
+  const isFrontDesk = employeeRole === "Front Desk"
+  const isInventoryStaff = employeeRole === "Inventory & Supplies"
+  const isOperationsManager = employeeRole === "Operations Manager"
+  const isPrinterOperator = employeeRole === "Printer Operator"
+  const hasFullOwnerMenu = role === "owner" && (isOwner || isOperationsManager)
+
   // Owner links
   const adminLinks = [
     { name: "Dashboard", href: "/dashboard/owner", icon: <HomeIcon className="h-5 w-5" /> },
@@ -35,7 +45,18 @@ export default function DashboardSidebar({ role, className, closeSidebar, center
     { name: "Chat", href: "/dashboard/chat-customer", icon: <ChatBubbleLeftRightIcon className="h-5 w-5" /> },
   ]
 
-  const links = role === "owner" ? adminLinks : customerLinks
+  let links = role === "owner" ? adminLinks : customerLinks
+  if (role === "owner" && !hasFullOwnerMenu) {
+    let allowed: Set<string>
+    if (isFrontDesk || isPrinterOperator) {
+      allowed = new Set(["Dashboard", "Order Management", "Chat"])
+    } else if (isInventoryStaff) {
+      allowed = new Set(["Dashboard", "Inventory", "Chat"])
+    } else {
+      allowed = new Set(["Dashboard", "Chat"])
+    }
+    links = adminLinks.filter(link => allowed.has(link.name))
+  }
 
   return (
     <aside

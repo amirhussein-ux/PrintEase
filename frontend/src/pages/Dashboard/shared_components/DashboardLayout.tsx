@@ -26,6 +26,7 @@ interface Notification {
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => {
   const { user, logout, token } = useAuth();
+  const isOwnerUser = user?.role === "owner";
   const { socket } = useSocket() as { socket: Socket | null };
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -239,7 +240,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                 >
                   Edit Profile
                 </Link>
-                {role === "owner" && (
+                {role === "owner" && isOwnerUser && (
                   <Link
                     to="/owner/create-shop"
                     className="block px-4 py-2 text-sm text-gray-800 font-semibold hover:bg-gray-100 hover:text-gray-900 transition rounded-lg"

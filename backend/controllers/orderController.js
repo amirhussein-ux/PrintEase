@@ -5,6 +5,9 @@ const PrintStore = require('../models/printStoreModel');
 const InventoryItem = require('../models/inventoryItemModel');
 const crypto = require('crypto');
 const Notification = require('../models/notificationModel');
+const { getManagedStore, AccessError } = require('../utils/storeAccess');
+
+const EMPLOYEE_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
 function computeUnitPrice(service, selectedOptions = []) {
   const base = Number(service.basePrice) || 0;
@@ -205,9 +208,16 @@ exports.getMyOrders = async (req, res) => {
 exports.getOrdersForStore = async (req, res) => {
   try {
     const { storeId } = req.params;
-    const orders = await Order.find({ store: storeId }).sort({ createdAt: -1 });
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
+    if (String(store._id) !== String(storeId)) {
+      return res.status(403).json({ message: 'Not authorized to access this store' });
+    }
+    const orders = await Order.find({ store: store._id }).sort({ createdAt: -1 });
     res.json(orders);
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -227,7 +237,8 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status: incomingStatus, paymentStatus, paymentAmount, paymentMethod } = req.body || {};
-    const order = await Order.findById(id).populate('store');
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
+    const order = await Order.findOne({ _id: id, store: store._id }).populate('store');
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
     // --- Update status ---
@@ -316,6 +327,9 @@ exports.updateOrderStatus = async (req, res) => {
     res.json(order);
   } catch (err) {
     console.error('updateOrderStatus error:', err);
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };
@@ -358,7 +372,8 @@ exports.confirmPickupByToken = async (req, res) => {
 exports.downloadOrderFile = async (req, res) => {
   try {
     const { id, fileId } = req.params;
-    const order = await Order.findById(id);
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
+    const order = await Order.findOne({ _id: id, store: store._id });
     if (!order) return res.status(404).json({ message: 'Order not found' });
     const fileMeta = order.files.find((f) => String(f.fileId) === String(fileId));
     if (!fileMeta) return res.status(404).json({ message: 'File not found' });
@@ -369,6 +384,9 @@ exports.downloadOrderFile = async (req, res) => {
     stream.pipe(res);
     stream.on('error', () => res.status(500).end());
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 };

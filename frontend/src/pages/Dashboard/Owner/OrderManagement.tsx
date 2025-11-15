@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import DashboardLayout from '../shared_components/DashboardLayout';
 import api from '../../../lib/api';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
 
 type OrderStatus = 'pending' | 'processing' | 'ready' | 'completed' | 'cancelled';
 
@@ -121,6 +122,13 @@ function formatDateUTC(iso?: string) {
 }
 
 export default function OrderManagement() {
+	const { user } = useAuth();
+	const isOwner = user?.role === 'owner';
+	const isFrontDesk = user?.role === 'employee' && user.employeeRole === 'Front Desk';
+	const isOperationsManager = user?.role === 'employee' && user.employeeRole === 'Operations Manager';
+	const isPrinterOperator = user?.role === 'employee' && user.employeeRole === 'Printer Operator';
+	const hasStoreAccess = Boolean(isOwner || isFrontDesk || isOperationsManager || isPrinterOperator);
+	const canCreateStore = Boolean(isOwner);
 	const [storeId, setStoreId] = useState<string | null>(null);
 	const [orders, setOrders] = useState<Order[]>([]);
 	const [loading, setLoading] = useState(true);
@@ -135,10 +143,14 @@ export default function OrderManagement() {
 	useEffect(() => {
 		let cancelled = false;
 		async function loadStoreAndOrders() {
+			if (!hasStoreAccess) {
+				setLoading(false);
+				setError('You do not have permission to manage orders.');
+				return;
+			}
 			try {
 				setLoading(true);
 				setError(null);
-				// get owner store
 				const storeRes = await api.get('/print-store/mine');
 				if (cancelled) return;
 				const sid = (storeRes.data?._id as string) || '';
@@ -148,12 +160,10 @@ export default function OrderManagement() {
 					return;
 				}
 				setStoreId(sid);
-				// list orders for store
 				const ordRes = await api.get(`/orders/store/${sid}`);
 				if (cancelled) return;
 				setOrders(Array.isArray(ordRes.data) ? ordRes.data : []);
 			} catch (e: unknown) {
-				// if no store: redirect to create
 				const err = e as { response?: { status?: number; data?: { message?: string } } };
 				if (err?.response?.status === 404) {
 					setError('No print store found.');
@@ -169,8 +179,7 @@ export default function OrderManagement() {
 		return () => {
 			cancelled = true;
 		};
-	}, []);
-
+	}, [hasStoreAccess]);
 	// Crossfade skeleton -> content
 	useEffect(() => {
 		if (loading) {
@@ -231,23 +240,42 @@ export default function OrderManagement() {
 		</div>
 	);
 
+	if (!hasStoreAccess) {
+		return (
+			<DashboardLayout role="owner">
+				<div className="max-w-5xl mx-auto text-center text-gray-200">
+					{pageHeader}
+					<div className="rounded-xl border border-red-500/40 bg-red-500/10 p-8">
+						You do not have permission to manage orders.
+					</div>
+				</div>
+			</DashboardLayout>
+		);
+	}
+
 	if (!storeId && !loading) {
+		const calloutTitle = canCreateStore ? 'No Print Store' : 'Store Not Assigned';
+		const calloutSubtitle = canCreateStore
+			? 'Create your store to start receiving orders.'
+			: 'Contact the store owner to be assigned so you can process orders.';
 		return (
 			<DashboardLayout role="owner">
 				<div className="max-w-5xl mx-auto">
 					{pageHeader}
 					<div className="rounded-xl border border-white/10 bg-white/5 p-6 text-gray-200">
-						<div className="flex items-center justify-between gap-3">
+						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 							<div>
-								<div className="text-lg font-semibold">No Print Store</div>
-								<div className="text-sm text-gray-300">Create your store to start receiving orders.</div>
+								<div className="text-lg font-semibold">{calloutTitle}</div>
+								<div className="text-sm text-gray-300">{calloutSubtitle}</div>
 							</div>
-							<button
-								onClick={() => navigate('/owner/create-shop')}
-								className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white border border-blue-600"
-							>
-								Create Store
-							</button>
+							{canCreateStore && (
+								<button
+									onClick={() => navigate('/owner/create-shop')}
+									className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white border border-blue-600"
+								>
+									Create Store
+								</button>
+							)}
 						</div>
 					</div>
 				</div>

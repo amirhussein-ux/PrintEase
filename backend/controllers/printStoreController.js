@@ -2,6 +2,8 @@
 const User = require('../models/userModel');
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Types;
+const { getManagedStore, AccessError } = require('../utils/storeAccess');
+const EMPLOYEE_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
 // Create print store
 exports.createPrintStore = async (req, res) => {
@@ -79,11 +81,12 @@ exports.createPrintStore = async (req, res) => {
 // Get owner's store
 exports.getMyPrintStore = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const store = await PrintStore.findOne({ owner: userId });
-    if (!store) return res.status(404).json({ message: 'No print store found' });
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
     res.json(store);
   } catch (error) {
+    if (error instanceof AccessError) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
     res.status(500).json({ message: error.message });
   }
 };

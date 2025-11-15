@@ -1,20 +1,14 @@
 const Order = require('../models/orderModel');
 const Service = require('../models/serviceModel');
 const InventoryItem = require('../models/inventoryItemModel');
-const PrintStore = require('../models/printStoreModel');
+const { getManagedStore, AccessError } = require('../utils/storeAccess');
 
-// Helper: get store for current owner
-async function getOwnerStore(userId) {
-  const store = await PrintStore.findOne({ owner: userId });
-  return store;
-}
+const EMPLOYEE_ROLES= ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
 // Get prescriptive sales analysis
 async function getPrescriptiveAnalysis(req, res) {
   try {
-    const userId = req.user.id;
-    const store = await getOwnerStore(userId);
-    if (!store) return res.status(404).json({ message: 'No print store found for owner' });
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
 
     // Get orders from the last 30 days
     const thirtyDaysAgo = new Date();
@@ -129,6 +123,9 @@ async function getPrescriptiveAnalysis(req, res) {
     });
 
   } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
     res.status(500).json({ message: err.message });
   }
 }

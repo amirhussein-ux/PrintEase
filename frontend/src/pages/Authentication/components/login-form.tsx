@@ -20,14 +20,21 @@ const LoginForm: React.FC = () => {
       const user = await login(email, password);
 
       // redirect
-      if (user.role === "owner") {
+      if (user.role === "owner" || user.role === "employee") {
         navigate("/dashboard/owner");
       } else {
         // customer route
         navigate("/customer/select-shop");
       }
-    } catch (err: any) {
-      setError(err.message || "Login failed");
+    } catch (err: unknown) {
+      let message = "Login failed";
+      if (err && typeof err === "object" && "message" in err) {
+        const maybeMessage = (err as { message?: unknown }).message;
+        if (typeof maybeMessage === "string") {
+          message = maybeMessage;
+        }
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
