@@ -5,12 +5,31 @@ const { getManagedStore, AccessError } = require('../utils/storeAccess');
 
 const EMPLOYEE_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
+function normalizeInventoryId(value) {
+  if (!value) return undefined;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : undefined;
+  }
+  if (value instanceof mongoose.Types.ObjectId) {
+    return value.toString();
+  }
+  if (typeof value === 'object') {
+    if (value._id) {
+      if (typeof value._id === 'string') return value._id;
+      if (value._id instanceof mongoose.Types.ObjectId) return value._id.toString();
+    }
+  }
+  return undefined;
+}
+
 // Helper: validate inventory requirements
 async function validateInventoryRequirements(storeId, requiredInventory, inventoryQuantityPerUnit) {
-  if (!requiredInventory) return true; // No inventory requirement
+  const normalizedId = normalizeInventoryId(requiredInventory);
+  if (!normalizedId) return true; // No inventory requirement
   
   const inventoryItem = await InventoryItem.findOne({ 
-    _id: requiredInventory, 
+    _id: normalizedId, 
     store: storeId 
   });
   
@@ -83,10 +102,13 @@ exports.createService = async (req, res) => {
     if (typeof variants === 'string') {
       try { variantsArr = JSON.parse(variants); } catch { variantsArr = []; }
     }
+    const normalizedInventoryId = normalizeInventoryId(requiredInventory);
+    requiredInventory = normalizedInventoryId;
+    const quantityPerUnitNumber = Number(inventoryQuantityPerUnit) || 1;
     
     // Validate inventory requirements
     if (requiredInventory) {
-      await validateInventoryRequirements(store._id, requiredInventory, inventoryQuantityPerUnit);
+      await validateInventoryRequirements(store._id, requiredInventory, quantityPerUnitNumber);
     }
     
     const doc = {
@@ -99,7 +121,7 @@ exports.createService = async (req, res) => {
       active: activeBool,
       variants: Array.isArray(variantsArr) ? variantsArr : [],
       requiredInventory: requiredInventory || undefined,
-      inventoryQuantityPerUnit: Number(inventoryQuantityPerUnit) || 1,
+      inventoryQuantityPerUnit: quantityPerUnitNumber,
     };
     // image file
     if (req.file && req.file.buffer) {
@@ -194,8 +216,14 @@ exports.updateService = async (req, res) => {
     
     // Validate inventory requirements if being updated
     if (updates.requiredInventory !== undefined) {
-      if (updates.requiredInventory) {
-        await validateInventoryRequirements(store._id, updates.requiredInventory, updates.inventoryQuantityPerUnit || svc.inventoryQuantityPerUnit);
+      const normalizedId = normalizeInventoryId(updates.requiredInventory);
+      updates.requiredInventory = normalizedId;
+      if (normalizedId) {
+        await validateInventoryRequirements(
+          store._id,
+          normalizedId,
+          updates.inventoryQuantityPerUnit || svc.inventoryQuantityPerUnit
+        );
       }
     }
     
@@ -203,10 +231,6 @@ exports.updateService = async (req, res) => {
       updates.inventoryQuantityPerUnit = Number(updates.inventoryQuantityPerUnit) || 1;
     }
     
-  // normalize inventory unlinking when empty string is sent from multipart
-    if (updates.requiredInventory === '') {
-      updates.requiredInventory = undefined;
-    }
   // currency may come as a string code; let schema enum validate
     const wasAutoDisabled = !!svc.autoDisabled;
     Object.assign(svc, updates);
@@ -379,6 +403,33 @@ exports.getServicesWithInventoryStatus = async (req, res) => {
         service.disableReason = undefined;
         try { await service.save(); } catch (_) { /* ignore save issues here */ }
       }
+      const attributeOptionNames = new Set();
+      if (Array.isArray(service.variants)) {
+        for (const v of service.variants) {
+          if (v && Array.isArray(v.options)) {
+            for (const o of v.options) {
+              if (o && o.name) attributeOptionNames.add(o.name);
+            }
+          }
+        }
+      }
+
+      let attributeInventoryMatches = [];
+      if (attributeOptionNames.size > 0) {
+        const attributeItems = await InventoryItem.find({
+          store: store._id,
+          name: { $in: Array.from(attributeOptionNames) },
+        });
+        if (attributeItems && attributeItems.length) {
+          attributeInventoryMatches = attributeItems.map((item) => ({
+            name: item.name,
+            amount: item.amount,
+            minAmount: item.minAmount,
+            isLowStock: item.amount <= item.minAmount,
+          }));
+        }
+      }
+
       let inventoryStatus = null;
       if (service.requiredInventory) {
         inventoryStatus = {
@@ -387,38 +438,16 @@ exports.getServicesWithInventoryStatus = async (req, res) => {
           minAmount: service.requiredInventory.minAmount,
           isLowStock: service.requiredInventory.amount <= service.requiredInventory.minAmount,
         };
-      } else {
-        // Try attribute-based match for status display
-        const optionNames = new Set();
-        if (Array.isArray(service.variants)) {
-          for (const v of service.variants) {
-            if (v && Array.isArray(v.options)) {
-              for (const o of v.options) {
-                if (o && o.name) optionNames.add(o.name);
-              }
-            }
-          }
-        }
-        if (optionNames.size > 0) {
-          // Prefer an item that is not low stock if available
-          const items = await InventoryItem.find({ store: store._id, name: { $in: Array.from(optionNames) } });
-          if (items && items.length) {
-            // pick best
-            let pick = items.find((it) => it.amount > 0 && it.amount >= it.minAmount) || items[0];
-            inventoryStatus = {
-              name: pick.name,
-              amount: pick.amount,
-              minAmount: pick.minAmount,
-              isLowStock: pick.amount <= pick.minAmount,
-            };
-          }
-        }
+      } else if (attributeInventoryMatches.length) {
+        const pick = attributeInventoryMatches.find((it) => !it.isLowStock) || attributeInventoryMatches[0];
+        inventoryStatus = pick;
       }
 
       servicesWithStatus.push({
         ...service.toObject(),
         canEnable,
         inventoryStatus,
+        attributeInventoryMatches,
       });
     }
     

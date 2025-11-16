@@ -64,6 +64,12 @@ interface ServiceItem {
     minAmount: number;
     isLowStock: boolean;
   };
+  attributeInventoryMatches?: {
+    name: string;
+    amount: number;
+    minAmount: number;
+    isLowStock: boolean;
+  }[];
   autoDisabled?: boolean; // true if service was auto-disabled due to inventory
   disableReason?: string; // reason for auto-disable
   deletedAt?: string | null;
@@ -92,6 +98,17 @@ interface InventoryItem {
   currency: string;
 }
 
+type ApiInventoryRef =
+  | string
+  | null
+  | undefined
+  | {
+      _id?: string;
+      name?: string;
+      amount?: number;
+      minAmount?: number;
+    };
+
 type ApiService = {
   _id: string;
   name: string;
@@ -103,7 +120,7 @@ type ApiService = {
   variants?: ServiceVariant[];
   createdAt?: string;
   imageFileId?: string;
-  requiredInventory?: string;
+  requiredInventory?: ApiInventoryRef;
   inventoryQuantityPerUnit?: number;
   canEnable?: boolean;
   inventoryStatus?: {
@@ -112,12 +129,23 @@ type ApiService = {
     minAmount: number;
     isLowStock: boolean;
   };
+  attributeInventoryMatches?: {
+    name: string;
+    amount: number;
+    minAmount: number;
+    isLowStock: boolean;
+  }[];
   autoDisabled?: boolean;
   disableReason?: string;
   deletedAt?: string | null;
 };
 
 function mapServiceFromApi(s: ApiService): ServiceItem {
+  const requiredInventoryId =
+    typeof s.requiredInventory === "string"
+      ? s.requiredInventory
+      : s.requiredInventory?._id ?? undefined;
+
   return {
     id: s._id,
     name: s.name,
@@ -129,10 +157,11 @@ function mapServiceFromApi(s: ApiService): ServiceItem {
     variants: Array.isArray(s.variants) ? s.variants : undefined,
     createdAt: s.createdAt || new Date().toISOString(),
   imageUrl: s.imageFileId ? `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/services/${s._id}/image` : undefined,
-    requiredInventory: s.requiredInventory,
+  requiredInventory: requiredInventoryId,
     inventoryQuantityPerUnit: s.inventoryQuantityPerUnit,
     canEnable: s.canEnable,
     inventoryStatus: s.inventoryStatus,
+    attributeInventoryMatches: s.attributeInventoryMatches,
     autoDisabled: s.autoDisabled,
     disableReason: s.disableReason,
   };
@@ -541,11 +570,36 @@ export default function ServiceManagement() {
           {!loading && filtered.length === 0 && (
             <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-300">No services found.</div>
           )}
-          {filtered.map((s) => (
-            <div
-              key={s.id}
-              className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 bg-none p-4 flex items-center gap-4"
-            >
+          {filtered.map((s) => {
+            const linkedDirectly = Boolean(s.requiredInventory);
+            const directInventoryName = linkedDirectly && s.inventoryStatus?.name ? s.inventoryStatus.name : undefined;
+            const directInventoryQuantity =
+              linkedDirectly && typeof s.inventoryStatus?.amount === "number" ? s.inventoryStatus.amount : undefined;
+            const attributeInventoryDetails = (() => {
+              if (!Array.isArray(s.attributeInventoryMatches)) return [];
+              const seen = new Set<string>();
+              const details: string[] = [];
+              for (const match of s.attributeInventoryMatches) {
+                if (!match || typeof match.name !== "string") continue;
+                const trimmed = match.name.trim();
+                if (!trimmed || trimmed === directInventoryName) continue;
+                if (seen.has(trimmed)) continue;
+                seen.add(trimmed);
+                const qty = typeof match.amount === "number" ? match.amount : undefined;
+                details.push(qty !== undefined ? `${trimmed} | Quantity: ${qty}` : trimmed);
+              }
+              return details;
+            })();
+            const attributeLinked = attributeInventoryDetails.length > 0;
+            const attributeBadgeName = attributeInventoryDetails.length > 0
+              ? attributeInventoryDetails.join(", ")
+              : undefined;
+
+            return (
+              <div
+                key={s.id}
+                className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 bg-none p-4 flex items-center gap-4"
+              >
               {s.imageUrl && (
                 <div className="shrink-0">
                   <img
@@ -578,26 +632,21 @@ export default function ServiceManagement() {
                   <span>
                     <strong>Pricing:</strong> {money(s.basePrice, s.currency || 'PHP')} {s.unit}
                   </span>
-                  {s.requiredInventory ? (
+                  {linkedDirectly && (
                     <span className="px-2 py-1 rounded-full text-xs bg-white/10 border border-white/10">
-                      <strong>Product:</strong> {s.inventoryStatus?.name || 'Linked'}
-                    </span>
-                  ) : s.inventoryStatus ? (
-                    <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                      <strong>Linked via attributes</strong>
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-                      <strong>No product linked</strong>
+                      <strong>Linked Product:</strong> {directInventoryName || 'Linked'}
+                      {directInventoryQuantity !== undefined ? ` | Quantity: ${directInventoryQuantity}` : ''}
                     </span>
                   )}
-                  {s.inventoryStatus && (
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      s.inventoryStatus.isLowStock 
-                        ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
-                        : 'bg-green-500/20 text-green-300 border border-green-500/30'
-                    }`}>
-                      <strong>Inventory:</strong> {s.inventoryStatus.name} ({s.inventoryStatus.amount}/{s.inventoryStatus.minAmount})
+                  {attributeLinked && (
+                    <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      <strong>Linked via attributes</strong>
+                      {attributeBadgeName ? ` · ${attributeBadgeName}` : ''}
+                    </span>
+                  )}
+                  {!linkedDirectly && !attributeLinked && (
+                    <span className="px-2 py-1 rounded-full text-xs bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+                      <strong>No product linked</strong>
                     </span>
                   )}
                 </div>
@@ -646,7 +695,8 @@ export default function ServiceManagement() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
             </Tab.Panel>
             <Tab.Panel>
