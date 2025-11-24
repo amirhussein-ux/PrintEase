@@ -305,7 +305,7 @@ export default function OrderManagement() {
 	}
 
 	const pageHeader = (
-		<div className="mb-8">
+		<div className="mb-8 mt-10">
 			<h1 className="text-3xl md:text-4xl font-bold text-white bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Order Management</h1>
 			<p className="text-gray-300 text-lg mt-2">Track and update customer orders.</p>
 		</div>
@@ -360,19 +360,19 @@ export default function OrderManagement() {
 				{pageHeader}
 
 				{/* Filter header with integrated search and filter */}
-				<div className="mb-8">
+				<div className="mb-8 rounded-2xl border border-gray-600 bg-gray-800/50 backdrop-blur-sm p-4 relative z-20">
 					<div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
 						{/* Combined Status Tabs, Search and Filter */}
 						<div className="flex flex-col sm:flex-row gap-4 w-full">
 							{/* Status Tabs */}
-							<div className="inline-flex flex-wrap gap-3 bg-gray-800/50 border border-gray-600 rounded-2xl p-3 backdrop-blur-sm">
+							<div className="inline-flex flex-wrap gap-3">
 								{STATUS_LABELS.map(({ label, value }) => {
 									const active = activeTab === value;
 									return (
 										<button
 											key={value}
 											onClick={() => setActiveTab(value)}
-											className={`inline-flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out transform hover:scale-105 ${
+											className={`inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out transform hover:scale-105 ${
 												active
 													? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 scale-105'
 													: 'bg-transparent text-gray-200 border border-gray-600 hover:bg-gray-700/50'
@@ -406,7 +406,7 @@ export default function OrderManagement() {
 											placeholder="Search orders..."
 											value={searchQuery}
 											onChange={(e) => setSearchQuery(e.target.value)}
-											className="w-full pl-11 pr-11 py-3.5 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm transition-all duration-300 hover:border-gray-500"
+												className="w-full rounded-xl bg-gray-800/80 border border-gray-600 pl-11 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 backdrop-blur-sm"
 										/>
 										{searchQuery && (
 											<button
@@ -422,10 +422,10 @@ export default function OrderManagement() {
 								</div>
 
 								{/* Date Filter Dropdown */}
-								<div className="relative">
+								<div className="relative z-30">
 									<button
 										onClick={() => setShowDateFilter(!showDateFilter)}
-										className="flex items-center gap-2 px-4 py-3.5 bg-gray-800/50 border border-gray-600 rounded-xl text-white hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm transition-all duration-300 min-w-[120px] justify-center"
+										className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-700/80 text-white rounded-xl border border-gray-600 hover:bg-gray-600/80 hover:border-gray-500 transition-all duration-300 ease-out backdrop-blur-sm hover:scale-105 active:scale-95 min-w-[120px]"
 									>
 										<svg className="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -437,8 +437,8 @@ export default function OrderManagement() {
 									</button>
 
 									{/* Dropdown Menu */}
-									{showDateFilter && (
-										<div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl backdrop-blur-sm z-10">
+										{showDateFilter && (
+											<div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl backdrop-blur-sm z-40">
 											<div className="p-2 space-y-1">
 												{DATE_FILTERS.map((filter) => (
 													<button

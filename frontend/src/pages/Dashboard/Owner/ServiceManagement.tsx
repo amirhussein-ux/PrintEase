@@ -380,9 +380,9 @@ export default function ServiceManagement() {
 
   return (
     <DashboardLayout role={role}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto pb-10">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-8 mt-10">
           <h1 className="text-3xl md:text-4xl font-bold text-white bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
             Service Management
           </h1>
@@ -594,10 +594,11 @@ export default function ServiceManagement() {
                 {filtered.map((s) => (
                   <div
                     key={s.id}
-                    className="rounded-2xl border border-gray-600 bg-gray-800/50 backdrop-blur-sm p-6 transition-all duration-300 ease-out hover:scale-[1.05] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group"
+                    className="rounded-2xl border border-gray-600 bg-gray-800/50 backdrop-blur-sm p-6 transition-all duration-300 ease-out hover:scale-[1.05] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group flex flex-col"
                   >
-                    {/* 1. Top Section: Image + Title + Price */}
-                    <div className="flex items-start gap-4">
+                    <div className="flex-1 flex flex-col gap-4">
+                      {/* 1. Top Section: Image + Title + Price */}
+                      <div className="flex items-start gap-4">
                       {s.imageUrl && (
                         <div className="shrink-0 transition-all duration-300 ease-out group-hover:scale-110">
                           <img
@@ -650,8 +651,8 @@ export default function ServiceManagement() {
                             </span>
                           )}
                         </div>
+                        </div>
                       </div>
-                    </div>
 
                     {/* 2. Inventory Section (Now Full Width) */}
                     {s.inventoryStatus && (
@@ -687,6 +688,7 @@ export default function ServiceManagement() {
                         </div>
                       </div>
                     )}
+                    </div>
 
                     {/* Action Buttons */}
                     <div className="mt-6 flex gap-2">

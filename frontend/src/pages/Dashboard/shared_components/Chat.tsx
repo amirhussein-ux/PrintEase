@@ -1,6 +1,7 @@
 import React from "react";
 import DashboardLayout from "./DashboardLayout";
-import { AiOutlineSend, AiOutlinePaperClip, AiOutlineUser, AiOutlineMessage, AiOutlineTeam, AiOutlineShop, AiOutlineDownload, AiOutlineClose, AiOutlineReload } from "react-icons/ai";
+import { AiOutlineSend, AiOutlinePaperClip, AiOutlineUser, AiOutlineMessage, AiOutlineTeam, AiOutlineShop, AiOutlineDownload, AiOutlineClose, AiOutlineReload, AiOutlineArrowLeft } from "react-icons/ai";
+import { FaMagnifyingGlass } from "react-icons/fa6";
 import { BsCheck2All, BsCheck2 } from "react-icons/bs";
 import { useSocket } from "../../../context/SocketContext";
 import { useAuth } from "../../../context/AuthContext";
@@ -62,17 +63,21 @@ const formatDate = (dateString: string) => {
 const OwnerChat: React.FC = () => {
   const { socket, isConnected } = useSocket();
   const [customers, setCustomers] = React.useState<CustomerInfo[]>([]);
+  const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedCustomer, setSelectedCustomer] = React.useState<CustomerInfo | null>(null);
   const [messages, setMessages] = React.useState<BaseMessage[]>([]);
   const [newMessage, setNewMessage] = React.useState("");
   const [loadingMessages, setLoadingMessages] = React.useState(false);
   const [loadingCustomers, setLoadingCustomers] = React.useState(true);
   const [imageModal, setImageModal] = React.useState<ImageModalState>({ isOpen: false, imageUrl: "", fileName: "" });
+  const [isMobileChatView, setIsMobileChatView] = React.useState(false);
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const pendingMessagesRef = React.useRef<Set<string>>(new Set());
 
-  React.useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  React.useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+  }, [messages]);
 
   React.useEffect(() => {
     if (!socket) return;
@@ -115,7 +120,7 @@ const OwnerChat: React.FC = () => {
       if (msg.conversationId === selectedCustomer?.conversationId) {
         setMessages(prev => {
           const exists = prev.some(m => m._id === msg._id || (m.text === msg.text && m.createdAt === msg.createdAt && m.senderId === msg.senderId));
-          if (exists) return prev;
+          if (exists || !selectedCustomer) return prev;
           return [...prev, { ...msg, senderName: msg.senderId === OWNER_ID ? "You" : selectedCustomer.name }];
         });
         if (msg.senderId !== OWNER_ID) {
@@ -152,18 +157,41 @@ const OwnerChat: React.FC = () => {
       try {
         const res = await fetch(`http://localhost:8000/api/chat/conversations?ownerId=${OWNER_ID}`);
         if (!res.ok) throw new Error("Failed to load conversations");
-        const data: any[] = await res.json();
-        const customerList: CustomerInfo[] = await Promise.all(
-          data.map(async conv => {
-            const customerId = conv.participants.find((p: string) => p !== OWNER_ID);
+        const data: unknown[] = await res.json();
+        console.debug("[OwnerChat] fetched conversations:", data);
+        const customerList = await Promise.all(
+          data.map(async (conv: any) => {
+            const participants = conv.participants || [];
+            // participants may be populated objects or simple ids; prefer populated objects
+            const customerParticipant = participants.find((p: any) => String(p._id || p) !== OWNER_ID);
+            const customerId = customerParticipant?._id ?? customerParticipant ?? null;
             if (!customerId) return null;
+
+            // If we already have the customer's name/email from population, use it
+            if (customerParticipant && typeof customerParticipant === 'object' && (customerParticipant.firstName || customerParticipant.lastName || customerParticipant.email)) {
+              const name = `${customerParticipant.firstName || ''} ${customerParticipant.lastName || ''}`.trim() || (customerParticipant.fullName || customerParticipant.name) || 'Customer';
+              console.debug(`[OwnerChat] using populated participant for conv ${conv._id}:`, { id: String(customerId), name, participant: customerParticipant });
+              return {
+                id: String(customerId),
+                name,
+                email: customerParticipant.email,
+                conversationId: conv._id,
+                lastMessage: conv.lastMessage,
+                lastMessageTime: conv.updatedAt,
+                unreadCount: 0
+              } as CustomerInfo;
+            }
+
+            // Fallback: fetch user details by id
             try {
               const customerRes = await fetch(`http://localhost:8000/api/users/${customerId}`);
               if (customerRes.ok) {
                 const customerData = await customerRes.json();
+                const name = `${customerData.firstName || ''} ${customerData.lastName || ''}`.trim() || (customerData.fullName || customerData.name) || 'Customer';
+                console.debug(`[OwnerChat] fetched user for conv ${conv._id}:`, { id: String(customerId), name, customerData });
                 return {
-                  id: customerId,
-                  name: `${customerData.firstName} ${customerData.lastName}`.trim() || "Customer",
+                  id: String(customerId),
+                  name,
                   email: customerData.email,
                   conversationId: conv._id,
                   lastMessage: conv.lastMessage,
@@ -174,10 +202,11 @@ const OwnerChat: React.FC = () => {
             } catch (e) {
               console.error("Failed to fetch customer details", e);
             }
-            return { id: customerId, name: "Customer", conversationId: conv._id, lastMessage: conv.lastMessage, lastMessageTime: conv.updatedAt, unreadCount: 0 } as CustomerInfo;
+            return { id: String(customerId), name: "Customer", conversationId: conv._id, lastMessage: conv.lastMessage, lastMessageTime: conv.updatedAt, unreadCount: 0 } as CustomerInfo;
           })
         );
         const valid = customerList.filter(Boolean) as CustomerInfo[];
+        console.debug('[OwnerChat] resolved customer list:', valid);
         setCustomers(valid);
         if (valid.length > 0 && !selectedCustomer) handleSelectCustomer(valid[0]);
       } catch (e) {
@@ -214,6 +243,8 @@ const OwnerChat: React.FC = () => {
     setSelectedCustomer(c);
     setMessages([]);
     setCustomers(prev => prev.map(x => x.conversationId === c.conversationId ? { ...x, unreadCount: 0 } : x));
+    // On small screens, switch into the chat view (hide list)
+    setIsMobileChatView(true);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -272,12 +303,21 @@ const OwnerChat: React.FC = () => {
     );
   };
 
-  return (
-    <div className="flex flex-col h-full min-h-[80vh] bg-gradient-to-br from-gray-900 to-gray-800">
-      <div className="container mx-auto px-4 py-6 max-w-6xl">
-        <div className="bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-white/10 p-6 mb-6 shadow-2xl">
+  const filteredCustomers = customers.filter(c => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(q) ||
+      (c.lastMessage && c.lastMessage.toLowerCase().includes(q))
+    );
+  });
+
+    return (
+
+      <div className="container mx-auto px-4 py-10 max-w-8xl h-[calc(100vh-3rem)] flex flex-col overflow-hidden">
+        <div className="bg-gray-800 backdrop-blur-lg rounded-2xl border border-white/10 p-6 mb-6 shadow-2xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 ">
               <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center"><AiOutlineTeam className="w-6 h-6 text-white" /></div>
               <div>
                 <h1 className="text-2xl font-bold text-white">Chat with Customers</h1>
@@ -287,15 +327,41 @@ const OwnerChat: React.FC = () => {
             <div className="text-right"><div className="text-sm text-gray-400">Store Admin</div><div className="text-xs text-gray-500">Always here to help</div></div>
           </div>
         </div>
-        <div className="flex gap-6 h-[600px]">
-          <div className="w-80 bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-white/10 shadow-xl overflow-hidden">
-            <div className="p-4 border-b border-white/10"><h2 className="text-white font-semibold text-lg flex items-center gap-2"><AiOutlineUser className="w-5 h-5" />Customers</h2></div>
-            <div className="overflow-y-auto h-full">
+        <div className="flex gap-6 flex-1 min-h-0">
+          {/* Conversation list */}
+          <div
+            className={`bg-gray-800 rounded-2xl border border-white/10 shadow-xl overflow-hidden flex flex-col
+              flex-shrink-0
+              w-full md:w-80
+              ${isMobileChatView ? 'hidden md:flex' : 'flex'}
+            `}
+          >
+            <div className="p-4 border-b border-white/10 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-white font-semibold text-lg flex items-center gap-2">
+                  <AiOutlineUser className="w-5 h-5" />
+                  Chats
+                </h2>
+              </div>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaMagnifyingGlass className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search"
+                  className="w-full rounded-xl bg-gray-900 border border-gray-700 pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
+                />
+              </div>
+            </div>
+            <div className="overflow-y-auto flex-1">
               {loadingCustomers ? (
                 <div className="flex flex-col items-center justify-center p-8 text-gray-400"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4" /><p>Loading conversations...</p></div>
-              ) : customers.length===0 ? (
+              ) : filteredCustomers.length===0 ? (
                 <div className="flex flex-col items-center justify-center p-8 text-gray-400 text-center"><AiOutlineMessage className="w-16 h-16 mb-4 opacity-50" /><p className="text-lg font-semibold">No Conversations</p><p className="text-sm mt-2">Customer conversations will appear here</p></div>
-              ) : customers.map(c => (
+              ) : filteredCustomers.map(c => (
                 <div key={c.conversationId} onClick={() => handleSelectCustomer(c)} className={`p-4 border-b border-white/5 cursor-pointer transition-all ${selectedCustomer?.conversationId===c.conversationId? 'bg-blue-600/20 border-l-4 border-l-blue-500':'hover:bg-white/5'}`}>
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-semibold text-white truncate">{c.name}</h3>
@@ -307,10 +373,26 @@ const OwnerChat: React.FC = () => {
               ))}
             </div>
           </div>
-          <div className="flex-1 flex flex-col bg-gray-800/50 backdrop-blur-lg rounded-2xl border border-white/10 shadow-xl overflow-hidden">
+          {/* Main chat area */}
+          <div
+            className={`flex-1 flex flex-col bg-gray-800 backdrop-blur-lg rounded-2xl border border-white/10 shadow-xl overflow-hidden min-h-0
+              ${isMobileChatView ? 'flex' : 'hidden'} md:flex
+            `}
+          >
             {selectedCustomer ? (
               <>
-                <div className="p-4 border-b border-white/10 bg-gray-700/20 flex items-center gap-3"><div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center"><AiOutlineUser className="w-5 h-5 text-white" /></div><div><h2 className="text-white font-semibold text-lg">{selectedCustomer.name}</h2>{selectedCustomer.email && <p className="text-sm text-gray-300">{selectedCustomer.email}</p>}</div></div>
+                <div className="p-4 border-b border-white/10 bg-gray-700/20 flex items-center gap-3">
+                  {/* Mobile back button */}
+                  <button
+                    type="button"
+                    className="md:hidden mr-2 p-2 rounded-full hover:bg-gray-600 text-white"
+                    onClick={() => setIsMobileChatView(false)}
+                  >
+                    <AiOutlineArrowLeft className="w-5 h-5" />
+                  </button>
+                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center"><AiOutlineUser className="w-5 h-5 text-white" /></div>
+                  <div><h2 className="text-white font-semibold text-lg">{selectedCustomer.name}</h2>{selectedCustomer.email && <p className="text-sm text-gray-300">{selectedCustomer.email}</p>}</div>
+                </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full text-gray-400"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3" />Loading messages...</div>
@@ -328,11 +410,10 @@ const OwnerChat: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
-      {imageModal.isOpen && (
+        {imageModal.isOpen && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-gray-800 rounded-2xl max-w-4xl max-h-[90vh] overflow-hidden border border-white/20"><div className="flex justify-between items-center p-4 border-b border-white/10 bg-gray-900"><h3 className="text-white font-semibold text-lg">{imageModal.fileName}</h3><div className="flex gap-2"><button onClick={()=>handleDownload(imageModal.imageUrl,imageModal.fileName)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"><AiOutlineDownload className="w-4 h-4" />Download</button><button onClick={handleCloseModal} className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-lg"><AiOutlineClose className="w-5 h-5" /></button></div></div><div className="p-6 max-h-[70vh] overflow-auto flex items-center justify-center"><img src={imageModal.imageUrl} alt={imageModal.fileName} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" /></div></div></div>
       )}
-    </div>
+      </div>
   );
 };
 
@@ -355,7 +436,9 @@ const CustomerChat: React.FC = () => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const pendingMessagesRef = React.useRef<Set<string>>(new Set());
 
-  React.useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+  React.useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+  }, [messages]);
 
   React.useEffect(() => {
     if (!socket || !customerId) return;
