@@ -13,7 +13,7 @@ import PrivateRoute from "./components/PrivateRoute";
 import Customize from "./pages/Dashboard/Customer/Customize";
 
 // Shared Chat Views
-import { ChatCustomer, ChatOwner } from "./pages/Dashboard/shared_components/Chat";
+import Chat from "./pages/Dashboard/shared_components/Chat";
 
 function App() {
   return (
@@ -72,7 +72,7 @@ function App() {
           path="/dashboard/chat-owner"
           element={
             <PrivateRoute>
-              <ChatOwner />
+              <Chat role="owner" />
             </PrivateRoute>
           }
         />
@@ -114,7 +114,7 @@ function App() {
           path="/dashboard/chat-customer"
           element={
             <PrivateRoute>
-              <ChatCustomer />
+              <Chat role="customer" />
             </PrivateRoute>
           }
         />
