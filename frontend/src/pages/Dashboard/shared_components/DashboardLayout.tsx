@@ -151,16 +151,16 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
       <button
         type="button"
         onClick={() => setCenterMenuOpen((v) => !v)}
-        className="flex items-center gap-2 border-2 shadow border-gray-300 rounded-full px-3 py-1 hover:bg-gray-200 transition"
+        className="flex items-center gap-2 border-2 shadow border-gray-300 rounded-full px-3 py-1 hover:bg-gray-200 transition-all duration-300 ease-out transform hover:scale-105"
       >
         {store.logoFileId ? (
           <img
             src={`${api.defaults.baseURL}/print-store/logo/${store.logoFileId}`}
             alt={store.name}
-            className="h-10 rounded-full object-cover border border-gray-200"
+            className="h-10 rounded-full object-cover border border-gray-200 transition-transform duration-300 group-hover:scale-110"
           />
         ) : (
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex items-center justify-center text-white text-xs font-semibold">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-sky-600 to-indigo-600 flex items-center justify-center text-white text-xs font-semibold transition-transform duration-300 group-hover:scale-110">
             {store.name
               .split(" ")
               .map((s) => s[0])
@@ -169,13 +169,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
               .toUpperCase()}
           </div>
         )}
-        <span className="text-gray-900 font-semibold text-xl truncate max-w-[50vw]">{store.name}</span>
+        <span className="text-gray-900 font-semibold text-xl truncate max-w-[50vw] transition-all duration-300 group-hover:font-bold">
+          {store.name}
+        </span>
       </button>
 
       {centerMenuOpen && (
-        <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-30 py-1 animate-fadeIn">
+        <div className="absolute left-1/2 -translate-x-1/2 mt-2 w-44 bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-1 overflow-hidden">
           <button
-            className="w-full text-center px-3 py-2 text-sm text-gray-900 font-bold hover:bg-gray-100 transition"
+            className="w-full text-center px-3 py-2 text-sm text-gray-900 font-bold hover:bg-gray-100 transition-all duration-300 ease-out transform hover:translate-x-1 hover:scale-105"
             onClick={() => {
               setCenterMenuOpen(false);
               navigate("/customer/select-shop");
@@ -196,15 +198,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
       <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 fixed top-0 left-0 right-0 z-20">
         <div className="flex items-center">
           {/* Sidebar toggle */}
-          <button className="lg:hidden mr-4 p-2 rounded hover:bg-gray-100 transition" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            <span className="block w-6 h-0.5 bg-gray-900 mb-1"></span>
-            <span className="block w-6 h-0.5 bg-gray-900 mb-1"></span>
-            <span className="block w-6 h-0.5 bg-gray-900"></span>
+          <button 
+            className="lg:hidden mr-4 p-2 rounded hover:bg-gray-100 transition-all duration-300 ease-out transform hover:scale-110 active:scale-95"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            <span className="block w-6 h-0.5 bg-gray-900 mb-1 transition-transform duration-300"></span>
+            <span className="block w-6 h-0.5 bg-gray-900 mb-1 transition-transform duration-300"></span>
+            <span className="block w-6 h-0.5 bg-gray-900 transition-transform duration-300"></span>
           </button>
 
           {/* Logo */}
           <div className="hidden sm:flex items-center gap-3">
-            <img src={logo} alt="PrintEase Logo" className="h-10 w-auto" />
+            <img src={logo} alt="PrintEase Logo" className="h-10 w-auto transition-transform duration-300 hover:scale-105" />
           </div>
         </div>
 
@@ -212,85 +217,48 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
         {shopDropdown && <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">{shopDropdown}</div>}
 
         {/* Right icons */}
-        <div className="flex items-center gap-3 relative">
-          {/* Profile dropdown */}
-          <div ref={profileRef} className="relative">
-            <button
-              title="Profile"
-              className="p-2 border border-gray-300 rounded-xl shadow-sm hover:bg-blue-100/60 hover:border-blue-400 transition transform active:scale-95 cursor-pointer"
-              onClick={toggleProfile}
-            >
-              <UserCircleIcon className="h-6 w-6 text-gray-800" />
-            </button>
-            <Transition
-              show={profileOpen}
-              as={Fragment}
-              enter="transition ease-out duration-200"
-              enterFrom="opacity-0 -translate-y-1"
-              enterTo="opacity-100 translate-y-0"
-              leave="transition ease-in duration-150"
-              leaveFrom="opacity-100 translate-y-0"
-              leaveTo="opacity-0 -translate-y-1"
-            >
-              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-2">
-                <Link
-                  to="/profile"
-                  className="block px-4 py-2 text-sm text-gray-800 font-semibold hover:bg-gray-100 hover:text-gray-900 transition rounded-lg"
-                  onClick={() => setProfileOpen(false)}
-                >
-                  Edit Profile
-                </Link>
-                {role === "owner" && isOwnerUser && (
-                  <Link
-                    to="/owner/create-shop"
-                    className="block px-4 py-2 text-sm text-gray-800 font-semibold hover:bg-gray-100 hover:text-gray-900 transition rounded-lg"
-                    onClick={() => setProfileOpen(false)}
-                  >
-                    Edit Shop
-                  </Link>
-                )}
-                <button
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 font-semibold hover:bg-red-50 hover:text-red-700 transition rounded-lg"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    setShowLogoutConfirm(true);
-                  }}
-                >
-                  Log Out
-                </button>
-              </div>
-            </Transition>
-          </div>
 
+        <div className="flex items-center gap-4 relative">
           {/* Notifications */}
           <div ref={notifRef} className="relative">
             <button
               title="Notifications"
-              className="p-2 border border-gray-300 rounded-xl shadow-sm hover:bg-blue-100/60 hover:border-blue-400 transition transform active:scale-95 cursor-pointer relative"
+              className="p-3 border border-gray-300 rounded-xl shadow-sm hover:bg-blue-100/60 hover:border-blue-400 transition-all duration-300 ease-out transform hover:scale-110 active:scale-95 cursor-pointer relative group"
               onClick={toggleNotifications}
             >
-              <BellIcon className="h-6 w-6 text-gray-800" />
-              {unreadCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500 animate-pulse" />}
+              <BellIcon className="h-6 w-6 text-gray-800 transition-transform duration-300 group-hover:scale-110" />
+              {unreadCount > 0 && (
+                <span className="absolute top-2 right-2 w-3 h-3 rounded-full bg-red-500 animate-pulse ring-2 ring-white" />
+              )}
             </button>
             <Transition
               show={notificationsOpen}
               as={Fragment}
-              enter="transition ease-out duration-200"
-              enterFrom="opacity-0 -translate-y-1"
-              enterTo="opacity-100 translate-y-0"
-              leave="transition ease-in duration-150"
-              leaveFrom="opacity-100 translate-y-0"
-              leaveTo="opacity-0 -translate-y-1"
+              enter="transition ease-out duration-300"
+              enterFrom="opacity-0 scale-95 -translate-y-2"
+              enterTo="opacity-100 scale-100 translate-y-0"
+              leave="transition ease-in duration-200"
+              leaveFrom="opacity-100 scale-100 translate-y-0"
+              leaveTo="opacity-0 scale-95 -translate-y-2"
             >
-              <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-lg z-30 py-2 max-h-96 overflow-y-auto">
+              <div className="absolute right-0 mt-3 w-96 bg-white border border-gray-200 rounded-2xl shadow-xl z-30 py-3 max-h-96 overflow-y-auto">
+                {/* Header */}
+                <div className="px-4 pb-2 border-b border-gray-100">
+                  <h3 className="text-lg font-bold text-gray-900">Notifications</h3>
+                  <p className="text-sm text-gray-600">{unreadCount} unread</p>
+                </div>
+
                 {notifications.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-gray-600 text-center">No notifications</p>
+                  <div className="px-4 py-8 text-center">
+                    <BellIcon className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600">No notifications yet</p>
+                  </div>
                 ) : (
                   <>
                     {/* Top actions */}
-                    <div className="flex justify-between items-center px-4 py-2 text-sm text-gray-800">
-                      <span
-                        className="text-blue-600 cursor-pointer hover:text-blue-700 transition"
+                    <div className="flex justify-between items-center px-4 py-3 bg-gray-50/50">
+                      <button
+                        className="text-blue-600 text-sm font-medium hover:text-blue-700 transition-all duration-300 ease-out transform hover:scale-105"
                         onClick={async () => {
                           if (!token) return;
                           try {
@@ -306,9 +274,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                         }}
                       >
                         Mark all as read
-                      </span>
-                      <span
-                        className="text-red-600 cursor-pointer hover:text-red-700 transition flex items-center gap-1"
+                      </button>
+                      <button
+                        className="text-red-600 text-sm font-medium hover:text-red-700 transition-all duration-300 ease-out transform hover:scale-105 flex items-center gap-1"
                         onClick={async () => {
                           if (!token) return;
                           try {
@@ -321,22 +289,21 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                           }
                         }}
                       >
-                        <TrashIcon className="h-4 w-4" /> Delete all
-                      </span>
+                        <TrashIcon className="h-4 w-4" /> 
+                        Clear all
+                      </button>
                     </div>
 
-                    {/* Individual notifications */}
-                    {notifications.map((n) => (
-                      <div
-                        key={n._id}
-                        className={`group flex items-start justify-between px-4 py-2 text-sm rounded-lg transition ${
-                          n.read
-                            ? "text-gray-700 hover:bg-gray-100"
-                            : "font-semibold text-gray-900 bg-blue-50 hover:bg-blue-100"
-                        }`}
-                      >
+                    {/* Notifications list */}
+                    <div className="space-y-1 px-2">
+                      {notifications.map((n) => (
                         <div
-                          className="flex-1"
+                          key={n._id}
+                          className={`group flex items-start justify-between p-3 rounded-xl transition-all duration-300 ease-out cursor-pointer ${
+                            n.read
+                              ? "text-gray-700 hover:bg-gray-100/80"
+                              : "font-semibold text-gray-900 bg-blue-50/80 hover:bg-blue-100/80"
+                          } hover:scale-[1.02] hover:shadow-sm`}
                           onClick={async () => {
                             if (token) {
                               try {
@@ -362,39 +329,112 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                             }
                           }}
                         >
-                          <p>{n.title}</p>
-                          {n.description && <p className="text-gray-600 text-xs">{n.description}</p>}
-                        </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm leading-tight truncate">{n.title}</p>
+                            {n.description && (
+                              <p className="text-gray-600 text-xs mt-1 line-clamp-2">{n.description}</p>
+                            )}
+                            <p className="text-gray-400 text-xs mt-2">
+                              {new Date(n.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
 
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              await axios.delete(`http://localhost:8000/api/notifications/${n._id}`, {
-                                headers: { Authorization: `Bearer ${token}` },
-                              });
-                              setNotifications((prev) => prev.filter((notif) => notif._id !== n._id));
-                            } catch (error) {
-                              console.error("Failed to delete notification", error);
-                            }
-                          }}
-                          className="ml-2 p-1 rounded-md text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition"
-                          title="Delete notification"
-                        >
-                          <TrashIcon className="h-5 w-5" />
-                        </button>
-                      </div>
-                    ))}
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                await axios.delete(`http://localhost:8000/api/notifications/${n._id}`, {
+                                  headers: { Authorization: `Bearer ${token}` },
+                                });
+                                setNotifications((prev) => prev.filter((notif) => notif._id !== n._id));
+                              } catch (error) {
+                                console.error("Failed to delete notification", error);
+                              }
+                            }}
+                            className="ml-2 p-2 rounded-lg text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out transform hover:scale-110"
+                            title="Delete notification"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </>
                 )}
+              </div>
+            </Transition>
+          </div>
+
+          {/* Profile dropdown */}
+          <div ref={profileRef} className="relative">
+            <button
+              title="Profile"
+              className="p-3 border border-gray-300 rounded-xl shadow-sm hover:bg-blue-100/60 hover:border-blue-400 transition-all duration-300 ease-out transform hover:scale-110 active:scale-95 cursor-pointer group"
+              onClick={toggleProfile}
+            >
+              <UserCircleIcon className="h-6 w-6 text-gray-800 transition-transform duration-300 group-hover:scale-110" />
+            </button>
+            <Transition
+              show={profileOpen}
+              as={Fragment}
+              enter="transition ease-out duration-300"
+              enterFrom="opacity-0 scale-95 -translate-y-2"
+              enterTo="opacity-100 scale-100 translate-y-0"
+              leave="transition ease-in duration-200"
+              leaveFrom="opacity-100 scale-100 translate-y-0"
+              leaveTo="opacity-0 scale-95 -translate-y-2"
+            >
+              <div className="absolute right-0 mt-3 w-56 bg-white border border-gray-200 rounded-2xl shadow-xl z-30 py-3 overflow-hidden">
+                {/* Header */}
+                <div className="px-4 pb-2 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-gray-900 truncate">{user.name}</h3>
+                  <p className="text-xs text-gray-600 capitalize">{user.role}</p>
+                </div>
+
+                {/* Menu items */}
+                <div className="space-y-1 pt-2">
+                  <Link
+                    to="/profile"
+                    className="flex items-center px-4 py-2 text-sm text-gray-800 font-medium hover:bg-gray-100/80 transition-all duration-300 ease-out transform hover:translate-x-2 hover:scale-105 rounded-lg mx-2"
+                    onClick={() => setProfileOpen(false)}
+                  >
+                    <UserCircleIcon className="h-4 w-4 mr-3" />
+                    Edit Profile
+                  </Link>
+                  {role === "owner" && (
+                    <Link
+                      to="/owner/create-shop"
+                      className="flex items-center px-4 py-2 text-sm text-gray-800 font-medium hover:bg-gray-100/80 transition-all duration-300 ease-out transform hover:translate-x-2 hover:scale-105 rounded-lg mx-2"
+                      onClick={() => setProfileOpen(false)}
+                    >
+                      <svg className="h-4 w-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      Edit Shop
+                    </Link>
+                  )}
+                  <button
+                    className="flex items-center w-full px-4 py-2 text-sm text-red-600 font-medium hover:bg-red-50/80 transition-all duration-300 ease-out transform hover:translate-x-2 hover:scale-105 rounded-lg mx-2"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      setShowLogoutConfirm(true);
+                    }}
+                  >
+                    <svg className="h-4 w-4 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    Log Out
+                  </button>
+                </div>
               </div>
             </Transition>
           </div>
         </div>
       </header>
 
-  {/* Background gradient (fixed to prevent white bars on overscroll) */}
-  <div aria-hidden className={`fixed inset-0 ${gradientClass} pointer-events-none z-0`} />
+      {/* Rest of the component remains exactly the same */}
+      {/* Background gradient (fixed to prevent white bars on overscroll) */}
+      <div aria-hidden className={`fixed inset-0 ${gradientClass} pointer-events-none z-0`} />
 
       {/* Desktop Sidebar */}
       <div className="hidden lg:flex lg:flex-col lg:fixed lg:top-1/2 lg:-translate-y-1/2 lg:left-0 lg:w-64 lg:z-30">
@@ -419,15 +459,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
       {/* Logout Confirmation */}
       <ConfirmDialog
         open={showLogoutConfirm}
-        title="Log out?"
+        title="Log Out?"
         message={
           <span>
-            You’re about to log out{user?.role === 'guest' ? ' of your guest session' : ''}. Any unsaved changes may be lost.
+            You're about to log out{user?.role === 'guest' ? ' of your guest session' : ''}. Any unsaved changes may be lost.
             <br />
             Continue?
           </span>
         }
-        confirmText="Log out"
+        confirmText="Log Out"
         cancelText="Stay"
         onConfirm={() => {
           setShowLogoutConfirm(false);
@@ -437,12 +477,12 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
         onClose={() => setShowLogoutConfirm(false)}
       />
 
-      {/* Payment Verification Modal */}
+      {/* Payment Verification Modal - remains exactly the same */}
       {paymentModal.open && paymentModal.orderId && (
         <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" role="dialog" aria-modal>
           <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md p-5">
             <button
-              className="absolute top-3 right-3 bg-white rounded-full border border-gray-300 shadow px-2.5 py-1 text-sm font-bold cursor-pointer hover:bg-gray-100"
+              className="absolute top-3 right-3 bg-white rounded-full border border-gray-300 shadow px-2.5 py-1 text-sm font-bold cursor-pointer hover:bg-gray-100 transition-all duration-300 ease-out transform hover:scale-110"
               onClick={() => {
                 if (!verifyingPay) setPaymentModal({ open: false, orderId: null, subtotal: 0, currency: "PHP" });
               }}
@@ -460,7 +500,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
               <div>
                 <label className="block text-sm text-gray-700 mb-1">Payment Method</label>
                 <select
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300"
                   value={payMethod}
                   onChange={(e) => setPayMethod(e.target.value)}
                 >
@@ -475,7 +515,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
                 <input
                   type="number"
                   inputMode="decimal"
-                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300"
                   placeholder="enter amount"
                   value={payAmount}
                   onChange={(e) => setPayAmount(e.target.value)}
@@ -497,14 +537,18 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
             </div>
             <div className="mt-5 flex gap-2 justify-end">
               <button
-                className="px-4 py-2 rounded-lg border bg-white text-gray-800 hover:bg-gray-50"
+                className="px-4 py-2 rounded-lg border bg-white text-gray-800 hover:bg-gray-50 transition-all duration-300 ease-out transform hover:scale-105"
                 onClick={() => setPaymentModal({ open: false, orderId: null, subtotal: 0, currency: 'PHP' })}
                 disabled={verifyingPay}
               >
                 Cancel
               </button>
               <button
-                className={`px-4 py-2 rounded-lg text-white ${Number(payAmount) >= paymentModal.subtotal ? 'bg-blue-600 hover:bg-blue-500' : 'bg-gray-400 cursor-not-allowed'}`}
+                className={`px-4 py-2 rounded-lg text-white transition-all duration-300 ease-out transform hover:scale-105 ${
+                  Number(payAmount) >= paymentModal.subtotal 
+                    ? 'bg-blue-600 hover:bg-blue-500' 
+                    : 'bg-gray-400 cursor-not-allowed'
+                }`}
                 onClick={async () => {
                   if (!paymentModal.orderId) return;
                   const amt = Number(payAmount);

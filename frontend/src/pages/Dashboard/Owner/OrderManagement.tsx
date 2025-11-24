@@ -50,6 +50,14 @@ const STATUS_LABELS: { label: string; value: Exclude<OrderStatus, 'cancelled'> }
 	{ label: 'Completed', value: 'completed' },
 ];
 
+const DATE_FILTERS = [
+	{ label: 'All Time', value: 'all' },
+	{ label: 'Today', value: 'today' },
+	{ label: 'Past Week', value: 'week' },
+	{ label: 'Past 30 Days', value: '30days' },
+	{ label: 'Past Year', value: 'year' },
+];
+
 function money(v: number, currency: string = 'PHP') {
 	try {
 		return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(v);
@@ -121,6 +129,32 @@ function formatDateUTC(iso?: string) {
 	}
 }
 
+function getDateRange(filter: string): { start: Date; end: Date } | null {
+	const now = new Date();
+	const end = new Date();
+	
+	switch (filter) {
+		case 'today':
+			const startOfToday = new Date(now);
+			startOfToday.setHours(0, 0, 0, 0);
+			return { start: startOfToday, end };
+		case 'week':
+			const startOfWeek = new Date(now);
+			startOfWeek.setDate(now.getDate() - 7);
+			return { start: startOfWeek, end };
+		case '30days':
+			const startOf30Days = new Date(now);
+			startOf30Days.setDate(now.getDate() - 30);
+			return { start: startOf30Days, end };
+		case 'year':
+			const startOfYear = new Date(now);
+			startOfYear.setFullYear(now.getFullYear() - 1);
+			return { start: startOfYear, end };
+		default:
+			return null;
+	}
+}
+
 export default function OrderManagement() {
 	const { user } = useAuth();
 	const isOwner = user?.role === 'owner';
@@ -138,6 +172,9 @@ export default function OrderManagement() {
 	const [error, setError] = useState<string | null>(null);
 	const [activeTab, setActiveTab] = useState<Exclude<OrderStatus, 'cancelled'>>('pending');
 	const [updatingId, setUpdatingId] = useState<string | null>(null);
+	const [searchQuery, setSearchQuery] = useState('');
+	const [dateFilter, setDateFilter] = useState<string>('all');
+	const [showDateFilter, setShowDateFilter] = useState(false);
 	const navigate = useNavigate();
 
 	useEffect(() => {
@@ -201,9 +238,43 @@ export default function OrderManagement() {
 		return map as Record<Exclude<OrderStatus, 'cancelled'>, number>;
 	}, [orders]);
 
-	const filtered = useMemo(() => orders.filter((o) => o.status === activeTab), [orders, activeTab]);
+	// Filter orders based on active tab, search query, and date filter
+	const filtered = useMemo(() => {
+		return orders.filter((order) => {
+			// Status filter
+			if (order.status !== activeTab) return false;
+			
+			// Date filter
+			if (dateFilter !== 'all' && order.createdAt) {
+				const dateRange = getDateRange(dateFilter);
+				if (dateRange) {
+					const orderDate = new Date(order.createdAt);
+					if (orderDate < dateRange.start || orderDate > dateRange.end) {
+						return false;
+					}
+				}
+			}
+			
+			// Search filter
+			if (searchQuery.trim()) {
+				const query = searchQuery.toLowerCase();
+				const matchesId = order._id.toLowerCase().includes(query);
+				const matchesService = order.items.some(item => 
+					item.serviceName?.toLowerCase().includes(query)
+				);
+				const matchesNotes = order.notes?.toLowerCase().includes(query);
+				const matchesFiles = order.files.some(file => 
+					file.filename?.toLowerCase().includes(query)
+				);
+				
+				return matchesId || matchesService || matchesNotes || matchesFiles;
+			}
+			
+			return true;
+		});
+	}, [orders, activeTab, searchQuery, dateFilter]);
 
-		async function updateStatus(id: string, status: Exclude<OrderStatus, 'cancelled'>) {
+	async function updateStatus(id: string, status: Exclude<OrderStatus, 'cancelled'>) {
 		try {
 			setUpdatingId(id);
 				const payload: Record<string, unknown> = { status };
@@ -234,9 +305,9 @@ export default function OrderManagement() {
 	}
 
 	const pageHeader = (
-		<div className="mb-6">
-			<h1 className="text-2xl md:text-3xl font-bold text-white">Order Management</h1>
-			<p className="text-gray-300 text-sm">Track and update customer orders.</p>
+		<div className="mb-8">
+			<h1 className="text-3xl md:text-4xl font-bold text-white bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Order Management</h1>
+			<p className="text-gray-300 text-lg mt-2">Track and update customer orders.</p>
 		</div>
 	);
 
@@ -262,20 +333,20 @@ export default function OrderManagement() {
 			<DashboardLayout role="owner">
 				<div className="max-w-5xl mx-auto">
 					{pageHeader}
-					<div className="rounded-xl border border-white/10 bg-white/5 p-6 text-gray-200">
-						<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+
+					<div className="rounded-2xl border border-gray-600 bg-gray-800/50 backdrop-blur-sm p-8 text-center transition-all duration-300 ease-out hover:scale-[1.02]">
+						<div className="flex flex-col items-center gap-4">
+							<div className="text-6xl">🏪</div>
 							<div>
-								<div className="text-lg font-semibold">{calloutTitle}</div>
-								<div className="text-sm text-gray-300">{calloutSubtitle}</div>
+								<div className="text-xl font-semibold text-white mb-2">No Print Store</div>
+								<div className="text-gray-300">Create your store to start receiving orders.</div>
 							</div>
-							{canCreateStore && (
-								<button
-									onClick={() => navigate('/owner/create-shop')}
-									className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white border border-blue-600"
-								>
-									Create Store
-								</button>
-							)}
+							<button
+								onClick={() => navigate('/owner/create-shop')}
+								className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-300 ease-out transform hover:scale-105 shadow-lg hover:shadow-blue-500/25"
+							>
+								Create Store
+							</button>
 						</div>
 					</div>
 				</div>
@@ -288,32 +359,120 @@ export default function OrderManagement() {
 			<div className="max-w-7xl mx-auto">
 				{pageHeader}
 
-				{/* Filter header */}
-				<div className="mb-5">
-					<div className="inline-flex flex-wrap gap-2 bg-gray-900/50 border border-white/10 rounded-xl p-2">
-						{STATUS_LABELS.map(({ label, value }) => {
-							const active = activeTab === value;
-							return (
-								<button
-									key={value}
-									onClick={() => setActiveTab(value)}
-									className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition border ${
-										active
-											? 'bg-blue-600 text-white border-blue-600 shadow'
-											: 'bg-transparent text-gray-200 border-white/10 hover:bg-white/10'
-									}`}
-								>
-									<span>{label}</span>
-									<span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
-										active
-											? 'border-white/30 bg-white/10 text-white'
-											: 'border-white/10 bg-white/5 text-gray-200'
-									}`}>
-										{counts[value] ?? 0}
-									</span>
-								</button>
-							);
-						})}
+				{/* Filter header with integrated search and filter */}
+				<div className="mb-8">
+					<div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+						{/* Combined Status Tabs, Search and Filter */}
+						<div className="flex flex-col sm:flex-row gap-4 w-full">
+							{/* Status Tabs */}
+							<div className="inline-flex flex-wrap gap-3 bg-gray-800/50 border border-gray-600 rounded-2xl p-3 backdrop-blur-sm">
+								{STATUS_LABELS.map(({ label, value }) => {
+									const active = activeTab === value;
+									return (
+										<button
+											key={value}
+											onClick={() => setActiveTab(value)}
+											className={`inline-flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out transform hover:scale-105 ${
+												active
+													? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 scale-105'
+													: 'bg-transparent text-gray-200 border border-gray-600 hover:bg-gray-700/50'
+											}`}
+										>
+											<span>{label}</span>
+											<span className={`text-xs px-2 py-1 rounded-full border ${
+												active
+													? 'border-white/30 bg-white/20 text-white'
+													: 'border-gray-500 bg-gray-700/50 text-gray-200'
+											}`}>
+												{counts[value] ?? 0}
+											</span>
+										</button>
+									);
+								})}
+							</div>
+
+							{/* Search and Filter Container */}
+							<div className="flex flex-col sm:flex-row gap-3 flex-1 max-w-lg">
+								{/* Modern Search Bar */}
+								<div className="relative flex-1">
+									<div className="relative group">
+										<div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+											<svg className="h-4 w-4 text-gray-400 group-focus-within:text-blue-400 transition-colors duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+											</svg>
+										</div>
+										<input
+											type="text"
+											placeholder="Search orders..."
+											value={searchQuery}
+											onChange={(e) => setSearchQuery(e.target.value)}
+											className="w-full pl-11 pr-11 py-3.5 bg-gray-800/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm transition-all duration-300 hover:border-gray-500"
+										/>
+										{searchQuery && (
+											<button
+												onClick={() => setSearchQuery('')}
+												className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-white transition-colors duration-200"
+											>
+												<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+												</svg>
+											</button>
+										)}
+									</div>
+								</div>
+
+								{/* Date Filter Dropdown */}
+								<div className="relative">
+									<button
+										onClick={() => setShowDateFilter(!showDateFilter)}
+										className="flex items-center gap-2 px-4 py-3.5 bg-gray-800/50 border border-gray-600 rounded-xl text-white hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm transition-all duration-300 min-w-[120px] justify-center"
+									>
+										<svg className="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+										</svg>
+										<span className="text-sm font-medium">Filter</span>
+										<svg className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${showDateFilter ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+										</svg>
+									</button>
+
+									{/* Dropdown Menu */}
+									{showDateFilter && (
+										<div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl backdrop-blur-sm z-10">
+											<div className="p-2 space-y-1">
+												{DATE_FILTERS.map((filter) => (
+													<button
+														key={filter.value}
+														onClick={() => {
+															setDateFilter(filter.value);
+															setShowDateFilter(false);
+														}}
+														className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+															dateFilter === filter.value
+																? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
+																: 'text-gray-200 hover:bg-gray-700/50'
+														}`}
+													>
+														{filter.label}
+													</button>
+												))}
+											</div>
+										</div>
+									)}
+								</div>
+							</div>
+						</div>
+					</div>
+
+					{/* Results Count */}
+					<div className="mt-4 text-sm text-gray-400">
+						Showing {filtered.length} of {orders.filter(o => o.status === activeTab).length} orders
+						{searchQuery && (
+							<span> for "<span className="text-white">{searchQuery}</span>"</span>
+						)}
+						{dateFilter !== 'all' && (
+							<span> from <span className="text-white">{DATE_FILTERS.find(f => f.value === dateFilter)?.label}</span></span>
+						)}
 					</div>
 				</div>
 
@@ -324,27 +483,25 @@ export default function OrderManagement() {
 						className={`grid grid-cols-1 gap-4 mb-4 transition-opacity duration-300 ${contentReady ? 'opacity-0' : 'opacity-100'}`}
 					>
 						{Array.from({ length: 6 }).map((_, i) => (
-							<div key={i} className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 p-4 animate-pulse">
-								<div className="flex flex-col sm:flex-row sm:items-start gap-3">
+							<div key={i} className="rounded-2xl border border-gray-600 bg-gray-800/50 p-6 animate-pulse backdrop-blur-sm">
+								<div className="flex flex-col sm:flex-row sm:items-start gap-4">
 									{/* Left skeleton section */}
-									<div className="flex-1 min-w-0">
+									<div className="flex-1 min-w-0 space-y-3">
 										<div className="flex items-center gap-2">
-											<div className="h-4 w-16 rounded bg-white/10" />
-											<div className="h-4 w-24 rounded-full bg-white/10" />
+											<div className="h-5 w-20 rounded bg-gray-700" />
+											<div className="h-6 w-24 rounded-full bg-gray-700" />
 										</div>
-										<div className="mt-1 h-3 w-40 rounded bg-white/10" />
-										<div className="mt-3 space-y-2">
-											<div className="h-4 w-48 rounded bg-white/10" />
-											<div className="h-3 w-32 rounded bg-white/10" />
-											<div className="h-3 w-56 rounded bg-white/10" />
-										</div>
+										<div className="h-4 w-32 rounded bg-gray-700" />
+										<div className="h-3 w-24 rounded bg-gray-700" />
+										<div className="h-4 w-40 rounded bg-gray-700" />
+										<div className="h-3 w-36 rounded bg-gray-700" />
 									</div>
 
 									{/* Right skeleton actions */}
-									<div className="sm:text-right w-40 shrink-0">
-										<div className="ml-auto h-5 w-24 rounded bg-white/10" />
-										<div className="mt-1 h-3 w-12 rounded bg-white/10 ml-auto" />
-										<div className="mt-3 h-8 w-28 rounded-lg bg-white/10 ml-auto" />
+									<div className="sm:text-right w-40 shrink-0 space-y-2">
+										<div className="h-6 w-20 rounded bg-gray-700 ml-auto" />
+										<div className="h-4 w-16 rounded bg-gray-700 ml-auto" />
+										<div className="h-9 w-28 rounded-lg bg-gray-700 ml-auto" />
 									</div>
 								</div>
 							</div>
@@ -352,13 +509,39 @@ export default function OrderManagement() {
 					</div>
 				)}
 				{error && (
-					<div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-200 px-3 py-2 text-sm">{error}</div>
+					<div className="mb-6 rounded-2xl border border-red-500/40 bg-red-500/10 text-red-200 px-6 py-4 text-sm backdrop-blur-sm transition-all duration-300 ease-out hover:scale-[1.02]">
+						{error}
+					</div>
 				)}
 
 				{/* Orders list */}
-				<div className={`grid grid-cols-1 gap-4 transition-all duration-300 ${contentReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-1'}`}>
+				<div className={`grid grid-cols-1 gap-6 transition-all duration-300 ${contentReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
 					{!loading && filtered.length === 0 && (
-						<div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-300">No orders in this status.</div>
+						<div className="rounded-2xl border border-gray-600 bg-gray-800/50 p-12 text-center text-gray-300 backdrop-blur-sm transition-all duration-300 ease-out hover:scale-[1.02]">
+							<div className="text-6xl mb-4">
+								{searchQuery || dateFilter !== 'all' ? '🔍' : '📦'}
+							</div>
+							<h3 className="text-xl font-semibold mb-2">
+								{searchQuery || dateFilter !== 'all' ? 'No matching orders' : 'No orders in this status'}
+							</h3>
+							<p className="text-gray-400">
+								{searchQuery || dateFilter !== 'all' 
+									? 'Try adjusting your search or filter criteria'
+									: 'Orders will appear here as customers place them.'
+								}
+							</p>
+							{(searchQuery || dateFilter !== 'all') && (
+								<button
+									onClick={() => {
+										setSearchQuery('');
+										setDateFilter('all');
+									}}
+									className="mt-4 px-4 py-2 text-sm text-blue-300 hover:text-blue-200 transition-colors duration-200"
+								>
+									Clear filters
+								</button>
+							)}
+						</div>
 					)}
 					{filtered.map((o) => {
 						const first = o.items[0];
@@ -366,103 +549,137 @@ export default function OrderManagement() {
 						const total = o.subtotal ?? first?.totalPrice ?? 0;
 						const currency = o.currency || first?.currency || 'PHP';
 						return (
-							<div key={o._id} className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 p-4">
-								<div className="flex flex-col sm:flex-row sm:items-start gap-3">
+							<div 
+								key={o._id} 
+								className="rounded-2xl border border-gray-600 bg-gray-800/50 backdrop-blur-sm p-6 transition-all duration-300 ease-out hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group"
+							>
+								<div className="flex flex-col sm:flex-row sm:items-start gap-4">
 									{/* Left: main info */}
-									<div className="flex-1 min-w-0">
-										<div className="flex items-center gap-2">
-											<div className="text-white font-semibold">{shortId(o._id)}</div>
-											<span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusBadgeClasses(o.status)}`}>
+									<div className="flex-1 min-w-0 space-y-4">
+										{/* Header */}
+										<div className="flex items-center gap-3">
+											<div className="text-white font-bold text-lg group-hover:text-blue-200 transition-colors duration-300">
+												{shortId(o._id)}
+											</div>
+											<span className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-300 ease-out transform group-hover:scale-110 ${statusBadgeClasses(o.status)}`}>
 												{STATUS_LABELS.find((s) => s.value === o.status)?.label || o.status}
 											</span>
 										</div>
-									<div className="text-xs text-gray-300 font-mono tabular-nums mt-0.5">
-										{formatDateUTC(o.createdAt)}
-									</div>
-									{getTimeRemaining(o) && (
-										<div className="text-xs text-blue-300 mt-1 font-medium">
-											{getTimeRemaining(o)}
+
+										{/* Date and Time */}
+										<div className="space-y-2">
+											<div className="text-xs text-gray-400 font-mono tabular-nums">
+												{formatDateUTC(o.createdAt)}
+											</div>
+											{getTimeRemaining(o) && (
+												<div className="text-sm text-blue-300 font-medium bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-2 transition-all duration-300 group-hover:bg-blue-500/20">
+													⏱️ {getTimeRemaining(o)}
+												</div>
+											)}
 										</div>
-									)}
-										<div className="mt-1 text-gray-200 text-sm">
-											<div className="font-medium">{first?.serviceName || 'Service'}</div>
-											<div className="text-xs text-gray-300">Qty: {first?.quantity} {first?.unit ? `· ${first.unit}` : ''}</div>
+
+										{/* Service Details */}
+										<div className="space-y-3">
+											<div>
+												<div className="text-white font-semibold text-lg group-hover:text-blue-100 transition-colors duration-300">
+													{first?.serviceName || 'Service'}
+												</div>
+												<div className="text-sm text-gray-300 mt-1">
+													Quantity: <span className="text-white font-medium">{first?.quantity}</span>
+													{first?.unit && <span className="ml-2">· {first.unit}</span>}
+												</div>
+											</div>
+
 											{first && (
-												<div className="text-xs text-gray-300 mt-1">{itemSummary(first)}</div>
+												<div className="text-sm text-gray-200 bg-gray-700/30 border border-gray-600 rounded-lg px-3 py-2 transition-all duration-300 group-hover:bg-gray-700/50">
+													{itemSummary(first)}
+												</div>
 											)}
+
 											{o.notes && (
-												<div className="text-xs text-gray-200 mt-2"><span className="text-gray-400">Notes:</span> {o.notes}</div>
+												<div className="text-sm text-gray-200 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 transition-all duration-300 group-hover:bg-yellow-500/20">
+													<span className="text-yellow-300 font-medium">📝 Notes:</span> {o.notes}
+												</div>
 											)}
 										</div>
+
+										{/* Files Section */}
+										{o.files?.length > 0 && (
+											<div className="border-t border-gray-600 pt-4">
+												<div className="text-xs text-gray-400 font-medium mb-2">Files ({o.files.length}):</div>
+												<div className="space-y-2">
+													{o.files.slice(0, 3).map((f) => (
+														<a
+															key={String(f.fileId)}
+															href="#"
+															onClick={async (e) => {
+																e.preventDefault();
+																try {
+																	const res = await api.get(`/orders/${o._id}/files/${f.fileId}` as const, { responseType: 'blob' });
+																	const blob = new Blob([res.data], { type: res.headers['content-type'] || f.mimeType || 'application/octet-stream' });
+																	const url = window.URL.createObjectURL(blob);
+																	const a = document.createElement('a');
+																	a.href = url;
+																	// try to extract filename from header
+																	const cd = res.headers['content-disposition'] || '';
+																	const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(cd);
+																	const headerName = decodeURIComponent((match?.[1] || match?.[2] || '').trim());
+																	a.download = headerName || f.filename || `file-${String(f.fileId)}.`;
+																	document.body.appendChild(a);
+																	a.click();
+																	a.remove();
+																	setTimeout(() => URL.revokeObjectURL(url), 2000);
+																} catch (err) {
+																	const e2 = err as { response?: { data?: { message?: string } }; message?: string };
+																	alert(e2?.response?.data?.message || e2?.message || 'Download failed');
+																}
+															}}
+															className="flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200 transition-all duration-300 ease-out transform hover:translate-x-1 group/file"
+															title={f.filename || 'file'}
+														>
+															<span className="text-xs">📎</span>
+															<span className="truncate flex-1">{f.filename || String(f.fileId)}</span>
+															<span className="text-xs opacity-0 group-hover/file:opacity-100 transition-opacity duration-300">↓</span>
+														</a>
+													))}
+													{o.files.length > 3 && (
+														<div className="text-xs text-gray-400 text-center">
+															+{o.files.length - 3} more files
+														</div>
+													)}
+												</div>
+											</div>
+										)}
 									</div>
 
 									{/* Right: totals and actions */}
-									<div className="sm:text-right">
-										<div className="text-white font-semibold">{money(total, currency)}</div>
-										<div className="text-xs text-gray-200">Total</div>
-										<div className="mt-2 flex sm:justify-end gap-2">
-											{/* Removed mark as completed button */}
-											{canAdvance && canAdvance !== 'completed' && (
-												<button
-													disabled={updatingId === o._id}
-													onClick={() => {
-														const ns = nextStatus(o.status);
-														if (ns && ns !== 'completed') updateStatus(o._id, ns);
-													}}
-													className={`px-3 py-1.5 rounded-lg text-sm border ${
-														o.status === 'pending'
-															? 'bg-amber-600 border-amber-600 text-white hover:bg-amber-500'
-															: o.status === 'processing'
-															? 'bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500'
-															: 'bg-green-600 border-green-600 text-white hover:bg-green-500'
-													} ${updatingId === o._id ? 'opacity-60 cursor-not-allowed' : ''}`}
-												>
-													{updatingId === o._id ? 'Updating…' : `Mark as ${STATUS_LABELS.find((s) => s.value === canAdvance)?.label}`}
-												</button>
-											)}
+									<div className="sm:text-right sm:w-48 shrink-0 space-y-4">
+										<div>
+											<div className="text-white font-bold text-2xl group-hover:text-blue-200 transition-colors duration-300">
+												{money(total, currency)}
+											</div>
+											<div className="text-sm text-gray-400">Total Amount</div>
 										</div>
-                                        {o.files?.length > 0 && (
-                                            <div className="mt-2 text-xs text-gray-200">
-                                                Files: {o.files.length}
-                                                <div className="mt-1 space-y-1">
-                                                    {o.files.slice(0, 3).map((f) => (
-                                                        <a
-                                                            key={String(f.fileId)}
-                                                            href="#"
-                                                            onClick={async (e) => {
-                                                                e.preventDefault();
-                                                                try {
-                                                                    const res = await api.get(`/orders/${o._id}/files/${f.fileId}` as const, { responseType: 'blob' });
-                                                                    const blob = new Blob([res.data], { type: res.headers['content-type'] || f.mimeType || 'application/octet-stream' });
-                                                                    const url = window.URL.createObjectURL(blob);
-                                                                    const a = document.createElement('a');
-                                                                    a.href = url;
-                                                                    // try to extract filename from header
-                                                                    const cd = res.headers['content-disposition'] || '';
-                                                                    const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(cd);
-                                                                    const headerName = decodeURIComponent((match?.[1] || match?.[2] || '').trim());
-                                                                    a.download = headerName || f.filename || `file-${String(f.fileId)}.`;
-                                                                    document.body.appendChild(a);
-                                                                    a.click();
-                                                                    a.remove();
-                                                                    setTimeout(() => URL.revokeObjectURL(url), 2000);
-                                                                } catch (err) {
-                                                                    const e2 = err as { response?: { data?: { message?: string } }; message?: string };
-                                                                    alert(e2?.response?.data?.message || e2?.message || 'Download failed');
-                                                                }
-                                                            }}
-                                                            className="block text-blue-200 hover:text-blue-100 underline truncate max-w-[280px]"
-                                                            title={f.filename || 'file'}
-                                                        >
-                                                            {f.filename || String(f.fileId)}
-                                                        </a>
-                                                    ))}
-                                                    {o.files.length > 3 && (
-                                                        <div className="text-gray-300">+{o.files.length - 3} more…</div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        )}
+
+										{/* Action Button */}
+										{canAdvance && canAdvance !== 'completed' && (
+											<button
+												disabled={updatingId === o._id}
+												onClick={() => {
+													const ns = nextStatus(o.status);
+													if (ns && ns !== 'completed') updateStatus(o._id, ns);
+												}}
+												className={`w-full px-4 py-3 rounded-xl text-sm font-medium border transition-all duration-300 ease-out transform hover:scale-105 ${
+													o.status === 'pending'
+														? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-500 text-white hover:from-amber-600 hover:to-amber-700 shadow-lg hover:shadow-amber-500/25'
+														: o.status === 'processing'
+														? 'bg-gradient-to-r from-indigo-500 to-indigo-600 border-indigo-500 text-white hover:from-indigo-600 hover:to-indigo-700 shadow-lg hover:shadow-indigo-500/25'
+														: 'bg-gradient-to-r from-green-500 to-green-600 border-green-500 text-white hover:from-green-600 hover:to-green-700 shadow-lg hover:shadow-green-500/25'
+												} ${updatingId === o._id ? 'opacity-60 cursor-not-allowed scale-95' : ''}`}
+											>
+												{updatingId === o._id ? 'Updating…' : `Mark as ${STATUS_LABELS.find((s) => s.value === canAdvance)?.label}`}
+											</button>
+										)}
 									</div>
 								</div>
 							</div>
@@ -473,4 +690,3 @@ export default function OrderManagement() {
 		</DashboardLayout>
 	);
 }
-

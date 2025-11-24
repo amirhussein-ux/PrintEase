@@ -71,7 +71,7 @@ const io = new Server(server, {
     methods: ["GET", "POST"],
     credentials: true,
   },
-  transports: ["websocket", "polling"], // ⚡ important
+  transports: ["websocket", "polling"],
 });
 
 let onlineUsers = {}; // track online users
@@ -89,8 +89,42 @@ io.on("connection", (socket) => {
     io.emit("userOnline", { userId, online: true });
   });
 
+  // --- CHECK EXISTING CONVERSATION ---
+  socket.on("checkConversation", async ({ customerId, ownerId }) => {
+    console.log("🔍 Checking existing conversation between:", customerId, ownerId);
+    
+    if (!mongoose.Types.ObjectId.isValid(customerId) || !mongoose.Types.ObjectId.isValid(ownerId)) {
+      return socket.emit("error", { message: "Invalid user IDs" });
+    }
+
+    try {
+      const customerObjectId = new mongoose.Types.ObjectId(customerId);
+      const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
+
+      const conversation = await Conversation.findOne({
+        participants: { $all: [customerObjectId, ownerObjectId] },
+      });
+
+      if (conversation) {
+        console.log(`✅ Found existing conversation: ${conversation._id}`);
+        socket.emit("conversationExists", { 
+          conversationId: conversation._id.toString(),
+          customerId: customerId 
+        });
+      } else {
+        console.log("❌ No existing conversation found");
+        // Don't emit anything - wait for first message to create conversation
+      }
+    } catch (err) {
+      console.error("❌ Error checking conversation:", err);
+      socket.emit("error", { message: "Failed to check conversation" });
+    }
+  });
+
   // --- START CONVERSATION ---
-  socket.on("startConversation", async ({ customerId, ownerId }) => {
+  socket.on("startConversation", async ({ customerId, ownerId, firstMessage, firstFile }) => {
+    console.log("🆕 Starting conversation with first message:", firstMessage || firstFile);
+    
     if (!mongoose.Types.ObjectId.isValid(customerId) || !mongoose.Types.ObjectId.isValid(ownerId)) {
       return socket.emit("error", { message: "Invalid user IDs" });
     }
@@ -106,22 +140,54 @@ io.on("connection", (socket) => {
       if (!conversation) {
         conversation = await Conversation.create({
           participants: [customerObjectId, ownerObjectId],
+          lastMessage: firstMessage || firstFile || "New conversation started",
         });
         console.log(`🆕 Created conversation: ${conversation._id}`);
       } else {
-        console.log(`✅ Found existing conversation: ${conversation._id}`);
+        console.log(`✅ Using existing conversation: ${conversation._id}`);
       }
 
-      socket.emit("conversationCreated", { conversationId: conversation._id.toString() });
+      // If there's a first message, create it
+      if (firstMessage || firstFile) {
+        const message = await Message.create({
+          conversationId: conversation._id,
+          senderId: customerObjectId,
+          text: firstMessage || "",
+          fileName: firstFile || null,
+          createdAt: new Date(),
+        });
 
+        await Conversation.findByIdAndUpdate(conversation._id, {
+          lastMessage: firstMessage || firstFile || "File",
+          updatedAt: new Date(),
+        });
+
+        // Send the created message back
+        socket.emit("messageSent", {
+          _id: message._id.toString(),
+          conversationId: conversation._id.toString(),
+          senderId: customerId,
+          text: message.text,
+          fileName: message.fileName,
+          createdAt: message.createdAt,
+        });
+      }
+
+      socket.emit("conversationCreated", { 
+        conversationId: conversation._id.toString(),
+        customerId: customerId 
+      });
+
+      // Notify owner about new conversation/message
       if (onlineUsers[ownerId]) {
         const customer = await User.findById(customerObjectId).select("firstName lastName").lean();
         const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown Customer";
 
         io.to(onlineUsers[ownerId].socketId).emit("newConversation", {
-          id: customerId,
-          name: customerName,
+          customerId: customerId,
+          customerName: customerName,
           conversationId: conversation._id.toString(),
+          lastMessage: firstMessage || firstFile || "New conversation",
         });
         console.log(`📢 Notified owner ${ownerId} about new conversation`);
       }
@@ -133,6 +199,8 @@ io.on("connection", (socket) => {
 
   // --- SEND MESSAGE ---
   socket.on("sendMessage", async ({ conversationId, senderId, receiverId, text, fileUrl, fileName }) => {
+    console.log("📨 Sending message to conversation:", conversationId);
+    
     if (!mongoose.Types.ObjectId.isValid(conversationId) || !mongoose.Types.ObjectId.isValid(senderId)) {
       return socket.emit("error", { message: "Invalid IDs" });
     }
@@ -157,8 +225,8 @@ io.on("connection", (socket) => {
 
       const messageData = {
         _id: message._id.toString(),
-        conversationId,
-        senderId,
+        conversationId: conversationId,
+        senderId: senderId,
         text: message.text,
         fileUrl: message.fileUrl,
         fileName: message.fileName,
@@ -178,6 +246,23 @@ io.on("connection", (socket) => {
       console.error("❌ Error sending message:", err);
       socket.emit("error", { message: "Failed to send message" });
     }
+  });
+
+  // --- TYPING INDICATOR ---
+  socket.on("typing", ({ conversationId, isTyping, userId }) => {
+    console.log(`⌨️ Typing: ${isTyping} by ${userId}`);
+    
+    // Broadcast typing status to other participants in the conversation
+    socket.to(conversationId).emit("userTyping", { 
+      isTyping, 
+      userId 
+    });
+  });
+
+  // --- JOIN CONVERSATION ROOM ---
+  socket.on("joinConversation", (conversationId) => {
+    socket.join(conversationId);
+    console.log(`👥 User joined conversation: ${conversationId}`);
   });
 
   // --- DISCONNECT ---

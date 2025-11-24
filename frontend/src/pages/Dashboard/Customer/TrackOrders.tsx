@@ -269,33 +269,35 @@ export default function TrackOrders() {
 
   return (
     <DashboardLayout role="customer">
-      <div className="max-w-7xl mx-auto">
-  {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl md:text-3xl font-bold text-white">My Orders</h1>
-          <p className="text-gray-300 text-sm">Track your printing orders and their status.</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl md:text-4xl font-bold text-white tracking-wide">
+            Order Status
+          </h1>
+          <p className="text-gray-400 mt-2 text-sm md:text-base">Monitor your printing orders and their progress in real-time</p>
         </div>
 
-  {/* Filters */}
-        <div className="mb-5">
-          <div className="inline-flex flex-wrap gap-2 bg-gray-900/50 border border-white/10 rounded-xl p-2">
+        {/* Filters */}
+        <div className="mb-8">
+          <div className="inline-flex flex-wrap gap-3 bg-gray-900/60 backdrop-blur-sm border border-gray-700 rounded-2xl p-3 shadow-lg">
             {FILTERS.map(({ label, value }) => {
               const active = activeFilter === value;
               return (
                 <button
                   key={value}
                   onClick={() => setActiveFilter(value)}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition border ${
+                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${
                     active
-                      ? 'bg-blue-600 text-white border-blue-600 shadow'
-                      : 'bg-transparent text-gray-200 border-white/10 hover:bg-white/10'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-500/25'
+                      : 'bg-gray-800/50 text-gray-200 border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 hover:shadow-md'
                   }`}
                 >
                   <span>{label}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                  <span className={`text-xs px-2 py-1 rounded-full border ${
                     active
-                      ? 'border-white/30 bg-white/10 text-white'
-                      : 'border-white/10 bg-white/5 text-gray-200'
+                      ? 'border-white/40 bg-white/20 text-white'
+                      : 'border-gray-500 bg-gray-700/50 text-gray-300'
                   }`}>
                     {counts[value] ?? 0}
                   </span>
@@ -305,79 +307,155 @@ export default function TrackOrders() {
           </div>
         </div>
 
-  {/* Status */}
+        {/* Status */}
         {loading && (
-          <div className="mb-3 text-sm text-gray-300">Loading orders…</div>
+          <div className="flex justify-center mb-6">
+            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 text-center max-w-md w-full">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+              <div className="text-gray-300 text-sm">Loading your orders...</div>
+            </div>
+          </div>
         )}
         {error && (
-          <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 text-red-200 px-3 py-2 text-sm">{error}</div>
+          <div className="mb-6 rounded-2xl border border-red-500/40 bg-red-500/10 backdrop-blur-sm p-4 text-red-200 text-sm flex items-center gap-3">
+            <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            {error}
+          </div>
         )}
 
-  {/* Orders */}
-        <div className="grid grid-cols-1 gap-4">
+        {/* Orders Grid */}
+        <div className="grid grid-cols-1 gap-6">
           {!loading && filtered.length === 0 && (
-            <div className="rounded-xl border border-white/10 bg-white/5 p-8 text-center text-gray-300">No orders found.</div>
+            <div className="rounded-2xl border border-gray-700 bg-gradient-to-br from-gray-800 to-gray-900/50 p-12 text-center">
+              <svg className="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <h3 className="text-lg font-semibold text-gray-300 mb-2">No orders found</h3>
+              <p className="text-gray-500 text-sm">No orders match your current filter selection.</p>
+            </div>
           )}
+          
           {filtered.map((o) => {
             const first = o.items[0];
             const total = o.subtotal ?? first?.totalPrice ?? 0;
             const currency = o.currency || first?.currency || 'PHP';
             return (
-              <div key={o._id} className="rounded-xl border shadow-2xl border-blue-800 bg-blue-800 p-4">
-                <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                  {/* Left */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="text-white font-semibold">{shortId(o._id)}</div>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full border ${statusBadgeClasses(o.status)}`}>
-                        {o.status === 'pending' && 'Not yet Started'}
-                        {o.status === 'processing' && 'In Progress'}
-                        {o.status === 'ready' && 'Ready For Pick-up'}
-                        {o.status === 'completed' && 'Completed'}
-                        {o.status === 'cancelled' && 'Cancelled'}
-                      </span>
+              <div key={o._id} className="rounded-2xl border border-gray-700 bg-gradient-to-br from-gray-800 to-gray-900/50 p-6 shadow-xl hover:shadow-2xl transition-all duration-300">
+                <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+                  {/* Left Content */}
+                  <div className="flex-1 min-w-0 space-y-4">
+                    {/* Header */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="text-white font-bold text-lg tracking-wide">{shortId(o._id)}</div>
+                        <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${statusBadgeClasses(o.status)}`}>
+                          {o.status === 'pending' && 'Not yet Started'}
+                          {o.status === 'processing' && 'In Progress'}
+                          {o.status === 'ready' && 'Ready For Pick-up'}
+                          {o.status === 'completed' && 'Completed'}
+                          {o.status === 'cancelled' && 'Cancelled'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-400 font-mono tabular-nums bg-gray-900/50 px-3 py-1.5 rounded-lg border border-gray-700">
+                        {formatDateUTC(o.createdAt)}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-300 font-mono tabular-nums mt-0.5">
-                      {formatDateUTC(o.createdAt)}
-                    </div>
+
+                    {/* Time Estimate */}
                     {getTimeRemaining(o) && (
-                      <div className="text-xs text-blue-300 mt-1 font-medium">
+                      <div className="flex items-center gap-2 text-sm text-blue-300 font-medium bg-blue-500/10 border border-blue-500/20 px-3 py-2 rounded-lg">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                         {getTimeRemaining(o)}
                       </div>
                     )}
-                    <div className="mt-1 text-gray-200 text-sm">
-                      <div className="font-medium">{first?.serviceName || 'Service'}</div>
-                      <div className="text-xs text-gray-300">Qty: {first?.quantity} {first?.unit ? `· ${first.unit}` : ''}</div>
-                      {first && (
-                        <div className="text-xs text-gray-300 mt-1">{itemSummary(first)}</div>
-                      )}
-                      {o.notes && (
-                        <div className="text-xs text-gray-200 mt-2"><span className="text-gray-300">Notes:</span> {o.notes}</div>
-                      )}
+
+                    {/* Order Details */}
+                    <div className="space-y-3">
+                      <div className="bg-gray-900/30 rounded-xl p-4 border border-gray-700">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                          <h4 className="text-white font-semibold text-sm">{first?.serviceName || 'Print Service'}</h4>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">Quantity:</span>
+                            <span className="font-medium">{first?.quantity} {first?.unit ? `· ${first.unit}` : ''}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500">Options:</span>
+                            <span className="font-medium truncate">{itemSummary(first)}</span>
+                          </div>
+                        </div>
+                        {o.notes && (
+                          <div className="mt-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
+                            <div className="flex items-start gap-2 text-xs">
+                              <svg className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                              </svg>
+                              <div>
+                                <span className="text-gray-400 font-medium">Notes:</span>
+                                <span className="text-gray-300 ml-1">{o.notes}</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Right */}
-                  <div className="sm:text-right">
-                    <div className="text-white font-semibold">{money(total, currency)}</div>
-                    <div className="text-xs text-gray-200">Total</div>
-                    {o.status === 'pending' && (
-                      <div className="mt-2">
+                  {/* Right Sidebar */}
+                  <div className="lg:w-64 space-y-4">
+                    {/* Total Price */}
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-white">{money(total, currency)}</div>
+                      <div className="text-xs text-gray-400 font-medium">Total Amount</div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="space-y-3">
+                      {o.status === 'pending' && (
                         <button
                           disabled={updatingId === o._id}
                           onClick={() => cancelOrder(o._id)}
-                          className={`px-3 py-1.5 rounded-lg text-sm border bg-red-600 border-red-600 text-white hover:bg-red-500 ${
-                            updatingId === o._id ? 'opacity-60 cursor-not-allowed' : ''
+                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200 ${
+                            updatingId === o._id 
+                              ? 'bg-gray-600 border-gray-600 text-gray-400 cursor-not-allowed' 
+                              : 'bg-red-600 border-red-600 text-white hover:bg-red-500 hover:shadow-lg hover:shadow-red-500/25'
                           }`}
                         >
-                          {updatingId === o._id ? 'Cancelling…' : 'Cancel Order'}
+                          {updatingId === o._id ? (
+                            <span className="flex items-center justify-center gap-2">
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Cancelling...
+                            </span>
+                          ) : 'Cancel Order'}
                         </button>
-                      </div>
-                    )}
+                      )}
+                      
+                      {o.status === 'completed' && o.paymentStatus === 'paid' && (
+                        <button
+                          onClick={() => setShowReceiptFor(o._id)}
+                          className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-green-600 bg-green-600 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/25 transition-all duration-200"
+                        >
+                          View Receipt
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Files Section */}
                     {o.files?.length > 0 && (
-                      <div className="mt-2 text-xs text-gray-200">
-                        Files: {o.files.length}
-                        <div className="mt-1 space-y-1">
+                      <div className="bg-gray-900/30 rounded-xl p-4 border border-gray-700">
+                        <div className="flex items-center gap-2 mb-3">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          <span className="text-xs font-semibold text-gray-300">Files ({o.files.length})</span>
+                        </div>
+                        <div className="space-y-2 max-h-32 overflow-y-auto">
                           {o.files.slice(0, 3).map((f) => (
                             <a
                               key={String(f.fileId)}
@@ -403,48 +481,51 @@ export default function TrackOrders() {
                                   alert(e2?.response?.data?.message || e2?.message || 'Download failed');
                                 }
                               }}
-                              className="block text-blue-200 hover:text-blue-100 underline truncate max-w-[280px]"
+                              className="flex items-center gap-2 text-xs text-blue-300 hover:text-blue-200 transition-colors group"
                               title={f.filename || 'file'}
                             >
-                              {f.filename || String(f.fileId)}
+                              <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                              </svg>
+                              <span className="truncate flex-1">{f.filename || String(f.fileId)}</span>
                             </a>
                           ))}
                           {o.files.length > 3 && (
-                            <div className="text-gray-300">+{o.files.length - 3} more…</div>
+                            <div className="text-xs text-gray-400 text-center pt-1 border-t border-gray-700">
+                              +{o.files.length - 3} more files
+                            </div>
                           )}
                         </div>
                       </div>
                     )}
-                    {o.status === 'completed' && o.paymentStatus === 'paid' && (
-                      <div className="mt-3">
-                        <button
-                          onClick={() => setShowReceiptFor(o._id)}
-                          className="px-3 py-1.5 rounded-lg text-sm border bg-green-600 border-green-600 text-white hover:bg-green-500"
-                        >
-                          View Receipt
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
+
+                {/* QR Code Section */}
                 {o.status === 'ready' && o.pickupToken && (
-                  <div className="mt-4 p-5 rounded-lg border border-white/10 bg-white/5 text-center w-fill mx-auto">
+                  <div className="mt-6 p-6 rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 to-purple-500/10">
                     {!openQR[o._id] ? (
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                        <div className="text-xs text-gray-200">Ready for pickup. Show QR at counter when asked.</div>
-                        <div>
-                          <button
-                            onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: true }))}
-                            className="px-3 py-1.5 rounded-lg text-sm border bg-indigo-600 border-indigo-600 text-white hover:bg-indigo-500"
-                          >
-                            Show QR
-                          </button>
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 text-sm text-indigo-200">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                          </svg>
+                          Ready for pickup. Show QR code at counter when asked.
                         </div>
+                        <button
+                          onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: true }))}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/25 transition-all duration-200 flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                          </svg>
+                          Show QR Code
+                        </button>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="text-xs text-gray-200">Show this QR at pickup:</div>
-                        <div className="bg-white inline-block p-2 rounded mx-auto">
+                      <div className="flex flex-col items-center gap-4">
+                        <div className="text-sm text-indigo-200 font-medium">Show this QR code at pickup:</div>
+                        <div className="bg-white p-3 rounded-xl shadow-lg mx-auto">
                           <QRCode
                             value={`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/orders/pickup/${o.pickupToken}/confirm`}
                             size={180}
@@ -454,7 +535,7 @@ export default function TrackOrders() {
                             }}
                           />
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <button
                             onClick={() => {
                               const canvas = qrCanvasRefs.current[o._id];
@@ -475,19 +556,25 @@ export default function TrackOrders() {
                                 alert('Download failed.');
                               }
                             }}
-                            className="px-3 py-1.5 rounded-lg text-sm border bg-gray-100 text-gray-900 hover:bg-gray-200"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md transition-all duration-200 flex items-center gap-2"
                           >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
                             Download
                           </button>
                           <button
                             onClick={() => setEnlargeQrFor(o._id)}
-                            className="px-3 py-1.5 rounded-lg text-sm border bg-gray-100 text-gray-900 hover:bg-gray-200"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md transition-all duration-200 flex items-center gap-2"
                           >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+                            </svg>
                             Enlarge
                           </button>
                           <button
                             onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: false }))}
-                            className="px-3 py-1.5 rounded-lg text-sm border bg-transparent text-gray-200 hover:bg-white/10"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-600 bg-transparent text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-200"
                           >
                             Hide
                           </button>
@@ -501,36 +588,34 @@ export default function TrackOrders() {
           })}
         </div>
       </div>
+
       {/* QR Modal */}
       {enlargeQrFor && (
         <div
-          className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           aria-modal="true"
           role="dialog"
           onClick={() => setEnlargeQrFor(null)}
         >
           <div
-            className="relative bg-white rounded-xl shadow-xl p-4 md:p-6 w-[92vw] max-w-md md:max-w-lg max-h-[92vh] overflow-auto"
+            className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-[92vw] max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="absolute top-4 right-4 bg-white px-2.5 py-1 text-sm font-bold rounded-full  cursor-pointer transition-colors hover:bg-gray-100 hover:shadow-md"
+              className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 text-sm font-bold rounded-lg text-white cursor-pointer transition-all duration-200 hover:shadow-md"
               onClick={() => setEnlargeQrFor(null)}
               aria-label="Close"
             >
               ✕
             </button>
-            <div className="flex flex-col items-center gap-3">
-              <div className="text-sm text-gray-700 font-medium">Pickup QR</div>
-              <div className="bg-white p-2 rounded">
+            <div className="flex flex-col items-center gap-4">
+              <div className="text-lg font-semibold text-white">Pickup QR Code</div>
+              <div className="bg-white p-4 rounded-xl shadow-lg">
                 {(() => {
                   const ord = orders.find((x) => x._id === enlargeQrFor);
                   const url = `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/orders/pickup/${ord?.pickupToken}/confirm`;
                   return (
-                    <div
-                      className="mx-auto"
-                      style={{ width: 'min(88vw, 80vh, 480px)' }}
-                    >
+                    <div className="mx-auto" style={{ width: 'min(88vw, 80vh, 400px)' }}>
                       <QRCode
                         value={url}
                         size={1024}
@@ -541,7 +626,7 @@ export default function TrackOrders() {
                   );
                 })()}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => {
                     try {
@@ -564,8 +649,11 @@ export default function TrackOrders() {
                       console.warn('QR download failed', e);
                     }
                   }}
-                  className="px-3 py-1.5 rounded-lg text-sm border bg-gray-100 text-gray-900 hover:bg-gray-200"
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md transition-all duration-200 flex items-center gap-2"
                 >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
                   Download
                 </button>
               </div>
@@ -580,30 +668,52 @@ export default function TrackOrders() {
         if (!ord) return null;
         const first = ord.items[0];
         return (
-          <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" role="dialog" aria-modal>
-            <div className="relative bg-white rounded-xl shadow-xl p-5 w-[92vw] max-w-lg">
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal>
+            <div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-[92vw] max-w-md">
               <button
-                className="absolute top-3 right-3 bg-white rounded-full border border-gray-300 shadow px-2.5 py-1 text-sm font-bold hover:bg-gray-100"
+                className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 text-sm font-bold rounded-lg text-white cursor-pointer transition-all duration-200 hover:shadow-md"
                 onClick={() => setShowReceiptFor(null)}
                 aria-label="Close"
               >
                 ✕
               </button>
-              <h3 className="text-lg font-bold text-gray-900 mb-1">Payment Receipt</h3>
-              <p className="text-xs text-gray-600 mb-4">Order <span className="font-mono">{shortId(ord._id)}</span> · {ord.receiptIssuedAt ? new Date(ord.receiptIssuedAt).toLocaleString() : ''}</p>
-              <div className="space-y-3 text-sm text-gray-800">
-                <div className="flex justify-between"><span>Service</span><span className="font-medium truncate max-w-[55%]">{first?.serviceName || 'Service'}</span></div>
-                <div className="flex justify-between"><span>Quantity</span><span>{first?.quantity}</span></div>
-                <div className="flex justify-between"><span>Subtotal</span><span className="font-medium">{money(ord.subtotal, ord.currency || 'PHP')}</span></div>
-                <div className="flex justify-between"><span>Paid</span><span>{money(ord.paymentAmount || ord.subtotal, ord.currency || 'PHP')}</span></div>
-                <div className="flex justify-between"><span>Change</span><span>{money(ord.changeGiven || 0, ord.currency || 'PHP')}</span></div>
-                <div className="flex justify-between"><span>Method</span><span className="uppercase font-medium">{ord.paymentMethod || 'cash'}</span></div>
+              <h3 className="text-xl font-bold text-white mb-2">Payment Receipt</h3>
+              <p className="text-sm text-gray-400 mb-6">Order <span className="font-mono text-blue-300">{shortId(ord._id)}</span> · {ord.receiptIssuedAt ? new Date(ord.receiptIssuedAt).toLocaleString() : ''}</p>
+              
+              <div className="space-y-4 text-sm">
+                <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                  <span className="text-gray-300">Service</span>
+                  <span className="font-medium text-white truncate max-w-[55%]">{first?.serviceName || 'Service'}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                  <span className="text-gray-300">Quantity</span>
+                  <span className="font-medium text-white">{first?.quantity}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                  <span className="text-gray-300">Subtotal</span>
+                  <span className="font-bold text-green-400">{money(ord.subtotal, ord.currency || 'PHP')}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                  <span className="text-gray-300">Paid</span>
+                  <span className="font-medium text-white">{money(ord.paymentAmount || ord.subtotal, ord.currency || 'PHP')}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-700">
+                  <span className="text-gray-300">Change</span>
+                  <span className="font-medium text-white">{money(ord.changeGiven || 0, ord.currency || 'PHP')}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-300">Method</span>
+                  <span className="font-bold text-blue-400 uppercase">{ord.paymentMethod || 'cash'}</span>
+                </div>
               </div>
-              <div className="mt-5 flex justify-end gap-2">
+              
+              <div className="mt-8 flex justify-end gap-3">
                 <button
                   onClick={() => setShowReceiptFor(null)}
-                  className="px-4 py-2 rounded-lg border bg-white text-gray-800 hover:bg-gray-50"
-                >Close</button>
+                  className="px-5 py-2.5 rounded-xl border border-gray-600 bg-transparent text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200"
+                >
+                  Close
+                </button>
                 <button
                   onClick={async () => {
                     try {
@@ -648,8 +758,10 @@ export default function TrackOrders() {
                       console.error('PDF receipt failed', err);
                     }
                   }}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-500"
-                >Download PDF</button>
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-200"
+                >
+                  Download PDF
+                </button>
               </div>
             </div>
           </div>

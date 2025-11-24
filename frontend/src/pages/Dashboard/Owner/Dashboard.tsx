@@ -3,7 +3,7 @@ import api from "../../../lib/api"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { ExclamationTriangleIcon, ChartBarIcon, CubeIcon, DocumentChartBarIcon } from '@heroicons/react/24/outline'
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import logo from "/src/assets/PrintEase-Logo-Dark.png"
@@ -14,7 +14,7 @@ import "@/assets/fonts/Roboto-Regular-normal"
 interface BackendInventoryItem { 
   _id: string; 
   name: string; 
-  category?: string; // newly added backend category field
+  category?: string;
   amount: number; 
   minAmount: number; 
   price: number; 
@@ -24,29 +24,43 @@ interface BackendInventoryItem {
 
 // Constants
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020]
-const COLORS = ["#1e3a8a", "#d1d5db"]
+const COLORS = ["#1e3a8a", "#60a5fa", "#d1d5db"]
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 const FULL_MONTHS: Record<string,string> = {
   Jan: "January", Feb: "February", Mar: "March", Apr: "April", May: "May", Jun: "June",
   Jul: "July", Aug: "August", Sep: "September", Oct: "October", Nov: "November", Dec: "December"
 }
 
-// inventory now grouped by category; previous flat inventory structures removed
-
-// Components
-const StatCard = ({ value, label }: { value: string; label: string }) => {
-  const parts = label.split(" "), last = parts.pop(), rest = parts.join(" ")
+// Enhanced StatCard with modern design
+const StatCard = ({ value, label, icon: Icon, trend }: { value: string; label: string; icon?: React.ComponentType<any>; trend?: number }) => {
+  const trendColor = trend && trend > 0 ? "text-green-500" : trend && trend < 0 ? "text-red-500" : "text-gray-500"
+  
   return (
-    <div className="bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center">
-      <span className="text-xl font-bold text-gray-900">{value}</span>
-      <span className="text-gray-800 text-xs uppercase">{rest} <b>{last}</b></span>
+    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 group">
+      <div className="flex justify-between items-start">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">{label}</p>
+          <p className="text-2xl font-bold text-gray-900 mb-1">{value}</p>
+          {trend !== undefined && (
+            <div className={`flex items-center text-sm ${trendColor}`}>
+              <span>{trend > 0 ? '↑' : trend < 0 ? '↓' : '→'}</span>
+              <span className="ml-1">{Math.abs(trend)}%</span>
+            </div>
+          )}
+        </div>
+        {Icon && (
+          <div className="p-3 bg-blue-50 rounded-xl group-hover:bg-blue-100 transition-colors">
+            <Icon className="w-6 h-6 text-blue-600" />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
 type ServiceLite = { _id: string; name: string; active?: boolean }
 
-// Product selector (reflects real services; scrollable on large screens)
+// Modern Product Selector
 const ProductButtons = ({
   services,
   selected,
@@ -56,54 +70,60 @@ const ProductButtons = ({
   selected: string
   set: (id: string) => void
 }) => (
-  <div
-    className="flex flex-col gap-2 mt-4 lg:mt-0 lg:ml-4 
-               overflow-y-auto w-full lg:w-56 
-               max-h-60 lg:max-h-[300px] p-2 
-               bg-transparent"
-    aria-label="Product filter"
-    style={{ scrollbarGutter: "stable" }}
-  >
-    <button
-      key="ALL"
-      onClick={() => set("ALL")}
-      className={`shrink-0 rounded-lg px-3 py-2 text-sm font-bold uppercase transition w-full text-left truncate whitespace-nowrap ${
-        selected === "ALL"
-          ? "bg-gray-600 text-white"
-          : "bg-gray-300 text-gray-900 hover:bg-gray-400"
-      }`}
-    >
-      All
-    </button>
-    {services.map((svc) => (
+  <div className="flex flex-col gap-3 w-full lg:w-64">
+    <div className="bg-blue-600 rounded-2xl p-4 text-white">
+      <h3 className="font-bold text-lg mb-2">Products</h3>
+      <p className="text-blue-100 text-sm">Filter sales data by service</p>
+    </div>
+    
+    <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
       <button
-        key={svc._id}
-        onClick={() => set(svc._id)}
-        className={`shrink-0 rounded-lg px-3 py-2 text-sm font-bold uppercase transition w-full text-left truncate whitespace-nowrap ${
-          selected === svc._id
-            ? "bg-gray-600 text-white"
-            : "bg-gray-300 text-gray-900 hover:bg-gray-400"
+        key="ALL"
+        onClick={() => set("ALL")}
+        className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 text-left border-2 ${
+          selected === "ALL"
+            ? "bg-blue-600 text-white border-blue-600 shadow-lg"
+            : "bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:shadow-md"
         }`}
-        title={svc.name}
       >
-        {svc.name}
+        📊 All Services
       </button>
-    ))}
+      {services.map((svc) => (
+        <button
+          key={svc._id}
+          onClick={() => set(svc._id)}
+          className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 text-left border-2 ${
+            selected === svc._id
+              ? "bg-blue-600 text-white border-blue-600 shadow-lg"
+              : "bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:shadow-md"
+          }`}
+          title={svc.name}
+        >
+          <span className="truncate block">🛍️ {svc.name}</span>
+        </button>
+      ))}
+    </div>
   </div>
 )
 
+// Modern Year Selector
 const YearSelector = ({ selected, set }: { selected: number; set: (y: number) => void }) => (
-  <div className="w-40 bg-blue-900 rounded-xl shadow-md p-3 h-full flex flex-col">
-    <h3 className="text-white text-sm font-bold text-center mb-3">Year</h3>
-    <div className="flex flex-col gap-2 flex-1 overflow-y-auto">
+  <div className="bg-blue-600 rounded-2xl shadow-lg p-6 h-full flex flex-col">
+    <div className="text-white mb-4">
+      <ChartBarIcon className="w-8 h-8 mb-2" />
+      <h3 className="text-lg font-bold">Year</h3>
+      <p className="text-blue-100 text-sm">Select reporting period</p>
+    </div>
+    
+    <div className="space-y-2 flex-1 overflow-y-auto">
       {YEARS.map(y => (
         <button
           key={y}
           onClick={() => set(y)}
-          className={`w-full rounded-lg py-2 text-sm transition ${
+          className={`w-full rounded-xl py-3 px-4 text-sm font-semibold transition-all duration-200 ${
             selected === y
-              ? "bg-gray-600 text-white"
-              : "bg-gray-400 hover:bg-gray-500"
+              ? "bg-white text-blue-600 shadow-lg"
+              : "bg-blue-500 text-white hover:bg-blue-400"
           }`}
         >
           {y}
@@ -113,7 +133,7 @@ const YearSelector = ({ selected, set }: { selected: number; set: (y: number) =>
   </div>
 )
 
-// Category-level accordion groups all items within a category
+// Enhanced Category Accordion
 const CategoryAccordion = ({
   category,
   items,
@@ -125,66 +145,115 @@ const CategoryAccordion = ({
   open: boolean;
   onToggle: () => void;
 }) => (
-  <div className="border rounded-xl shadow-sm bg-white/90">
+  <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300">
     <button
       onClick={onToggle}
-      className="w-full flex justify-between items-center px-4 py-3 font-bold text-gray-800"
+      className="w-full flex justify-between items-center px-6 py-4 font-bold text-gray-800 hover:bg-gray-50 transition-colors"
       aria-expanded={open}
       aria-controls={`cat-${category}`}
     >
-      <span className="truncate pr-2">{category}</span>
-      <span>{open ? '−' : '+'}</span>
+      <div className="flex items-center gap-3">
+        <CubeIcon className="w-5 h-5 text-blue-600" />
+        <span className="text-lg">{category}</span>
+        <span className="bg-blue-100 text-blue-600 text-xs px-2 py-1 rounded-full">
+          {items.length} items
+        </span>
+      </div>
+      <span className={`text-2xl transition-transform duration-300 ${open ? 'rotate-180' : ''}`}>▼</span>
     </button>
+    
     {open && (
-      <div id={`cat-${category}`} className="p-4 grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
-        {items.map(it => (
-          <InventoryPie
-            key={it.name}
-            type={it.name}
-            unit="units"
-            items={[{ expectedStock: it.expectedStock, currentStock: it.amount, minAmount: it.minAmount }]}
-          />
-        ))}
+      <div id={`cat-${category}`} className="p-6 bg-gray-50 border-t border-gray-200">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
+          {items.map(it => (
+            <InventoryPie
+              key={it.name}
+              type={it.name}
+              unit="units"
+              items={[{ expectedStock: it.expectedStock, currentStock: it.amount, minAmount: it.minAmount }]}
+            />
+          ))}
+        </div>
       </div>
     )}
   </div>
 )
 
+// Enhanced InventoryPie with better visuals
 const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; currentStock: number; minAmount?: number }[]; type: string; unit: string }) => {
   const totalExpected = items.reduce((s, i) => s + Math.max(i.expectedStock, 0), 0)
   const totalCurrent = items.reduce((s, i) => s + Math.max(i.currentStock, 0), 0)
   const decreased = Math.max(totalExpected - totalCurrent, 0)
   const pieData = [
     { name: "Remaining", value: totalCurrent },
-    { name: "Decreased", value: decreased }
+    { name: "Buffer", value: Math.max(totalExpected - totalCurrent - decreased, 0) },
+    { name: "Used", value: decreased }
   ]
-  // Restock indicator: prefer minAmount threshold when provided, otherwise fall back to percentage rule
+  
   const hasThresholdBreach = items.some(i => typeof i.minAmount === 'number' && i.currentStock <= (i.minAmount ?? 0))
   const restock = hasThresholdBreach || (totalExpected > 0 && totalCurrent < totalExpected * 0.3)
+  const percentage = totalExpected > 0 ? Math.round((totalCurrent / totalExpected) * 100) : 0
 
   return (
-    <div className={`bg-white/90 rounded-xl shadow-md p-4 flex flex-col items-center ${restock ? "animate-pulse shadow-[0_0_20px_#f87171] border-2 border-red-500" : ""}`}>
-      <h3 className="text-sm font-bold uppercase mb-2">{type}</h3>
-      <ResponsiveContainer width="100%" height={180}>
-        <PieChart>
-          <Pie data={pieData} dataKey="value" cx="50%" cy="50%" innerRadius={30} outerRadius={60} labelLine={false}>
-            {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
-      <p className="text-xs text-gray-600 mt-1">{totalCurrent}/{totalExpected} {unit}</p>
-      {restock && (
-        <div className="flex items-center gap-1 text-xs text-red-500 font-semibold mt-1">
-          <ExclamationTriangleIcon className="w-4 h-4" aria-hidden="true" />
-          <span>LOW STOCK</span>
+    <div className={`bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center border-2 transition-all duration-300 hover:shadow-xl ${
+      restock 
+        ? "border-red-500 animate-pulse bg-red-50" 
+        : "border-gray-100"
+    }`}>
+      <h3 className="text-sm font-bold uppercase mb-3 text-gray-700 tracking-wide">{type}</h3>
+      
+      <div className="relative w-full h-48 mb-3">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie 
+              data={pieData} 
+              dataKey="value" 
+              cx="50%" 
+              cy="50%" 
+              innerRadius={40} 
+              outerRadius={70} 
+              labelLine={false}
+            >
+              {pieData.map((_, i) => (
+                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-gray-900">{percentage}%</div>
+            <div className="text-xs text-gray-500">Available</div>
+          </div>
         </div>
-      )}
+      </div>
+      
+      <div className="text-center space-y-2">
+        <p className="text-sm text-gray-600">
+          <span className="font-semibold text-gray-900">{totalCurrent}</span> / {totalExpected} {unit}
+        </p>
+        
+        {restock && (
+          <div className="flex items-center gap-2 text-red-600 font-semibold text-sm bg-red-100 px-3 py-1 rounded-full">
+            <ExclamationTriangleIcon className="w-4 h-4" />
+            <span>LOW STOCK</span>
+          </div>
+        )}
+        
+        {!restock && totalCurrent > 0 && (
+          <div className="text-green-600 text-sm font-medium bg-green-100 px-3 py-1 rounded-full">
+            ✓ In Stock
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-// Main dashboard
-const DashboardContent: React.FC = () => {
+
+// Main dashboard with modern UI
+const OwnerDashboardContent: React.FC = () => {
   const [year, setYear] = useState(2025)
   const [selectedServiceId, setSelectedServiceId] = useState<string>('ALL')
   const [showModal, setShowModal] = useState(false)
@@ -197,7 +266,6 @@ const DashboardContent: React.FC = () => {
   const [openIndex, setOpenIndex] = useState<number>(-1)
   const [loading, setLoading] = useState(true)
   const [inventoryCategories, setInventoryCategories] = useState<Array<{ category: string; items: { name: string; amount: number; minAmount: number; expectedStock: number }[] }>>([])
-  // UI transition helpers for smoother skeleton -> content
   const [showSkeleton, setShowSkeleton] = useState(true)
   const [contentReady, setContentReady] = useState(false)
   const [orders, setOrders] = useState<Array<{
@@ -322,7 +390,6 @@ const DashboardContent: React.FC = () => {
     }
     loadSales()
     return () => { cancelled = true }
-    // selectedServiceId intentionally read only for validity reset; do not refetch on change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -354,112 +421,242 @@ const DashboardContent: React.FC = () => {
     setSalesYear(y)
   }, [orders, year])
 
-  // Download PDF
+  // FIXED PDF Download Function
   const handleDownloadPDF = async () => {
-    if (!reportRef.current) return
     try {
       setDownloading(true)
-      await new Promise(r => setTimeout(r, 800))
-
-      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true })
-      const chartImg = canvas.toDataURL("image/png")
-      const pdf = new jsPDF("p","mm","a4")
+      
+      const pdf = new jsPDF("p", "mm", "a4")
       const pdfW = pdf.internal.pageSize.getWidth()
-
+      
+      // Add logo
       const logoImg = new Image()
       logoImg.src = logo
-      await new Promise(res => { logoImg.onload = res; logoImg.onerror = res })
-      pdf.addImage(logoImg,"PNG",14,10,pdfW/4,20)
-
-      pdf.setDrawColor(0).setLineWidth(0.5).line(10,35,pdfW-10,35)
-      
-      pdf.setFont("Roboto-Regular","normal").setFontSize(14)
-        .text(`[SHOP NAME]`, pdfW/2,40,{ align:"center" })
-      const svcName = selectedServiceId === 'ALL' ? 'All Services' : (services.find((s) => s._id === selectedServiceId)?.name || 'Service')
-      pdf.setFont("Roboto-Regular","normal").setFontSize(18)
-        .text(`Annual Sales Report - ${svcName}`, pdfW/2,50,{ align:"center" })
-      pdf.setFont("Roboto-Regular","normal").setFontSize(12)
-        .text(`Year: ${year}`, pdfW/2,58,{ align:"center" })
-
-      const chartH = (canvas.height * (pdfW - 20)) / canvas.width
-      pdf.addImage(chartImg,"PNG",10,60,pdfW-20,chartH)
-
-      const vals = salesData.map(d => d.sales)
-      const total = vals.reduce((a,v) => a+v,0)
-      const avg = total / vals.length
-
-      const tableData = [
-        ...salesData.map(d => [FULL_MONTHS[d.month], peso(d.sales)]),
-        ["Total", peso(total)], ["Average", peso(avg)],
-        ["Highest", peso(Math.max(...vals))], ["Lowest", peso(Math.min(...vals))]
-      ]
-
-      autoTable(pdf,{
-        head:[["Month","Sales"]],
-        body:tableData,
-        startY:65+chartH,
-        theme:"grid",
-        styles:{ halign:"center", font:"Roboto-Regular", fontSize:11 },
-        headStyles:{ fillColor:[30,58,138] }
+      await new Promise(res => { 
+        logoImg.onload = res; 
+        logoImg.onerror = () => res(null) // Resolve even if logo fails
       })
-
-      pdf.save(`Annual_Sales_Report_${year}_${svcName.replace(/\s+/g,'_')}.pdf`)
-    } catch(e) {
-      console.error("PDF failed:", e)
+      
+      if (logoImg.complete && logoImg.naturalWidth !== 0) {
+        pdf.addImage(logoImg, "PNG", 14, 10, pdfW/4, 20)
+      }
+      
+      // Header
+      pdf.setDrawColor(0).setLineWidth(0.5).line(10, 35, pdfW-10, 35)
+      pdf.setFontSize(14)
+        .text(`PrintEase Shop`, pdfW/2, 40, { align: "center" })
+      
+      const svcName = selectedServiceId === 'ALL' ? 'All Services' : (services.find((s) => s._id === selectedServiceId)?.name || 'Service')
+      pdf.setFontSize(18)
+        .text(`Annual Sales Report - ${svcName}`, pdfW/2, 50, { align: "center" })
+      pdf.setFontSize(12)
+        .text(`Year: ${year}`, pdfW/2, 58, { align: "center" })
+      
+      // Create a simple bar chart manually
+      const maxSales = Math.max(...salesData.map(d => d.sales), 1) // Avoid division by zero
+      const chartTop = 70
+      const chartHeight = 60
+      const barWidth = (pdfW - 40) / salesData.length
+      
+      // Draw bars and axes
+      pdf.setDrawColor(200, 200, 200)
+      pdf.line(20, chartTop, 20, chartTop + chartHeight) // Y-axis
+      pdf.line(20, chartTop + chartHeight, pdfW - 20, chartTop + chartHeight) // X-axis
+      
+      // Draw bars
+      salesData.forEach((data, index) => {
+        const barHeight = (data.sales / maxSales) * chartHeight
+        const x = 20 + (index * barWidth)
+        const y = chartTop + chartHeight - barHeight
+        
+        pdf.setFillColor(30, 58, 138) // Blue color
+        pdf.rect(x + 1, y, barWidth - 3, barHeight, 'F')
+        
+        // Month labels
+        pdf.setFontSize(8)
+        pdf.setTextColor(100, 100, 100)
+        pdf.text(data.month, x + (barWidth / 2) - 2, chartTop + chartHeight + 5)
+        
+        // Value labels on top of bars
+        if (data.sales > 0) {
+          pdf.setFontSize(7)
+          pdf.setTextColor(30, 58, 138)
+          pdf.text(peso(data.sales), x + (barWidth / 2) - 5, y - 2)
+        }
+      })
+      
+      // Sales data table
+      const tableData = salesData.map(d => [FULL_MONTHS[d.month], peso(d.sales)])
+      const total = salesData.reduce((sum, d) => sum + d.sales, 0)
+      const avg = total / salesData.length
+      
+      tableData.push(
+        ["", ""],
+        ["Total", peso(total)],
+        ["Average", peso(avg)],
+        ["Highest", peso(Math.max(...salesData.map(d => d.sales)))],
+        ["Lowest", peso(Math.min(...salesData.map(d => d.sales)))]
+      )
+      
+      autoTable(pdf, {
+        head: [["Month", "Sales"]],
+        body: tableData,
+        startY: chartTop + chartHeight + 20,
+        theme: "grid",
+        styles: { 
+          halign: "center", 
+          fontSize: 10,
+          cellPadding: 3
+        },
+        headStyles: { 
+          fillColor: [30, 58, 138],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [240, 240, 240]
+        }
+      })
+      
+      // Add footer
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      pdf.setFontSize(8)
+      pdf.setTextColor(150, 150, 150)
+      pdf.text(`Generated on ${new Date().toLocaleDateString()}`, pdfW/2, pageHeight - 10, { align: "center" })
+      
+      pdf.save(`Annual_Sales_Report_${year}_${svcName.replace(/\s+/g, '_')}.pdf`)
+      
+    } catch (e) {
+      console.error("PDF generation failed:", e)
+      // Fallback: Create a simple PDF without complex elements
+      const pdf = new jsPDF()
+      pdf.text("Sales Report - Error generating full report", 20, 20)
+      pdf.text(`Year: ${year}`, 20, 30)
+      pdf.text(`Service: ${selectedServiceId === 'ALL' ? 'All Services' : services.find(s => s._id === selectedServiceId)?.name}`, 20, 40)
+      pdf.save(`Sales_Report_${year}_simple.pdf`)
     } finally {
       setDownloading(false)
     }
   }
 
   return (
-    <div className="transition-all duration-300 font-crimson p-6 sm:p-8">
-      <div className="w-full max-w-7xl mx-auto space-y-6">
-        {/* Overlayed skeleton + content wrapper to prevent layout shift */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 font-crimson p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard Overview</h1>
+            <p className="text-gray-600 mt-2">Welcome back! Here's your business performance summary.</p>
+          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+          >
+            <DocumentChartBarIcon className="w-5 h-5" />
+            Generate Report
+          </button>
+        </div>
+
+        {/* Overlay for skeleton and content */}
         <div className="relative">
-          {/* Content block (kept in flow) */}
-          <div className={`space-y-6 transition-opacity duration-300 ${contentReady ? 'opacity-100' : 'opacity-0'}`}>
-            {/* Stats */}
-            <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {[
-                { label: 'Current Sales for this DAY', value: peso(salesDay) },
-                { label: 'Current Sales for this MONTH', value: peso(salesMonth) },
-                { label: 'Current Sales for this YEAR', value: peso(salesYear) },
-              ].map((s) => <StatCard key={s.label} {...s} />)}
+          {/* Content block */}
+          <div className={`space-y-8 transition-opacity duration-500 ${contentReady ? 'opacity-100' : 'opacity-0'}`}>
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <StatCard 
+                value={peso(salesDay)} 
+                label="Today's Sales" 
+                icon={ChartBarIcon}
+                trend={5.2}
+              />
+              <StatCard 
+                value={peso(salesMonth)} 
+                label="This Month's Revenue" 
+                icon={CubeIcon}
+                trend={12.8}
+              />
+              <StatCard 
+                value={peso(salesYear)} 
+                label="Year to Date" 
+                icon={DocumentChartBarIcon}
+                trend={8.4}
+              />
             </div>
 
-            {/* Sales */}
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1 bg-white/90 rounded-xl shadow-md p-6 flex flex-col lg:flex-row">
-                <div className="flex-1 cursor-pointer" onClick={() => setShowModal(true)}>
-                  <h2 className="text-lg font-bold mb-4">
-                    Product Sales {selectedServiceId !== 'ALL' ? `- ${services.find((s) => s._id === selectedServiceId)?.name || ''}` : '(All Services)'}
-                  </h2>
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={salesData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="month" /><YAxis allowDecimals={false} />
-                      <Tooltip formatter={(v: number) => ["₱"+v,"Sales"]} />
-                      <Bar dataKey="sales" fill="#1e3a8a" radius={[6,6,0,0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+            {/* Sales Analytics Section */}
+            <div className="flex flex-col lg:flex-row gap-8">
+              <div className="flex-1 bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+                <div className="flex flex-col lg:flex-row gap-6">
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-6">
+                      <h2 className="text-xl font-bold text-gray-900">
+                        Sales Performance {selectedServiceId !== 'ALL' && `- ${services.find((s) => s._id === selectedServiceId)?.name || ''}`}
+                      </h2>
+                      <span className="bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full font-medium">
+                        {year}
+                      </span>
+                    </div>
+                    
+                    <div className="cursor-pointer" onClick={() => setShowModal(true)}>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={salesData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                          <XAxis dataKey="month" axisLine={false} tickLine={false} />
+                          <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
+                          <Tooltip 
+                            formatter={(v: number) => ["₱"+v,"Sales"]}
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                          />
+                          <Bar 
+                            dataKey="sales" 
+                            fill="#1e3a8a" 
+                            radius={[8, 8, 0, 0]}
+                            className="hover:opacity-80 transition-opacity"
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                  
+                  <ProductButtons services={services} selected={selectedServiceId} set={setSelectedServiceId} />
                 </div>
-                <ProductButtons services={services} selected={selectedServiceId} set={setSelectedServiceId} />
               </div>
-              <div className="flex justify-center lg:justify-start items-center mt-4 lg:mt-0">
+              
+              <div className="flex justify-center lg:justify-start">
                 <YearSelector selected={year} set={setYear} />
               </div>
             </div>
 
-            {/* Inventory grouped by category */}
-            <div className="bg-white/90 rounded-xl shadow-md p-6 space-y-4">
-              <h2 className="text-base font-bold text-gray-800 mb-2">Inventory Overview</h2>
-              <div className="flex gap-4 mb-3">
-                <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#1e3a8a]" /> Remaining</div>
-                <div className="flex items-center gap-1"><div className="w-4 h-4 bg-[#d1d5db]" /> Decreased/Used</div>
+            {/* Inventory Overview */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 mb-2">Inventory Overview</h2>
+                  <p className="text-gray-600">Monitor stock levels and restock alerts</p>
+                </div>
+                <div className="flex gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-[#1e3a8a] rounded"></div>
+                    <span className="text-sm text-gray-600">Remaining</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-[#60a5fa] rounded"></div>
+                    <span className="text-sm text-gray-600">Buffer</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-[#d1d5db] rounded"></div>
+                    <span className="text-sm text-gray-600">Used</span>
+                  </div>
+                </div>
               </div>
-              <div className="space-y-3">
+
+              <div className="space-y-4">
                 {inventoryCategories.length === 0 ? (
-                  <p className="text-sm text-gray-600">No inventory items yet.</p>
+                  <div className="text-center py-12">
+                    <CubeIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 text-lg">No inventory items yet.</p>
+                    <p className="text-gray-400 text-sm mt-2">Add inventory items to start tracking stock levels.</p>
+                  </div>
                 ) : (
                   inventoryCategories.map((cat, idx) => (
                     <CategoryAccordion
@@ -475,64 +672,67 @@ const DashboardContent: React.FC = () => {
             </div>
           </div>
 
-          {/* Skeleton overlay (not in flow) */}
+          {/* Skeleton overlay */}
           {showSkeleton && (
-            <div aria-busy="true" className={`pointer-events-none absolute inset-0 transition-opacity duration-300 ${contentReady ? 'opacity-0' : 'opacity-100'}`}>
-              <div className="space-y-6">
+            <div aria-busy="true" className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${contentReady ? 'opacity-0' : 'opacity-100'}`}>
+              <div className="space-y-8">
                 {/* Stats skeleton */}
-                <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3 animate-pulse">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="bg-white/90 rounded-xl shadow-md p-4">
-                      <div className="h-6 w-24 bg-gray-300 rounded mb-2" />
-                      <div className="h-3 w-32 bg-gray-200 rounded" />
+                    <div key={i} className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
+                      <div className="flex justify-between">
+                        <div className="space-y-3 flex-1">
+                          <div className="h-4 w-24 bg-gray-200 rounded"></div>
+                          <div className="h-8 w-32 bg-gray-300 rounded"></div>
+                          <div className="h-3 w-20 bg-gray-200 rounded"></div>
+                        </div>
+                        <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+                      </div>
                     </div>
                   ))}
                 </div>
+
                 {/* Sales skeleton */}
-                <div className="flex flex-col lg:flex-row gap-4 animate-pulse">
-                  <div className="flex-1 bg-white/90 rounded-xl shadow-md p-6 flex flex-col lg:flex-row">
-                    <div className="flex-1">
-                      <div className="h-6 w-64 bg-gray-300 rounded mb-4" />
-                      <div className="h-[280px] w-full rounded bg-gray-200" />
-                    </div>
-                    <div className="flex flex-col gap-2 mt-4 lg:mt-0 lg:ml-4 w-full lg:w-56">
-                      {Array.from({ length: 6 }).map((_, i) => (
-                        <div key={i} className="h-10 w-full rounded bg-gray-200" />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex justify-center lg:justify-start items-center mt-4 lg:mt-0">
-                    <div className="w-40 h-full self-stretch rounded-xl bg-white/90 shadow-md p-3 flex flex-col">
-                      <div className="h-4 w-16 bg-gray-300 rounded mb-3" />
-                      <div className="flex flex-col gap-2 flex-1 overflow-hidden">
-                        {Array.from({ length: 6 }).map((_, i) => (
-                          <div key={i} className="h-8 w-full rounded bg-gray-200" />
+                <div className="flex flex-col lg:flex-row gap-8">
+                  <div className="flex-1 bg-white rounded-2xl shadow-lg p-6 animate-pulse">
+                    <div className="flex flex-col lg:flex-row gap-6">
+                      <div className="flex-1 space-y-4">
+                        <div className="flex justify-between">
+                          <div className="h-6 w-48 bg-gray-300 rounded"></div>
+                          <div className="h-6 w-16 bg-gray-200 rounded-full"></div>
+                        </div>
+                        <div className="h-[300px] w-full bg-gray-200 rounded-xl"></div>
+                      </div>
+                      <div className="w-full lg:w-64 space-y-4">
+                        <div className="h-20 bg-gray-200 rounded-2xl"></div>
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="h-14 bg-gray-200 rounded-xl"></div>
                         ))}
                       </div>
                     </div>
                   </div>
+                  <div className="w-full lg:w-64 h-80 bg-gray-200 rounded-2xl animate-pulse"></div>
                 </div>
+
                 {/* Inventory skeleton */}
-                <div className="bg-white/90 rounded-xl shadow-md p-6 space-y-6 mt-6 animate-pulse">
-                  <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
-                    <div className="h-5 w-48 bg-gray-300 rounded" />
-                    <div className="flex gap-4">
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 bg-gray-300 rounded" />
-                        <div className="h-3 w-20 bg-gray-200 rounded" />
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <div className="w-4 h-4 bg-gray-300 rounded" />
-                        <div className="h-3 w-28 bg-gray-200 rounded" />
-                      </div>
+                <div className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
+                  <div className="flex flex-col md:flex-row justify-between mb-6">
+                    <div className="space-y-2">
+                      <div className="h-6 w-48 bg-gray-300 rounded"></div>
+                      <div className="h-4 w-64 bg-gray-200 rounded"></div>
+                    </div>
+                    <div className="flex gap-6 mt-4 md:mt-0">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-gray-200 rounded"></div>
+                          <div className="h-3 w-16 bg-gray-200 rounded"></div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="bg-white/90 rounded-xl shadow-inner p-4 flex flex-col items-center">
-                        <div className="h-5 w-24 bg-gray-300 rounded mb-3" />
-                        <div className="w-40 h-40 bg-gray-200 rounded-full" />
-                      </div>
+                  <div className="space-y-4">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <div key={i} className="h-16 bg-gray-200 rounded-2xl"></div>
                     ))}
                   </div>
                 </div>
@@ -543,30 +743,62 @@ const DashboardContent: React.FC = () => {
 
         {/* Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl p-6 relative">
-              <button className="absolute top-3 right-3 cursor-pointer" onClick={() => setShowModal(false)}>✕</button>
-              <div className="text-center mb-4">
-                <h2 className="text-xl font-bold">PrintEase</h2>
-                <p className="text-sm">Annual Sales Performance Analysis Report ({year})</p>
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-6 relative">
+              <button 
+                className="absolute top-4 right-4 cursor-pointer text-gray-400 hover:text-gray-600 transition-colors"
+                onClick={() => setShowModal(false)}
+              >
+                <div className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                  ✕
+                </div>
+              </button>
+              
+              <div className="text-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">PrintEase Analytics</h2>
+                <p className="text-gray-600 mt-2">Annual Sales Performance Analysis Report ({year})</p>
               </div>
-              <div ref={reportRef} className={`w-full h-[300px] ${downloading ? "pointer-events-none" : ""}`}>
+              
+              <div ref={reportRef} className={`w-full h-[400px] rounded-xl border-2 border-dashed border-gray-200 p-4 ${
+                downloading ? "pointer-events-none opacity-50" : ""
+              }`}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={salesData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
-                    <YAxis />
-                    <Tooltip formatter={(v: number) => ["₱" + v, "Sales"]} />
-                    <Bar dataKey="sales" fill="#1e3a8a" radius={[6, 6, 0, 0]} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Tooltip 
+                      formatter={(v: number) => ["₱" + v, "Sales"]}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                    />
+                    <Bar 
+                      dataKey="sales" 
+                      fill="#1e3a8a" 
+                      radius={[6, 6, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-              <div className="mt-6 flex flex-col items-center gap-2">
-                <button onClick={handleDownloadPDF} disabled={downloading}
-                  className={`px-6 py-2 rounded-lg shadow cursor-pointer ${downloading ? "bg-gray-400 text-gray-700" : "bg-blue-900 text-white hover:bg-blue-800"}`}>
+              
+              <div className="mt-8 flex flex-col items-center gap-4">
+                <button 
+                  onClick={handleDownloadPDF} 
+                  disabled={downloading}
+                  className={`px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 flex items-center gap-2 ${
+                    downloading 
+                      ? "bg-gray-400 text-gray-700 cursor-not-allowed" 
+                      : "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-xl"
+                  }`}
+                >
+                  <DocumentChartBarIcon className="w-5 h-5" />
                   {downloading ? "Preparing PDF..." : "Download as PDF"}
                 </button>
-                {downloading && <p className="text-xs text-gray-500">Please wait, your report is being generated.</p>}
+                
+                {downloading && (
+                  <p className="text-sm text-gray-500 text-center">
+                    Please wait, your professional report is being generated...
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -576,4 +808,5 @@ const DashboardContent: React.FC = () => {
   )
 }
 
-export default DashboardContent
+
+export default OwnerDashboardContent
