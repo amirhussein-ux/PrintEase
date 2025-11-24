@@ -452,7 +452,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
       </div>
 
       {/* Main content */}
-      <main className={`relative z-10 mt-16 p-6 lg:ml-64 ${sidebarOpen ? "hidden lg:block" : "block"}`}>
+      <main className={`relative z-10 mt-16 lg:ml-64 ${sidebarOpen ? "hidden lg:block" : "block"}`}>
         <div className="w-full">{children}</div>
       </main>
 
