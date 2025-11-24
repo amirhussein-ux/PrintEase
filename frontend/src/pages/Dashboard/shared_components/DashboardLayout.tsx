@@ -193,7 +193,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
   if (!user) return null;
 
   return (
-    <div className="h-screen overflow-hidden relative flex flex-col">
+    <div className="min-h-screen relative flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 fixed top-0 left-0 right-0 z-20">
         <div className="flex items-center">
@@ -453,7 +453,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
 
       {/* Main content */}
       <main className={`relative z-10 mt-16 lg:ml-64 ${sidebarOpen ? "hidden lg:block" : "block"}`}>
-        <div className="w-full h-[calc(100vh-4rem)] overflow-hidden flex flex-col">
+        <div className="w-full min-h-[calc(100vh-4rem)] overflow-auto flex flex-col px-4 sm:px-6 lg:px-8">
           {children}
         </div>
       </main>

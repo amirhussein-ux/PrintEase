@@ -380,7 +380,7 @@ export default function ServiceManagement() {
 
   return (
     <DashboardLayout role={role}>
-      <div className="max-w-7xl mx-auto pb-10">
+      <div className="max-w-full pb-10">
         {/* Header */}
         <div className="mb-8 mt-10">
           <h1 className="text-3xl md:text-4xl font-bold text-white bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
@@ -583,7 +583,7 @@ export default function ServiceManagement() {
                 </div>
 
               )}
-              <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 transition-all duration-300 ${contentReady ? 'opacity-100 translate-y-0' : 'opacity-0 pointer-events-none translate-y-4'}`}>
+              <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 transition-opacity duration-300 ${contentReady ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                 {!loading && filtered.length === 0 && (
                   <div className="col-span-full rounded-2xl border border-gray-600 bg-gray-800/50 p-12 text-center text-gray-300 backdrop-blur-sm transition-all duration-300 ease-out hover:scale-[1.02]">
                     <div className="text-6xl mb-4">📋</div>

@@ -356,25 +356,25 @@ export default function OrderManagement() {
 
 	return (
 		<DashboardLayout role="owner">
-			<div className="max-w-7xl mx-auto">
+			<div className="max-w-full pb-10">
 				{pageHeader}
 
 				{/* Filter header with integrated search and filter */}
 				<div className="mb-8 rounded-2xl border border-gray-600 bg-gray-800/50 backdrop-blur-sm p-4 relative z-20">
 					<div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
 						{/* Combined Status Tabs, Search and Filter */}
-						<div className="flex flex-col sm:flex-row gap-4 w-full">
+						<div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full">
 							{/* Status Tabs */}
-							<div className="inline-flex flex-wrap gap-3">
+							<div className="flex flex-wrap justify-center sm:justify-start gap-3 flex-1">
 								{STATUS_LABELS.map(({ label, value }) => {
 									const active = activeTab === value;
 									return (
 										<button
 											key={value}
 											onClick={() => setActiveTab(value)}
-											className={`inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out transform hover:scale-105 ${
+											className={`flex-1 sm:flex-none min-w-[9rem] inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out transform hover:scale-105 ${
 												active
-													? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 scale-105'
+													? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25'
 													: 'bg-transparent text-gray-200 border border-gray-600 hover:bg-gray-700/50'
 											}`}
 										>
@@ -392,7 +392,7 @@ export default function OrderManagement() {
 							</div>
 
 							{/* Search and Filter Container */}
-							<div className="flex flex-col sm:flex-row gap-3 flex-1 max-w-lg">
+							<div className="flex flex-row gap-3 flex-1 lg:max-w-full">
 								{/* Modern Search Bar */}
 								<div className="relative flex-1">
 									<div className="relative group">
@@ -515,7 +515,7 @@ export default function OrderManagement() {
 				)}
 
 				{/* Orders list */}
-				<div className={`grid grid-cols-1 gap-6 transition-all duration-300 ${contentReady ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+				<div className={`grid grid-cols-1 gap-6 transition-opacity duration-300 ${contentReady ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
 					{!loading && filtered.length === 0 && (
 						<div className="rounded-2xl border border-gray-600 bg-gray-800/50 p-12 text-center text-gray-300 backdrop-blur-sm transition-all duration-300 ease-out hover:scale-[1.02]">
 							<div className="text-6xl mb-4">

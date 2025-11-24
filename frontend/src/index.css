@@ -73,3 +73,17 @@ input.no-spinner[type="number"] {
 .chat-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Utility to hide scrollbars within a scoped container only
+   - Use sparingly: add `hide-scrollbar` to a component root to remove visual scrollbars inside it
+*/
+.hide-scrollbar,
+.hide-scrollbar * {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+.hide-scrollbar *::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}

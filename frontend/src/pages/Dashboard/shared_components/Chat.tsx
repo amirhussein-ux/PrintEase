@@ -314,7 +314,7 @@ const OwnerChat: React.FC = () => {
 
     return (
 
-      <div className="container mx-auto px-4 py-10 max-w-8xl h-[calc(100vh-3rem)] flex flex-col overflow-hidden">
+      <div className="fixed max-w-full top-16 right-0 bottom-0 left-0 lg:left-64 flex flex-col p-4 md:p-10 box-border overflow-hidden">
         <div className="bg-gray-800 backdrop-blur-lg rounded-2xl border border-white/10 p-6 mb-6 shadow-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 ">
@@ -356,7 +356,7 @@ const OwnerChat: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="overflow-y-auto flex-1">
+            <div className="overflow-y-auto flex-1 chat-scroll">
               {loadingCustomers ? (
                 <div className="flex flex-col items-center justify-center p-8 text-gray-400"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4" /><p>Loading conversations...</p></div>
               ) : filteredCustomers.length===0 ? (
@@ -393,7 +393,7 @@ const OwnerChat: React.FC = () => {
                   <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center"><AiOutlineUser className="w-5 h-5 text-white" /></div>
                   <div><h2 className="text-white font-semibold text-lg">{selectedCustomer.name}</h2>{selectedCustomer.email && <p className="text-sm text-gray-300">{selectedCustomer.email}</p>}</div>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll">
                   {loadingMessages ? (
                     <div className="flex items-center justify-center h-full text-gray-400"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3" />Loading messages...</div>
                   ) : messages.length===0 ? (
@@ -491,7 +491,7 @@ const CustomerChat: React.FC = () => {
     <div className="flex flex-col h-full min-h-[80vh] bg-gradient-to-br from-gray-900 to-gray-800">
       <div className="container mx-auto px-4 py-6 max-w-4xl">
         <div className="bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-white/10 p-6 mb-6 shadow-2xl"><div className="flex items-center justify-between"><div className="flex items-center gap-4"><div className="relative"><div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center"><AiOutlineShop className="w-6 h-6 text-white" /></div><div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-800 ${isOnline? 'bg-green-500':'bg-gray-500'}`} /></div><div><h1 className="text-2xl font-bold text-white">Store Admin</h1><div className="flex items-center gap-2 mt-1"><div className={`w-2 h-2 rounded-full ${isOnline? 'bg-green-500 animate-pulse':'bg-gray-500'}`} /><span className="text-sm text-gray-300">{isOnline? 'Online':'Offline'} {isTyping && ' • Typing...'}</span></div></div></div><div className="text-right"><div className="text-sm text-gray-400">Customer Support</div><div className="text-xs text-gray-500">Always here to help</div></div></div></div>
-        <div className="flex-1 bg-gray-800/50 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-inner min-h-[400px] max-h-[60vh] overflow-y-auto">{renderChatContent()}<div ref={messagesEndRef} /></div>
+        <div className="flex-1 bg-gray-800/50 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-inner min-h-[400px] max-h-[60vh] overflow-y-auto chat-scroll">{renderChatContent()}<div ref={messagesEndRef} /></div>
         <form onSubmit={e=>{e.preventDefault(); handleSend();}} className="mt-6"><div className="flex gap-3"><textarea className="flex-1 rounded-xl bg-gray-700/50 border border-white/20 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none" placeholder={isChatReady && isConnected? 'Type your message...':'Setting up chat...'} value={newMessage} rows={1} onChange={e=>{ setNewMessage(e.target.value); handleTyping(); }} onKeyDown={handleKeyDown} disabled={!customerId || !isChatReady || !!connectionError || !socket || !isConnected} style={{minHeight:'50px',maxHeight:'120px'}}/><button type="button" onClick={()=>fileInputRef.current?.click()} disabled={!customerId || !isChatReady || !!connectionError || !socket || !isConnected} className={`px-4 py-3 rounded-xl ${customerId && isChatReady && !connectionError && socket && isConnected? 'bg-gray-700 hover:bg-gray-600 text-white':'bg-gray-600 text-gray-400 cursor-not-allowed'}`}><AiOutlinePaperClip className="w-5 h-5" /></button><button type="submit" disabled={!customerId || !isChatReady || !newMessage.trim() || !!connectionError || !socket || !isConnected} className={`px-4 py-3 rounded-xl ${customerId && isChatReady && newMessage.trim() && !connectionError && socket && isConnected? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white':'bg-gray-600 text-gray-400 cursor-not-allowed'}`}><AiOutlineSend className="w-5 h-5" /></button></div><input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" disabled={!customerId || !isChatReady || !!connectionError || !socket || !isConnected} /><div className="text-xs text-gray-500 mt-2 text-center">{connectionError? 'Fix connection issues to send messages': !isConnected? 'Connecting to server...':'Press Enter to send • Shift+Enter for new line'}</div></form>
       </div>
       {imageModal.isOpen && (
