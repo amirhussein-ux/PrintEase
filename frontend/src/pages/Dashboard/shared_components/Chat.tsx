@@ -314,7 +314,7 @@ const OwnerChat: React.FC = () => {
 
     return (
 
-      <div className="fixed max-w-full top-16 right-0 bottom-0 left-0 lg:left-64 flex flex-col p-4 md:p-10 box-border overflow-hidden">
+      <div className="fixed max-w-full top-16 right-0 bottom-0 left-0 lg:left-62 flex flex-col p-4 md:p-10 box-border overflow-hidden">
         <div className="bg-gray-800 backdrop-blur-lg rounded-2xl border border-white/10 p-6 mb-6 shadow-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4 ">
