@@ -28,12 +28,46 @@ const LoginForm: React.FC = () => {
       }
     } catch (err: unknown) {
       let message = "Login failed";
-      if (err && typeof err === "object" && "message" in err) {
-        const maybeMessage = (err as { message?: unknown }).message;
-        if (typeof maybeMessage === "string") {
-          message = maybeMessage;
+
+      const anyErr = err as any;
+
+      // If it's an axios error with a response, prefer server message
+      if (anyErr && anyErr.response) {
+        const status: number | undefined = anyErr.response.status;
+        const serverMessage: string | undefined = anyErr.response.data?.message || anyErr.response.data?.error || anyErr.response.statusText;
+
+        if (serverMessage && typeof serverMessage === "string") {
+          // Map some common server messages to friendlier UI text
+          const lower = serverMessage.toLowerCase();
+          if (lower.includes("email and password are required") || lower.includes("required")) {
+            message = "Please enter your email and password.";
+          } else if (lower.includes("invalid email or password")) {
+            // Backend returns a generic message for security; present a clear but safe message
+            message = "Invalid email or password.";
+          } else if (lower.includes("password") && (status === 401 || status === 400)) {
+            message = "Incorrect password.";
+          } else if (status === 404 || lower.includes("not found") || lower.includes("no account")) {
+            message = "No account found with that email.";
+          } else {
+            message = serverMessage;
+          }
+        } else if (status === 401) {
+          message = "Incorrect credentials.";
+        } else if (status === 404) {
+          message = "No account found with that email.";
+        } else {
+          message = `Request failed with status code ${status}`;
+        }
+      } else {
+        // Fallback to generic JS error message if present
+        if (err && typeof err === "object" && "message" in err) {
+          const maybeMessage = (err as { message?: unknown }).message;
+          if (typeof maybeMessage === "string") {
+            message = maybeMessage;
+          }
         }
       }
+
       setError(message);
     } finally {
       setLoading(false);
