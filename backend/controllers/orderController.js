@@ -137,11 +137,12 @@ async function reduceInventoryForOrder(order) {
         currency: currency || service.currency || 'PHP',
       };
 
-      // Handle file uploads
+      // Handle file uploads for order attachments
       const filesMeta = [];
-      if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-        const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
-        for (const f of req.files) {
+      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+      const fileArray = (req.files && req.files.files) || [];
+      if (Array.isArray(fileArray) && fileArray.length > 0) {
+        for (const f of fileArray) {
           const uploadStream = bucket.openUploadStream(f.originalname, { contentType: f.mimetype });
           uploadStream.end(f.buffer);
           const fileId = await new Promise((resolve, reject) => {
@@ -152,6 +153,32 @@ async function reduceInventoryForOrder(order) {
         }
       }
       orderDoc.files = filesMeta;
+
+      // Handle optional downpayment receipt upload and fields
+      if (req.body && (req.body.downPaymentRequired === 'true' || req.body.downPaymentRequired === true)) {
+        orderDoc.downPaymentRequired = true;
+        const dpAmt = Number(req.body.downPaymentAmount);
+        if (!Number.isNaN(dpAmt)) orderDoc.downPaymentAmount = dpAmt;
+        orderDoc.downPaymentMethod = req.body.downPaymentMethod || undefined;
+        orderDoc.downPaymentReference = req.body.downPaymentReference || undefined;
+
+        const receiptArray = (req.files && req.files.receipt) || [];
+        // Require a receipt when down payment is required
+        if (!Array.isArray(receiptArray) || receiptArray.length === 0) {
+          return res.status(400).json({ message: 'Down payment receipt is required for bulk orders.' });
+        }
+
+        const rf = receiptArray[0];
+        const uploadStream = bucket.openUploadStream(rf.originalname, { contentType: rf.mimetype });
+        uploadStream.end(rf.buffer);
+        const receiptId = await new Promise((resolve, reject) => {
+          uploadStream.on('finish', () => resolve(uploadStream.id));
+          uploadStream.on('error', reject);
+        });
+        orderDoc.downPaymentReceipt = receiptId;
+        orderDoc.downPaymentPaid = true;
+        orderDoc.downPaymentPaidAt = new Date();
+      }
 
       const order = await Order.create(orderDoc);
 
@@ -237,6 +264,45 @@ exports.updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const { status: incomingStatus, paymentStatus, paymentAmount, paymentMethod } = req.body || {};
+
+    // Allow customers/guests to cancel their own orders without requiring store access
+    const requester = req.user;
+    if (!requester) return res.status(401).json({ message: 'Unauthorized' });
+    if (incomingStatus === 'cancelled' && (requester.role === 'customer' || requester.role === 'guest')) {
+      const order = await Order.findById(id).populate({ path: 'store', populate: { path: 'owner' } });
+      if (!order) return res.status(404).json({ message: 'Order not found' });
+      const isOwner = requester.role === 'guest' ? String(order.guestId) === String(requester.id) : String(order.user) === String(requester.id);
+      if (!isOwner) return res.status(403).json({ message: 'Not authorized to cancel this order' });
+
+      // Only allow cancelling if not already completed/cancelled
+      if (order.status === 'completed' || order.status === 'cancelled') {
+        return res.status(400).json({ message: 'Order cannot be cancelled at this stage' });
+      }
+
+      order.status = 'cancelled';
+      await order.save();
+
+      // Notify store owner about cancellation
+      try {
+        const io = req.app.get('io');
+        const onlineUsers = req.app.get('onlineUsers') || {};
+        const ownerId = order.store && order.store.owner ? String(order.store.owner._id || order.store.owner) : null;
+        if (ownerId) {
+          const customerNotif = await Notification.create({
+            user: order.store.owner._id,
+            type: 'owner',
+            title: `Order Cancelled`,
+            description: `Order ${order._id.slice(-6)} was cancelled by the customer.`,
+          });
+          if (onlineUsers[ownerId]?.socketId) io.to(onlineUsers[ownerId].socketId).emit('newNotification', customerNotif);
+        }
+      } catch (notifyErr) {
+        console.error('Notification emit error:', notifyErr);
+      }
+
+      return res.json(order);
+    }
+
     const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
     const order = await Order.findOne({ _id: id, store: store._id }).populate('store');
     if (!order) return res.status(404).json({ message: 'Order not found' });
@@ -381,6 +447,71 @@ exports.downloadOrderFile = async (req, res) => {
     res.set('Content-Type', fileMeta.mimeType || 'application/octet-stream');
     res.set('Content-Disposition', `attachment; filename="${fileMeta.filename || 'file'}"`);
     const stream = bucket.openDownloadStream(new mongoose.Types.ObjectId(fileMeta.fileId));
+    stream.pipe(res);
+    stream.on('error', () => res.status(500).end());
+  } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Download down payment receipt (GridFS file referenced by order.downPaymentReceipt)
+exports.downloadDownPaymentReceipt = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
+    const order = await Order.findOne({ _id: id, store: store._id });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order.downPaymentReceipt) return res.status(404).json({ message: 'Down payment receipt not found' });
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+
+    // Try to fetch file metadata to get filename and contentType
+    const fileId = new mongoose.Types.ObjectId(order.downPaymentReceipt);
+    const filesCursor = bucket.find({ _id: fileId }).limit(1);
+    const files = await filesCursor.toArray();
+    const fileDoc = files && files.length > 0 ? files[0] : null;
+
+    const filename = (fileDoc && fileDoc.filename) || `downpayment-${String(order._id)}.`;
+    const contentType = (fileDoc && fileDoc.contentType) || 'application/octet-stream';
+
+    res.set('Content-Type', contentType);
+    res.set('Content-Disposition', `attachment; filename="${filename}"`);
+    const stream = bucket.openDownloadStream(fileId);
+    stream.pipe(res);
+    stream.on('error', () => res.status(500).end());
+  } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// Preview down payment receipt (inline disposition) -- used by the frontend to preview in a modal
+exports.previewDownPaymentReceipt = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
+    const order = await Order.findOne({ _id: id, store: store._id });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order.downPaymentReceipt) return res.status(404).json({ message: 'Down payment receipt not found' });
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+    const fileId = new mongoose.Types.ObjectId(order.downPaymentReceipt);
+    const filesCursor = bucket.find({ _id: fileId }).limit(1);
+    const files = await filesCursor.toArray();
+    const fileDoc = files && files.length > 0 ? files[0] : null;
+
+    const filename = (fileDoc && fileDoc.filename) || `downpayment-${String(order._id)}.`;
+    const contentType = (fileDoc && fileDoc.contentType) || 'application/octet-stream';
+
+    // allow inline preview
+    res.set('Content-Type', contentType);
+    res.set('Content-Disposition', `inline; filename="${filename}"`);
+    const stream = bucket.openDownloadStream(fileId);
     stream.pipe(res);
     stream.on('error', () => res.status(500).end());
   } catch (err) {

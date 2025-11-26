@@ -58,6 +58,14 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: { type: String, enum: ['cash', 'gcash', 'card', 'other'], default: 'cash' },
     changeGiven: { type: Number, min: 0 },
     receiptIssuedAt: { type: Date },
+    // Down payment fields for bulk orders
+    downPaymentRequired: { type: Boolean, default: false },
+    downPaymentAmount: { type: Number, min: 0 },
+    downPaymentPaid: { type: Boolean, default: false },
+    downPaymentPaidAt: { type: Date },
+    downPaymentMethod: { type: String, enum: ['gcash', 'bank_transfer', 'other'] },
+    downPaymentReceipt: { type: mongoose.Schema.Types.ObjectId, ref: 'uploads.files' },
+    downPaymentReference: { type: String },
   // QR pickup
   pickupToken: { type: String },
   pickupTokenExpires: { type: Date },

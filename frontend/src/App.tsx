@@ -1,11 +1,11 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { Home, Authentication, Admin, Customer } from "./pages";
-import CreatePrintStore from "./pages/Dashboard/Owner/CreateShop";
-import OrderManagement from "./pages/Dashboard/Owner/OrderManagement";
+import CreatePrintStore from "./pages/Dashboard/Store/CreateShop";
+import OrderManagement from "./pages/Dashboard/Store/OrderManagement";
 import TrackOrders from "./pages/Dashboard/Customer/TrackOrders";
 import SelectShop from "./pages/Dashboard/Customer/SelectShop";
-import ServiceManagement from "./pages/Dashboard/Owner/ServiceManagement";
-import Inventory from "./pages/Dashboard/Owner/Inventory";
+import ServiceManagement from "./pages/Dashboard/Store/ServiceManagement";
+import Inventory from "./pages/Dashboard/Store/Inventory";
 import Profile from "./pages/Dashboard/shared_components/Profile";
 import PrivateRoute from "./components/PrivateRoute";
 

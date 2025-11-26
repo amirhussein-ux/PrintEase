@@ -102,6 +102,32 @@ export default function OrderPage() {
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'completed' | 'failed'>('pending');
     const [watchedOrderStatus, setWatchedOrderStatus] = useState<OrderStatusLocal | null>(null);
     const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+    // Down payment modal state for bulk orders
+    const [showDownPaymentModal, setShowDownPaymentModal] = useState(false);
+    const [dpMethod, setDpMethod] = useState<'gcash' | 'bank_transfer' | 'other'>('gcash');
+    const [dpReceiptFile, setDpReceiptFile] = useState<File | null>(null);
+    const [dpReceiptPreview, setDpReceiptPreview] = useState<string | null>(null);
+
+    // Manage receipt preview URL lifecycle
+    function handleDpFile(file: File | null) {
+        // revoke previous preview
+        if (dpReceiptPreview) {
+            try { URL.revokeObjectURL(dpReceiptPreview); } catch { /* ignore */ }
+            setDpReceiptPreview(null);
+        }
+        setDpReceiptFile(file);
+        if (file && file.type && file.type.startsWith('image/')) {
+            try {
+                const url = URL.createObjectURL(file);
+                setDpReceiptPreview(url);
+            } catch {
+                setDpReceiptPreview(null);
+            }
+        } else {
+            setDpReceiptPreview(null);
+        }
+    }
+    const [dpReference, setDpReference] = useState('');
 
     // Inventory cache for sizes
     const [inventoryCache, setInventoryCache] = useState<Record<string, any>>({});
@@ -356,6 +382,87 @@ export default function OrderPage() {
             return total + (basePrice + optionPrices) * item.quantity;
         }, 0);
     }, [cart]);
+
+    // Helper to submit orders; accepts optional downpayment payload
+    async function submitOrders(downPayment?: { required?: boolean; amount?: number; method?: string; reference?: string; receipt?: File | null }) {
+        if (!derivedStoreId) return;
+        try {
+            setSubmitting(true);
+            setNotif(null);
+
+            if (!token) {
+                try {
+                    await continueAsGuest();
+                } catch {
+                    setNotif({ type: 'error', message: 'Unable to start guest session.' });
+                    setSubmitting(false);
+                    return;
+                }
+            }
+
+            const orderIds: string[] = [];
+            for (const item of cart) {
+                const options = item.selectedOptions.map(opt => ({
+                    label: opt.variantLabel,
+                    optionIndex:
+                        item.service.variants?.find(v => v.label === opt.variantLabel)?.options.findIndex(o => o.name === opt.optionName) || 0,
+                }));
+
+                const fd = new FormData();
+                fd.append('storeId', derivedStoreId);
+                fd.append('serviceId', item.service._id);
+                fd.append('quantity', String(item.quantity));
+                fd.append('notes', item.notes || '');
+                fd.append('selectedOptions', JSON.stringify(options));
+
+                if (item.selectedSizes && item.selectedSizes.length > 0) {
+                    fd.append('selectedSizes', JSON.stringify(item.selectedSizes));
+                } else {
+                    const sizeVariant = (item.service.variants || []).find(v => v.label.toLowerCase() === 'size');
+                    if (sizeVariant) {
+                        const idx = options.find(o => o.label === sizeVariant.label)?.optionIndex ?? 0;
+                        const opt = sizeVariant.options[idx];
+                        if (opt?.linkedInventoryId) {
+                            fd.append('selectedSizes', JSON.stringify([{
+                                productId: String(opt.linkedInventoryId),
+                                sizeName: String(opt.name),
+                            }]));
+                        }
+                    }
+                }
+
+                for (const file of item.files) {
+                    fd.append('files', file.file, file.file.name);
+                }
+
+                if (downPayment && downPayment.required) {
+                    fd.append('downPaymentRequired', 'true');
+                    if (typeof downPayment.amount === 'number') fd.append('downPaymentAmount', String(downPayment.amount));
+                    if (downPayment.method) fd.append('downPaymentMethod', downPayment.method);
+                    if (downPayment.reference) fd.append('downPaymentReference', downPayment.reference);
+                    if (downPayment.receipt) fd.append('receipt', downPayment.receipt, downPayment.receipt.name);
+                }
+
+                const response = await api.post('/orders', fd);
+                orderIds.push(response.data._id);
+            }
+
+            setNotif({ type: 'success', message: 'Orders placed successfully! We\'ll notify you when ready.' });
+            setCart([]);
+            setShowCart(false);
+            if (orderIds.length > 0) {
+                setPaymentOrderId(orderIds[0]);
+                setWatchedOrderStatus(null);
+                setReceiptUrl(null);
+                setPaymentStatus('pending');
+            }
+        } catch (e) {
+            console.error('submitOrders error', e);
+            setNotif({ type: 'error', message: 'Failed to place order(s).' });
+        } finally {
+            setSubmitting(false);
+        }
+    }
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -1159,73 +1266,13 @@ export default function OrderPage() {
                                     <button
                                         onClick={async () => {
                                             if (!derivedStoreId) return;
-                                            try {
-                                                setSubmitting(true);
-                                                setNotif(null);
-
-                                                if (!token) {
-                                                    try {
-                                                        await continueAsGuest();
-                                                    } catch {
-                                                        setNotif({ type: 'error', message: 'Unable to start guest session.' });
-                                                        setSubmitting(false);
-                                                        return;
-                                                    }
-                                                }
-
-                                                const orderIds: string[] = [];
-                                                for (const item of cart) {
-                                                    const options = item.selectedOptions.map(opt => ({
-                                                        label: opt.variantLabel,
-                                                        optionIndex:
-                                                            item.service.variants?.find(v => v.label === opt.variantLabel)?.options.findIndex(o => o.name === opt.optionName) || 0,
-                                                    }));
-
-                                                    const fd = new FormData();
-                                                    fd.append('storeId', derivedStoreId);
-                                                    fd.append('serviceId', item.service._id);
-                                                    fd.append('quantity', String(item.quantity));
-                                                    fd.append('notes', item.notes || '');
-                                                    fd.append('selectedOptions', JSON.stringify(options));
-
-                                                    if (item.selectedSizes && item.selectedSizes.length > 0) {
-                                                        fd.append('selectedSizes', JSON.stringify(item.selectedSizes));
-                                                    } else {
-                                                        const sizeVariant = (item.service.variants || []).find(v => v.label.toLowerCase() === 'size');
-                                                        if (sizeVariant) {
-                                                            const idx = options.find(o => o.label === sizeVariant.label)?.optionIndex ?? 0;
-                                                            const opt = sizeVariant.options[idx];
-                                                            if (opt?.linkedInventoryId) {
-                                                                fd.append('selectedSizes', JSON.stringify([{
-                                                                    productId: String(opt.linkedInventoryId),
-                                                                    sizeName: String(opt.name),
-                                                                }]));
-                                                            }
-                                                        }
-                                                    }
-
-                                                    for (const file of item.files) {
-                                                        fd.append('files', file.file, file.file.name);
-                                                    }
-
-                                                    const response = await api.post('/orders', fd);
-                                                    orderIds.push(response.data._id);
-                                                }
-
-                                                setNotif({ type: 'success', message: 'Orders placed successfully! We\'ll notify you when ready.' });
-                                                setCart([]);
-                                                setShowCart(false);
-                                                if (orderIds.length > 0) {
-                                                    setPaymentOrderId(orderIds[0]);
-                                                    setWatchedOrderStatus(null);
-                                                    setReceiptUrl(null);
-                                                    setPaymentStatus('pending');
-                                                }
-                                            } catch {
-                                                setNotif({ type: 'error', message: 'Failed to place order(s).' });
-                                            } finally {
-                                                setSubmitting(false);
+                                            // If bulk (>2000) require downpayment first
+                                            if (cartTotal > 2000) {
+                                                setShowDownPaymentModal(true);
+                                                return;
                                             }
+                                            // otherwise place orders normally
+                                            await submitOrders();
                                         }}
                                         className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold disabled:opacity-60 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                                         disabled={submitting}
@@ -1247,6 +1294,115 @@ export default function OrderPage() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Down Payment Modal for bulk orders (>2000) */}
+            {showDownPaymentModal && (
+                <div className="fixed inset-0 z-[999998] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowDownPaymentModal(false)} />
+                    <div className="relative z-10 max-w-lg w-full rounded-3xl border border-slate-600 bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-2xl overflow-hidden">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-600 bg-slate-800/50 backdrop-blur-sm">
+                            <div className="text-lg font-bold">Down Payment Required</div>
+                            <button type="button" onClick={() => setShowDownPaymentModal(false)} className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 transition-colors">
+                                <XMarkIcon className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <div className="text-sm text-slate-300">Bulk order detected. For orders over ₱2,000 a down payment is required.</div>
+                            <div className="p-4 rounded-2xl bg-slate-700/30 border border-slate-600">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="text-sm text-slate-300">Order Total</div>
+                                    <div className="text-lg font-bold">{formatMoney(cartTotal)}</div>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <div className="text-sm text-slate-300">Required Down Payment (1/2)</div>
+                                    <div className="text-lg font-bold text-emerald-400">{formatMoney(Math.round((cartTotal / 2) * 100) / 100)}</div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-slate-200">Payment Method</label>
+                                <select value={dpMethod} onChange={(e) => setDpMethod(e.target.value as 'gcash'|'bank_transfer'|'other')} className="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white">
+                                    <option value="gcash">GCash</option>
+                                    <option value="bank_transfer">Bank Transfer</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-slate-200">Upload Receipt</label>
+                                <div
+                                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                    onDrop={(e) => {
+                                        e.preventDefault(); e.stopPropagation();
+                                        const fl = Array.from(e.dataTransfer.files || []);
+                                        if (!fl.length) return;
+                                        const file = fl[0];
+                                        if (!file) return;
+                                        handleDpFile(file);
+                                    }}
+                                    className="relative border-2 border-dashed border-slate-600 bg-slate-700/30 rounded-2xl p-8 min-h-[180px] text-center hover:bg-slate-700/50 transition-all duration-200 backdrop-blur-sm flex items-center justify-center gap-4 cursor-pointer"
+                                >
+                                    {/* Content (visual) sits below the invisible input so clicks open file picker; remove button sits above input */}
+                                    <div className="relative z-10 flex flex-col items-center justify-center gap-3">
+                                        {dpReceiptFile ? (
+                                            <div className="flex flex-col items-center gap-3">
+                                                {dpReceiptPreview ? (
+                                                    <img src={dpReceiptPreview} alt={dpReceiptFile.name} className="w-36 h-36 object-cover rounded-lg border border-slate-600" />
+                                                ) : (
+                                                    <div className="w-36 h-36 rounded-lg bg-slate-600 flex items-center justify-center text-sm text-slate-300 border border-slate-600">{dpReceiptFile.name.split('.').pop()?.toUpperCase() || 'FILE'}</div>
+                                                )}
+                                                <div className="text-sm text-slate-200 truncate max-w-[260px]" title={dpReceiptFile.name}>{dpReceiptFile.name}</div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <svg className="w-14 h-14 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                                </svg>
+                                                <div>
+                                                    <div className="text-sm font-medium text-slate-200">Drag & drop receipt here</div>
+                                                    <div className="text-xs text-slate-400">Supports: JPG, PNG, PDF</div>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {/* Invisible full-size file input so the whole dropbox is clickable; placed above visual but below the remove button */}
+                                    <input
+                                        type="file"
+                                        accept="image/*,.pdf"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                        onChange={(e) => handleDpFile(e.target.files ? e.target.files[0] : null)}
+                                    />
+
+                                    {/* Remove button sits on top so it remains clickable when preview shown */}
+                                    {dpReceiptFile && (
+                                        <button type="button" onClick={() => handleDpFile(null)} className="absolute top-3 right-3 z-30 text-red-400 hover:text-red-300 bg-black/30 backdrop-blur-sm px-2 py-1 rounded-md">
+                                            ✕
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="block text-sm font-medium text-slate-200">Reference Number</label>
+                                <input value={dpReference} onChange={(e) => setDpReference(e.target.value)} className="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white" placeholder="e.g. GCash reference or bank transaction ID" />
+                            </div>
+
+                                <div className="flex items-center gap-3 pt-2">
+                                <button onClick={() => setShowDownPaymentModal(false)} className="flex-1 px-6 py-3 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-700 transition-all">Cancel</button>
+                                <button disabled={!dpReceiptFile} onClick={async () => {
+                                    if (!dpReceiptFile) {
+                                        setNotif({ type: 'error', message: 'Please upload a receipt to proceed.' });
+                                        return;
+                                    }
+                                    setShowDownPaymentModal(false);
+                                    await submitOrders({ required: true, amount: Math.round((cartTotal / 2) * 100) / 100, method: dpMethod, reference: dpReference, receipt: dpReceiptFile });
+                                }} className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold disabled:opacity-50">Submit</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

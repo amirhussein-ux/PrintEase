@@ -115,6 +115,9 @@ export default function TrackOrders() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<'all' | OrderStatus>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   // Track which order IDs have their QR visible
   const [openQR, setOpenQR] = useState<Record<string, boolean>>({});
   // Keep refs to QR canvases for download/fullscreen
@@ -252,23 +255,57 @@ export default function TrackOrders() {
     }
   }
 
-  async function cancelOrder(id: string) {
-    if (!window.confirm('Are you sure you want to cancel this order?')) return;
+  function cancelOrder(id: string) {
+    // Open confirmation modal instead of browser confirm
+    setCancelTargetId(id);
+    setShowCancelModal(true);
+  }
+
+  async function confirmCancel() {
+    const id = cancelTargetId;
+    if (!id) return;
     try {
       setUpdatingId(id);
+      setShowCancelModal(false);
       const res = await api.patch(`/orders/${id}/status`, { status: 'cancelled' });
       const updated = res.data as Order;
       setOrders((prev) => prev.map((o) => (o._id === id ? updated : o)));
     } catch (e) {
       const err = e as { response?: { data?: { message?: string } }; message?: string };
-      alert(err?.response?.data?.message || err?.message || 'Failed to cancel order');
+      const message = err?.response?.data?.message || err?.message || 'Failed to cancel order';
+      setToast({ type: 'error', message });
     } finally {
       setUpdatingId(null);
+      setCancelTargetId(null);
+      setShowCancelModal(false);
     }
+    // show success toast after cancellation
+    setToast({ type: 'success', message: 'Order cancelled successfully.' });
   }
+
+  // Auto-hide toast after a short delay
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   return (
     <DashboardLayout role="customer">
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed top-20 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform transition-all duration-300
+            ${toast.type === 'error' ? 'bg-gradient-to-r from-red-600/90 to-red-700/90 border-red-400/50 text-white' : 'bg-gradient-to-r from-emerald-600/90 to-emerald-700/90 border-emerald-400/50 text-white'}`}>
+          <div className="flex-shrink-0">
+            {toast.type === 'error' ? (
+              <svg className="w-6 h-6 text-red-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            ) : (
+              <svg className="w-6 h-6 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+            )}
+          </div>
+          <span className="font-semibold text-sm">{toast.message}</span>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="mb-8 text-center">
@@ -588,6 +625,33 @@ export default function TrackOrders() {
           })}
         </div>
       </div>
+      {/* Cancel Confirmation Modal */}
+      {showCancelModal && cancelTargetId && (() => {
+        const ord = orders.find(o => o._id === cancelTargetId);
+        return (
+          <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => setShowCancelModal(false)}>
+            <div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-red-600/20 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold text-white">Cancel Order</h3>
+                  <p className="text-sm text-gray-300 mt-2">Are you sure you want to cancel this order {ord ? <span className="font-mono text-blue-300">{shortId(ord._id)}</span> : ''}? This action cannot be undone.</p>
+                </div>
+              </div>
+              <div className="mt-6 flex items-center gap-3">
+                <button onClick={() => { setShowCancelModal(false); setCancelTargetId(null); }} className="flex-1 px-4 py-2 rounded-xl border border-gray-600 text-gray-300 hover:bg-gray-700 transition-all">Keep Order</button>
+                <button onClick={() => void confirmCancel()} disabled={updatingId === cancelTargetId} className={`flex-1 px-4 py-2 rounded-xl text-white font-semibold ${updatingId === cancelTargetId ? 'bg-gray-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500'}`}>
+                  {updatingId === cancelTargetId ? 'Cancelling...' : 'Yes, Cancel Order'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* QR Modal */}
       {enlargeQrFor && (

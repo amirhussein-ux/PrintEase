@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import DashboardLayout from '../shared_components/DashboardLayout';
 import api from '../../../lib/api';
 import { useNavigate } from 'react-router-dom';
@@ -41,6 +41,15 @@ type Order = {
 		ready?: string;
 		completed?: string;
 	};
+
+	// Down payment fields (may be present)
+	downPaymentRequired?: boolean;
+	downPaymentAmount?: number;
+	downPaymentPaid?: boolean;
+	downPaymentPaidAt?: string;
+	downPaymentMethod?: string;
+	downPaymentReceipt?: string | null;
+	downPaymentReference?: string | null;
 };
 
 const STATUS_LABELS: { label: string; value: Exclude<OrderStatus, 'cancelled'> }[] = [
@@ -133,26 +142,30 @@ function getDateRange(filter: string): { start: Date; end: Date } | null {
 	const now = new Date();
 	const end = new Date();
 	
-	switch (filter) {
-		case 'today':
-			const startOfToday = new Date(now);
-			startOfToday.setHours(0, 0, 0, 0);
-			return { start: startOfToday, end };
-		case 'week':
-			const startOfWeek = new Date(now);
-			startOfWeek.setDate(now.getDate() - 7);
-			return { start: startOfWeek, end };
-		case '30days':
-			const startOf30Days = new Date(now);
-			startOf30Days.setDate(now.getDate() - 30);
-			return { start: startOf30Days, end };
-		case 'year':
-			const startOfYear = new Date(now);
-			startOfYear.setFullYear(now.getFullYear() - 1);
-			return { start: startOfYear, end };
-		default:
-			return null;
-	}
+		switch (filter) {
+			case 'today': {
+				const startOfToday = new Date(now);
+				startOfToday.setHours(0, 0, 0, 0);
+				return { start: startOfToday, end };
+			}
+			case 'week': {
+				const startOfWeek = new Date(now);
+				startOfWeek.setDate(now.getDate() - 7);
+				return { start: startOfWeek, end };
+			}
+			case '30days': {
+				const startOf30Days = new Date(now);
+				startOf30Days.setDate(now.getDate() - 30);
+				return { start: startOf30Days, end };
+			}
+			case 'year': {
+				const startOfYear = new Date(now);
+				startOfYear.setFullYear(now.getFullYear() - 1);
+				return { start: startOfYear, end };
+			}
+			default:
+				return null;
+		}
 }
 
 export default function OrderManagement() {
@@ -162,9 +175,44 @@ export default function OrderManagement() {
 	const isOperationsManager = user?.role === 'employee' && user.employeeRole === 'Operations Manager';
 	const isPrinterOperator = user?.role === 'employee' && user.employeeRole === 'Printer Operator';
 	const hasStoreAccess = Boolean(isOwner || isFrontDesk || isOperationsManager || isPrinterOperator);
-	const canCreateStore = Boolean(isOwner);
 	const [storeId, setStoreId] = useState<string | null>(null);
 	const [orders, setOrders] = useState<Order[]>([]);
+	const [dpPreviewOrder, setDpPreviewOrder] = useState<Order | null>(null);
+	const [dpPreviewUrl, setDpPreviewUrl] = useState<string | null>(null);
+	const [dpPreviewMime, setDpPreviewMime] = useState<string | null>(null);
+	const [dpPreviewFilename, setDpPreviewFilename] = useState<string | null>(null);
+	const [dpLoading, setDpLoading] = useState(false);
+	const dpCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+	// Draw image into canvas when preview URL changes
+	useEffect(() => {
+		if (!dpPreviewUrl || !dpPreviewMime) return;
+		if (!dpPreviewMime.startsWith('image/')) return;
+		const canvas = dpCanvasRef.current;
+		if (!canvas) return;
+		const img = new Image();
+		img.onload = () => {
+			try {
+				// scale canvas to fit max height while preserving aspect
+				const maxH = Math.min(window.innerHeight * 0.6, 800);
+				const scale = Math.min(1, maxH / img.height);
+				canvas.width = Math.round(img.width * scale);
+				canvas.height = Math.round(img.height * scale);
+				const ctx = canvas.getContext('2d');
+				if (!ctx) return;
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+					} catch (err) {
+						void err;
+					}
+		};
+		img.onerror = () => { /* ignore */ };
+		img.src = dpPreviewUrl;
+		return () => {
+			// nothing to cleanup for img; keep object URL revocation handled on modal close
+		};
+	}, [dpPreviewUrl, dpPreviewMime]);
+
 	const [loading, setLoading] = useState(true);
 	// UI transition helpers
 	const [showSkeleton, setShowSkeleton] = useState(true);
@@ -306,7 +354,7 @@ export default function OrderManagement() {
 
 	const pageHeader = (
 		<div className="mb-8 mt-10">
-			<h1 className="text-3xl md:text-4xl font-bold text-white bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Order Management</h1>
+				<h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Order Management</h1>
 			<p className="text-gray-300 text-lg mt-2">Track and update customer orders.</p>
 		</div>
 	);
@@ -320,15 +368,94 @@ export default function OrderManagement() {
 						You do not have permission to manage orders.
 					</div>
 				</div>
+
+				{/* Downpayment Preview Modal */}
+				{dpPreviewOrder && (() => {
+					const ord = dpPreviewOrder;
+					return (
+						<div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
+							// close modal on backdrop click
+							try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
+							setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
+						}}>
+							<div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-auto max-w-[95vw] max-h-[90vh] overflow-auto min-w-[28rem] sm:min-w-[36rem]" onClick={(e) => e.stopPropagation()}>
+								<button className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 text-sm font-bold rounded-lg text-white" onClick={() => {
+									try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
+									setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
+								}}>✕</button>
+								<h3 className="text-xl font-bold text-white mb-2">Down Payment Receipt</h3>
+								<div className="text-sm text-gray-400 mb-4">Order <span className="font-mono text-blue-300">{shortId(ord._id)}</span></div>
+								<div className="mb-4">
+									{dpLoading ? (
+										<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">
+											<div className="flex flex-col items-center gap-3">
+												<div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+												<div className="text-sm">Loading receipt preview…</div>
+											</div>
+										</div>
+									) : dpPreviewUrl && dpPreviewMime && dpPreviewMime.startsWith('image/') ? (
+										<canvas
+											ref={(el) => { dpCanvasRef.current = el; }}
+											className="mx-auto rounded-lg border border-gray-700 block"
+											style={{ maxHeight: '80vh', maxWidth: '90vw' }}
+										/>
+									) : dpPreviewUrl && dpPreviewMime === 'application/pdf' ? (
+										<div className="w-full max-h-[80vh] overflow-auto">
+											<iframe title="receipt" src={dpPreviewUrl || ''} className="w-full h-full rounded-lg border border-gray-700" style={{ minHeight: '60vh' }} />
+										</div>
+									) : dpPreviewUrl ? (
+										<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">
+											<a href={dpPreviewUrl} target="_blank" rel="noreferrer" className="text-blue-300 underline">Open receipt in new tab</a>
+										</div>
+									) : (
+										<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">No preview available.</div>
+									)}
+								</div>
+
+
+								<div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 mt-4">
+									<div className="text-sm text-gray-300">Reference: <span className="font-medium text-white">{ord.downPaymentReference || '—'}</span></div>
+									<div className="flex items-center gap-3">
+										<button onClick={() => {
+											// download the file (prefer canvas data for images)
+											if (!dpPreviewUrl) return;
+											if (dpPreviewMime && dpPreviewMime.startsWith('image/') && dpCanvasRef.current) {
+												try {
+													const canvas = dpCanvasRef.current;
+													const url = canvas.toDataURL('image/png');
+													const a = document.createElement('a');
+													a.href = url;
+													a.download = dpPreviewFilename ? `${dpPreviewFilename.split('.').slice(0, -1).join('.') || 'receipt'}.png` : `${shortId(ord._id)}-downpayment.png`;
+													document.body.appendChild(a);
+													a.click();
+													a.remove();
+													return;
+												} catch (e) {
+													console.warn('canvas download failed', e);
+												}
+											}
+											const a = document.createElement('a');
+											a.href = dpPreviewUrl;
+											a.download = dpPreviewFilename || `${shortId(ord._id)}-downpayment`;
+											document.body.appendChild(a);
+											a.click();
+											a.remove();
+										}} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold">Download</button>
+										<button onClick={() => {
+											try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
+										setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
+									}} className="px-4 py-2 rounded-xl border border-gray-600 text-gray-300">Close</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					);
+				})()}
 			</DashboardLayout>
 		);
 	}
 
 	if (!storeId && !loading) {
-		const calloutTitle = canCreateStore ? 'No Print Store' : 'Store Not Assigned';
-		const calloutSubtitle = canCreateStore
-			? 'Create your store to start receiving orders.'
-			: 'Contact the store owner to be assigned so you can process orders.';
 		return (
 			<DashboardLayout role="owner">
 				<div className="max-w-5xl mx-auto">
@@ -680,6 +807,47 @@ export default function OrderManagement() {
 												{updatingId === o._id ? 'Updating…' : `Mark as ${STATUS_LABELS.find((s) => s.value === canAdvance)?.label}`}
 											</button>
 										)}
+
+										{/* Downpayment receipt view (if present) */}
+										{o.downPaymentReceipt && o.downPaymentReference && (
+											<button
+												onClick={async () => {
+												// Open modal immediately and show loading
+												setDpPreviewOrder(o);
+												setDpPreviewUrl(null);
+												setDpPreviewMime(null);
+												setDpPreviewFilename(null);
+												setDpLoading(true);
+												console.log('Fetching downpayment receipt for order', o._id);
+												try {
+													const res = await api.get(`/orders/${o._id}/downpayment/preview`, { responseType: 'blob' });
+													const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/octet-stream' });
+													const url = window.URL.createObjectURL(blob);
+													const cd = res.headers['content-disposition'] || '';
+													const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(cd);
+													const headerName = decodeURIComponent((match?.[1] || match?.[2] || '').trim());
+													setDpPreviewFilename(headerName || `downpayment-${o._id}`);
+													setDpPreviewMime(res.headers['content-type'] || 'application/octet-stream');
+													setDpPreviewUrl(url);
+													console.log('Fetched downpayment receipt', {
+														orderId: o._id,
+														filename: headerName || null,
+														contentType: res.headers['content-type'] || null,
+														reference: o.downPaymentReference || null,
+													});
+												} catch (err) {
+													const e2 = err as { response?: { data?: { message?: string } }; message?: string };
+													console.warn('Failed to load downpayment receipt', e2?.response?.data?.message || e2?.message || err);
+													alert(e2?.response?.data?.message || e2?.message || 'Failed to load downpayment receipt');
+												} finally {
+													setDpLoading(false);
+												}
+												}}
+											className="w-full px-4 py-3 rounded-xl text-sm font-medium border transition-all duration-300 bg-gradient-to-r from-amber-500 to-amber-600 border-amber-500 text-white hover:from-amber-600 hover:to-amber-700 shadow-lg hover:shadow-amber-500/25"
+											>
+											{dpLoading ? 'Loading…' : 'View Downpayment'}
+										</button>
+										)}
 									</div>
 								</div>
 							</div>
@@ -687,6 +855,82 @@ export default function OrderManagement() {
 					})}
 				</div>
 			</div>
+			{/* Downpayment Preview Modal */}
+			{dpPreviewOrder && (() => {
+				const ord = dpPreviewOrder;
+				return (
+					<div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
+						try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
+						setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
+					}}>
+						<div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-auto max-w-[95vw] max-h-[90vh] overflow-auto min-w-[28rem] sm:min-w-[36rem]" onClick={(e) => e.stopPropagation()}>
+							<button className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 text-sm font-bold rounded-lg text-white" onClick={() => {
+								try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
+								setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
+							}}>✕</button>
+							<h3 className="text-xl font-bold text-white mb-2">Down Payment Receipt</h3>
+							<div className="text-sm text-gray-400 mb-4">Order <span className="font-mono text-blue-300">{shortId(ord._id)}</span></div>
+							<div className="mb-4">
+								{dpLoading ? (
+									<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">
+										<div className="flex flex-col items-center gap-3">
+											<div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
+											<div className="text-sm">Loading receipt preview…</div>
+										</div>
+									</div>
+								) : dpPreviewUrl && dpPreviewMime && dpPreviewMime.startsWith('image/') ? (
+									<canvas
+										ref={(el) => { dpCanvasRef.current = el; }}
+										className="mx-auto rounded-lg border border-gray-700 block"
+										style={{ maxHeight: '80vh', maxWidth: '90vw' }}
+									/>
+								) : dpPreviewUrl && dpPreviewMime === 'application/pdf' ? (
+									<div className="w-full max-h-[80vh] overflow-auto">
+										<iframe title="receipt" src={dpPreviewUrl || ''} className="w-full h-full rounded-lg border border-gray-700" style={{ minHeight: '60vh' }} />
+									</div>
+								) : dpPreviewUrl ? (
+									<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">
+										<a href={dpPreviewUrl} target="_blank" rel="noreferrer" className="text-blue-300 underline">Open receipt in new tab</a>
+									</div>
+								) : (
+									<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">No preview available.</div>
+								)}
+							</div>
+							<div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 mt-4">
+								<div className="text-sm text-gray-300">Reference Number: <span className="font-medium text-white">{ord.downPaymentReference || '—'}</span></div>
+								<div className="flex items-center gap-3">
+									<button onClick={() => {
+										if (!dpPreviewUrl) return;
+										if (dpPreviewMime && dpPreviewMime.startsWith('image/') && dpCanvasRef.current) {
+											try {
+												const canvas = dpCanvasRef.current;
+												const url = canvas.toDataURL('image/png');
+												const a = document.createElement('a');
+												a.href = url;
+												a.download = dpPreviewFilename ? `${dpPreviewFilename.split('.').slice(0, -1).join('.') || 'receipt'}.png` : `${shortId(ord._id)}-downpayment.png`;
+												document.body.appendChild(a);
+												a.click();
+												a.remove();
+												return;
+											} catch (e) { console.warn('canvas download failed', e); }
+										}
+										const a = document.createElement('a');
+										a.href = dpPreviewUrl;
+										a.download = dpPreviewFilename || `${shortId(ord._id)}-downpayment`;
+										document.body.appendChild(a);
+										a.click();
+										a.remove();
+									}} className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold">Download</button>
+									<button onClick={() => {
+										try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
+										setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
+									}} className="px-4 py-2 rounded-xl border border-gray-600 text-gray-300">Close</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				);
+			})()}
 		</DashboardLayout>
 	);
 }
