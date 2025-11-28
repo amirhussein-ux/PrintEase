@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
+const auditLogger = require('../middleware/auditLogger');
 const User = require('../models/userModel');
 
 // Get user profile
@@ -17,7 +18,7 @@ router.get('/profile', protect, async (req, res) => {
 });
 
 // Update user profile
-router.put('/profile', protect, async (req, res) => {
+router.put('/profile', protect, auditLogger('update', 'Profile'), async (req, res) => {
   try {
     const { firstName, lastName, email, phone } = req.body;
     const user = await User.findByIdAndUpdate(

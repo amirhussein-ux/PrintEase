@@ -1,6 +1,7 @@
 const express = require("express");
-const { registerUser, loginUser, generateGuestToken, updateProfile, getAvatarById } = require("../controllers/authController");
+const { registerUser, loginUser, generateGuestToken, updateProfile, getAvatarById, logoutUser } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
+const auditLogger = require("../middleware/auditLogger");
 const bcrypt = require("bcryptjs");
 const User = require("../models/userModel");
 const multer = require('multer');
@@ -8,11 +9,12 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 const router = express.Router();
 
-router.post("/register", registerUser);
-router.post("/login", loginUser);
+router.post("/register", auditLogger('register', 'User'), registerUser);
+router.post("/login", auditLogger('login', 'User'), loginUser);
+router.post("/logout", protect, auditLogger('logout', 'User'), logoutUser);
 
 // Guest token route
-router.post("/guest", generateGuestToken);
+router.post("/guest", auditLogger('guest_login', 'User'), generateGuestToken);
 
 // Protected route
 router.get("/profile", protect, (req, res) => {

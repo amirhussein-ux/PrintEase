@@ -23,6 +23,7 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const Service = require("./models/serviceModel");
+const auditLogRoutes = require('./routes/auditLogs');
 
 const PORT = process.env.PORT || 8000;
 
@@ -60,6 +61,20 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+
+// --- Test Audit Logs Route ---
+const AuditLog = require('./models/AuditLog'); // Add this import at the top with other imports
+app.get("/test-audit", async (req, res) => {
+  try {
+    const logs = await AuditLog.find().sort({timestamp: -1}).limit(10);
+    console.log('Recent audit logs:', logs);
+    res.json({ logs });
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    res.status(500).json({ error: 'Failed to fetch audit logs' });
+  }
+});
 
 // --- Server setup ---
 const server = http.createServer(app);

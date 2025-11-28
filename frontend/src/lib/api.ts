@@ -15,21 +15,18 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Add retry logic with TypeScript-safe check
+// Add retry logic
 axiosRetry(api, {
   retries: 3,
   retryDelay: axiosRetry.exponentialDelay,
   shouldResetTimeout: true,
   retryCondition: (error) => {
-    // Retry on network errors or 5xx server errors
     if (axiosRetry.isNetworkOrIdempotentRequestError(error)) {
       return true;
     }
-
     if (error.response && error.response.status >= 500) {
       return true;
     }
-
     return false;
   },
 });

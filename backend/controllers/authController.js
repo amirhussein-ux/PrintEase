@@ -12,7 +12,7 @@ const generateToken = ({ id, role, kind = 'user', store, expiresIn = '7d' }) => 
   });
 };
 
-// Helper: format Mongoose ValidationError into a concise message
+// Format Mongoose ValidationError into concise message
 const capitalize = (s) => (typeof s === 'string' && s.length) ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 const formatValidationError = (err) => {
   if (!err || err.name !== 'ValidationError') return err.message || 'Validation error';
@@ -27,7 +27,6 @@ const formatValidationError = (err) => {
       return `${capitalize(path)} must be at least ${min} characters`;
     }
 
-    // fallback to the original message if available
     if (e.message) return e.message;
     return `${capitalize(path)} is invalid`;
   });
@@ -35,28 +34,24 @@ const formatValidationError = (err) => {
   return messages.join('; ');
 };
 
-// REGISTER
+// Register new user
 exports.registerUser = async (req, res) => {
   try {
     const { firstName, lastName, email, password, confirmPassword, role } = req.body;
 
-    // Check required fields
     if (!firstName || !lastName || !email || !password || !confirmPassword) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Password confirmation
     if (password !== confirmPassword) {
       return res.status(400).json({ message: "Passwords do not match" });
     }
 
-    // Check if user exists
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ message: "User already exists" });
     }
 
-    // Default role is "customer" if not provided
     const user = await User.create({
       firstName,
       lastName,
@@ -76,13 +71,11 @@ exports.registerUser = async (req, res) => {
       token: generateToken({ id: user._id, role: user.role }),
     });
   } catch (error) {
-    // Simplify Mongoose validation errors and return 400
     if (error && error.name === 'ValidationError') {
       const message = formatValidationError(error);
       return res.status(400).json({ message });
     }
 
-    // Handle duplicate key (unique) errors more nicely if they appear
     if (error && error.code === 11000) {
       const field = Object.keys(error.keyValue || {})[0];
       const pretty = field ? `${capitalize(field)} already exists` : 'Duplicate value';
@@ -93,7 +86,7 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-// LOGIN
+// Login user or employee
 exports.loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -160,7 +153,7 @@ exports.loginUser = async (req, res) => {
   }
 };
 
-// GUEST TOKEN
+// Generate guest token for temporary access
 exports.generateGuestToken = (req, res) => {
   try {
     const guestId = "guest_" + Date.now();
@@ -183,7 +176,7 @@ exports.generateGuestToken = (req, res) => {
   }
 };
 
-// UPDATE PROFILE (name, address, phone, optional avatar)
+// Update user profile with optional avatar
 exports.updateProfile = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -197,8 +190,7 @@ exports.updateProfile = async (req, res) => {
     if (typeof address === 'string') updates.address = address;
     if (typeof phone === 'string') updates.phone = phone;
 
-  // If avatar uploaded, store to GridFS
-  if (req.file && req.file.buffer) {
+    if (req.file && req.file.buffer) {
       const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
       const uploadStream = bucket.openUploadStream(`${userId}-avatar`, { contentType: req.file.mimetype });
       uploadStream.end(req.file.buffer);
@@ -208,11 +200,10 @@ exports.updateProfile = async (req, res) => {
         uploadStream.on('error', reject);
       });
 
-      // If existing avatar exists, it could be cleaned up later; keep simple for now.
       updates.avatarFileId = uploadStream.id;
       updates.avatarMime = req.file.mimetype;
     }
-    // if client passes avatar as empty string, treat as delete avatar
+
     if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'avatar') && req.body.avatar === '') {
       updates.avatarFileId = undefined;
       updates.avatarMime = undefined;
@@ -239,7 +230,7 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-// GET avatar by id
+// Get user avatar by ID
 exports.getAvatarById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -247,7 +238,6 @@ exports.getAvatarById = async (req, res) => {
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
     const _id = new mongoose.Types.ObjectId(id);
 
-    // Optionally set content type header by looking up file metadata
     try {
       const files = await bucket.find({ _id }).toArray();
       if (files && files[0] && files[0].contentType) {
@@ -256,6 +246,17 @@ exports.getAvatarById = async (req, res) => {
     } catch {}
 
     bucket.openDownloadStream(_id).on('error', () => res.status(404).end()).pipe(res);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Logout user
+exports.logoutUser = async (req, res) => {
+  try {
+    res.json({ 
+      message: "Logged out successfully",
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
