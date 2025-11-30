@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 
@@ -8,6 +9,7 @@ const LoginForm: React.FC = () => {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -74,10 +76,14 @@ const LoginForm: React.FC = () => {
     }
   };
 
+  const togglePasswordVisibility = () => {
+    setShowPassword(!showPassword);
+  };
+
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-6 bg-white p-8 rounded-xl w-full max-w-md mx-auto mt-20"
+      className="flex flex-col gap-6 bg-white p-8 rounded-xl w-full max-w-md mx-auto mt-20 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300"
     >
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold text-gray-900">Login to your account</h1>
@@ -96,7 +102,7 @@ const LoginForm: React.FC = () => {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 rounded-lg px-3 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
           />
         </div>
 
@@ -111,29 +117,57 @@ const LoginForm: React.FC = () => {
                 e.preventDefault();
                 navigate("/forgot-password");
               }}
-              className="ml-auto text-sm underline-offset-4 hover:underline text-blue-900"
+              className="ml-auto text-sm underline-offset-4 hover:underline text-blue-900 hover:text-blue-700 transition-colors duration-200"
             >
               Forgot your password?
             </a>
           </div>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <div className="relative">
+            <input
+              id="password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="border border-gray-300 rounded-lg px-3 py-3 pr-10 w-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 hover:border-gray-400"
+              placeholder="Enter your password"
+            />
+            <button
+              type="button"
+              onClick={togglePasswordVisibility}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-md hover:bg-gray-100"
+            >
+              {showPassword ? (
+                <FiEyeOff className="w-5 h-5" />
+              ) : (
+                <FiEye className="w-5 h-5" />
+              )}
+            </button>
+          </div>
         </div>
 
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 transition-all duration-200">
+            <p className="text-red-600 text-sm flex items-center gap-2">
+              <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+              {error}
+            </p>
+          </div>
+        )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-blue-900 text-white py-2 rounded-md font-semibold hover:bg-blue-800 transition-colors"
+          className="w-full bg-blue-900 text-white py-3 rounded-lg font-semibold hover:bg-blue-800 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
         >
-          {loading ? "Logging in..." : "Login"}
+          {loading ? (
+            <div className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Logging in...
+            </div>
+          ) : (
+            "Login"
+          )}
         </button>
 
         <div className="relative text-center text-sm flex items-center">
@@ -144,9 +178,9 @@ const LoginForm: React.FC = () => {
 
         <button
           type="button"
-          className="w-full border border-gray-300 rounded-md py-2 flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
+          className="w-full border border-gray-300 rounded-lg py-3 flex items-center justify-center gap-2 hover:bg-gray-50 hover:border-gray-400 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 font-medium"
         >
-          <FcGoogle />
+          <FcGoogle className="w-5 h-5" />
           Login with Google
         </button>
       </div>
@@ -155,7 +189,7 @@ const LoginForm: React.FC = () => {
         Don't have an account?{" "}
         <a
           href="#"
-          className="underline underline-offset-4 text-blue-900"
+          className="underline underline-offset-4 text-blue-900 hover:text-blue-700 transition-colors duration-200 font-medium"
           onClick={(e) => {
             e.preventDefault();
             navigate("/signup");

@@ -33,7 +33,6 @@ function Loader() {
   );
 }
 
-// --- Product Model ---
 function ProductModel({
   decalTexture, decalPosition, decalScale, modelPath, scale, position, rotation, targetMeshName, baseColor
 }: {
@@ -41,7 +40,7 @@ function ProductModel({
   decalPosition: [number, number, number];
   decalScale: number;
   modelPath: string;
-  scale: number;
+  scale: number | [number, number, number];
   position: [number, number, number];
   rotation: [number, number, number];
   targetMeshName: string;
@@ -53,12 +52,14 @@ function ProductModel({
   const meshRef = useRef<THREE.Mesh>(null);
   const [textureAspect, setTextureAspect] = useState(1);
 
+  // 1. ROBUST DETECTION: Detect Mousepad by filename (Safe & Easy)
+  const isFullPrint = modelPath.toLowerCase().includes("mousepad");
+
   useEffect(() => {
+    // We use targetMeshName to FIND the mesh, but use filename for LOGIC
     const targetNode = nodes[targetMeshName];
-    if (!targetNode) {
-      console.error(`Mesh "${targetMeshName}" not found in ${modelPath}. Available nodes are:`, Object.keys(nodes));
-      return;
-    }
+    if (!targetNode) return;
+    
     let foundMesh: THREE.Mesh | null = null;
     if (targetNode.isMesh) foundMesh = targetNode as THREE.Mesh;
     else {
@@ -69,47 +70,74 @@ function ProductModel({
     setActualMesh(foundMesh || null);
   }, [nodes, targetMeshName, modelPath]);
 
+  // 2. Texture Updates (Mirror Fix + Aspect Ratio)
   useEffect(() => {
     if (decalTexture) {
       decalTexture.anisotropy = 16;
       decalTexture.needsUpdate = true;
 
-      // ✅ Compute true aspect ratio from texture image
+      if (isFullPrint) {
+        // Mousepad: Flip Horizontal
+        decalTexture.wrapS = THREE.RepeatWrapping;
+        decalTexture.repeat.x = -1;
+        decalTexture.offset.x = 1; 
+      } else {
+        // Mug/Shirt: Normal
+        decalTexture.wrapS = THREE.ClampToEdgeWrapping;
+        decalTexture.repeat.x = 1;
+        decalTexture.offset.x = 0;
+      }
+
       const { image } = decalTexture;
       if (image && image.width && image.height) {
         setTextureAspect(image.width / image.height);
       }
     }
-  }, [decalTexture]);
+  }, [decalTexture, isFullPrint]); 
 
   if (!actualMesh) return null;
 
-  // ✅ Preserve the true proportions of the uploaded image
   const adjustedWidth = decalScale * textureAspect;
   const adjustedHeight = decalScale;
+  
+  // 3. DEPTH SETTING (0.6 is safe for Mug/Shirt)
+  const decalDepth = 0.6; 
 
   return (
     <group scale={scale} position={position} rotation={rotation}>
       <mesh ref={meshRef} geometry={actualMesh.geometry} castShadow receiveShadow>
-        <meshStandardMaterial color={baseColor} roughness={0.8} metalness={0.1} />
-        {decalTexture && (
+        
+        {/* BASE MATERIAL */}
+        <meshStandardMaterial 
+          // ✅ MAGIC FIX: This 'key' forces React to rebuild the material when texture changes
+          key={decalTexture?.uuid || "base-material"}
+          
+          // Logic: White if Mousepad+Image, else selected Color
+          color={isFullPrint && decalTexture ? "#ffffff" : baseColor} 
+          
+          // Logic: Apply texture here only for Mousepad
+          map={isFullPrint ? decalTexture : null}
+          
+          roughness={0.8} 
+          metalness={0.1} 
+        />
+        
+        {/* DECAL (Only for Mugs & Shirts) */}
+        {!isFullPrint && decalTexture && (
           <Decal
             position={decalPosition}
             rotation={[0, 0, 0]}
-            scale={[adjustedWidth, adjustedHeight, 1]}
+            scale={[adjustedWidth, adjustedHeight, decalDepth]} 
             map={decalTexture}
             mesh={meshRef}
-            depthTest={true}
-            depthWrite={false}
-            flatShading
           >
             <meshStandardMaterial
               map={decalTexture}
               polygonOffset
-              polygonOffsetFactor={-10}
+              polygonOffsetFactor={-1} 
               transparent
-              alphaTest={0.5}
-              toneMapped={false}
+              roughness={1}
+              toneMapped={false} 
             />
           </Decal>
         )}
@@ -117,7 +145,6 @@ function ProductModel({
     </group>
   );
 }
-
 
 // --- MAIN CUSTOMIZER ---
 const Customize: React.FC = () => {
@@ -138,7 +165,7 @@ const Customize: React.FC = () => {
 
   const productSettings: Record<string, any> = {
     Mug: {
-      decalDefaults: { position: [0, 1, 0.5], scale: 0.4, minScale: 0.1, maxScale: 1.0 },
+      decalDefaults: { position: [0, 1, 0.5], scale: 1, minScale: 0.1, maxScale: 1.5 },
       variations: {
         White: { path: "/models/mug.glb", colorCode: "#ffffff", scale: 1, position: [0, -1, 0], rotation: [0, 0, 0], targetMeshName: "MugBody" },
         Black: { path: "/models/mug.glb", colorCode: "#1a1a1a", scale: 1, position: [0, -1, 0], rotation: [0, 0, 0], targetMeshName: "MugBody" },
@@ -165,6 +192,13 @@ const Customize: React.FC = () => {
         Purple: { path: "/models/shirt.glb", colorCode: "#6A0DAD", scale: 3, position: [0, 0, 0], rotation: [-Math.PI / 2, 0, 0], targetMeshName: "Object_2" },
         Gray: { path: "/models/shirt.glb", colorCode: "#808080", scale: 3, position: [0, 0, 0], rotation: [-Math.PI / 2, 0, 0], targetMeshName: "Object_2" },
         Pink: { path: "/models/shirt.glb", colorCode: "#FFC0CB", scale: 3, position: [0, 0, 0], rotation: [-Math.PI / 2, 0, 0], targetMeshName: "Object_2" },
+      },
+    },
+    Mousepad: {
+      decalDefaults: { position: [0, 0, 0.001], scale: 0.8, minScale: 0.05, maxScale: 0.5 },
+      variations: {
+        White: { path: "/models/mousepad.glb", colorCode: "#ffffff", scale: 0.8, position: [0, 0, 0], rotation: [1.57, 0, 0], targetMeshName: "print_area" },
+        Black: { path: "/models/mousepad.glb", colorCode: "#1a1a1a", scale: 0.8, position: [0, 0, 0], rotation: [1.57, 0, 0], targetMeshName: "print_area" },
       },
     },
   };
@@ -269,6 +303,7 @@ const Customize: React.FC = () => {
   useEffect(() => {
     useGLTF.preload("/models/mug.glb");
     useGLTF.preload("/models/shirt.glb");
+    useGLTF.preload("/models/mousepad.glb");
   }, []);
 
   return (
