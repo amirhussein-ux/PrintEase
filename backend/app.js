@@ -7,7 +7,10 @@ const mongoose = require("mongoose");
 
 const app = express();
 const connectDB = require("./config/db");
-const { Conversation, Message } = require("./models/chatModel");
+
+// New chat collections
+const CustomerChat = require("./models/customerChatModel");
+const StaffChat = require("./models/staffChatModel");
 const User = require("./models/userModel");
 
 // --- Import routes ---
@@ -20,9 +23,13 @@ const employeeRoutes = require("./routes/employeeRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
-const chatRoutes = require("./routes/chatRoutes");
+const customerChatRoutes = require("./routes/customerChatRoutes");
+const staffChatRoutes = require("./routes/staffChatRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const Service = require("./models/serviceModel");
+const PrintStore = require("./models/printStoreModel");
+const Employee = require("./models/employeeModel");
+const { findOrMigrateCustomerChat } = require("./utils/customerChatHelper");
 
 const PORT = process.env.PORT || 8000;
 
@@ -58,7 +65,8 @@ app.use("/api/employees", employeeRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/chat", chatRoutes);
+app.use("/api/customer-chat", customerChatRoutes);
+app.use("/api/staff-chat", staffChatRoutes);
 app.use("/api/analytics", analyticsRoutes);
 
 // --- Server setup ---
@@ -76,6 +84,35 @@ const io = new Server(server, {
 
 let onlineUsers = {}; // track online users
 
+const getCustomerIdFromChat = (chatDoc) => {
+  const storeIdStr = chatDoc.storeId ? chatDoc.storeId.toString() : null;
+  const participants = (chatDoc.participants || []).map((p) => p.toString());
+  if (storeIdStr) return participants.find((p) => p !== storeIdStr) || null;
+  return participants[0] || null;
+};
+
+const getStoreRecipients = async (storeId) => {
+  if (!storeId) return { ownerId: null, employeeIds: [], memberIds: [] };
+  const store = await PrintStore.findById(storeId).select('owner').lean();
+  if (!store) return { ownerId: null, employeeIds: [], memberIds: [] };
+  const employees = await Employee.find({ store: storeId, active: true }).select('_id').lean();
+  const ownerId = store.owner ? store.owner.toString() : null;
+  const employeeIds = employees.map((e) => e._id.toString());
+  const memberIds = [ownerId, ...employeeIds].filter(Boolean);
+  return { ownerId, employeeIds, memberIds };
+};
+
+const emitToUserIds = (ioInstance, ids, event, payload, excludeId) => {
+  if (!Array.isArray(ids) || !ids.length) return;
+  const delivered = new Set();
+  ids.forEach((id) => {
+    if (!id || delivered.has(id) || (excludeId && excludeId === id)) return;
+    delivered.add(id);
+    const target = onlineUsers[id];
+    if (target) ioInstance.to(target.socketId).emit(event, payload);
+  });
+};
+
 io.on("connection", (socket) => {
   console.log("⚡ Client connected:", socket.id);
 
@@ -89,180 +126,163 @@ io.on("connection", (socket) => {
     io.emit("userOnline", { userId, online: true });
   });
 
-  // --- CHECK EXISTING CONVERSATION ---
-  socket.on("checkConversation", async ({ customerId, ownerId }) => {
-    console.log("🔍 Checking existing conversation between:", customerId, ownerId);
-    
-    if (!mongoose.Types.ObjectId.isValid(customerId) || !mongoose.Types.ObjectId.isValid(ownerId)) {
-      return socket.emit("error", { message: "Invalid user IDs" });
+  // --- CHECK EXISTING CUSTOMER CHAT ---
+  socket.on("checkCustomerChat", async ({ customerId, storeId }) => {
+    console.log("🔍 Checking customer chat between customer", customerId, "and store", storeId);
+    if (!mongoose.Types.ObjectId.isValid(customerId) || !mongoose.Types.ObjectId.isValid(storeId)) {
+      return socket.emit("error", { message: "Invalid customerId or storeId" });
     }
-
     try {
-      const customerObjectId = new mongoose.Types.ObjectId(customerId);
-      const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
-
-      const conversation = await Conversation.findOne({
-        participants: { $all: [customerObjectId, ownerObjectId] },
-      });
-
-      if (conversation) {
-        console.log(`✅ Found existing conversation: ${conversation._id}`);
-        socket.emit("conversationExists", { 
-          conversationId: conversation._id.toString(),
-          customerId: customerId 
+      const chat = await findOrMigrateCustomerChat({ customerId, storeId });
+      if (chat) {
+        const resolvedStoreId = chat.storeId ? chat.storeId.toString() : storeId;
+        const { memberIds } = await getStoreRecipients(resolvedStoreId);
+        socket.emit("customerChatExists", {
+          chatId: chat._id.toString(),
+          customerId,
+          storeId: resolvedStoreId,
+          storeMemberIds: memberIds,
         });
-      } else {
-        console.log("❌ No existing conversation found");
-        // Don't emit anything - wait for first message to create conversation
       }
     } catch (err) {
-      console.error("❌ Error checking conversation:", err);
-      socket.emit("error", { message: "Failed to check conversation" });
+      console.error("❌ Error checking customer chat:", err);
+      socket.emit("error", { message: "Failed to check customer chat" });
     }
   });
 
-  // --- START CONVERSATION ---
-  socket.on("startConversation", async ({ customerId, ownerId, firstMessage, firstFile }) => {
-    console.log("🆕 Starting conversation with first message:", firstMessage || firstFile);
-    
-    if (!mongoose.Types.ObjectId.isValid(customerId) || !mongoose.Types.ObjectId.isValid(ownerId)) {
-      return socket.emit("error", { message: "Invalid user IDs" });
+  // --- START CUSTOMER CHAT ---
+  socket.on("startCustomerChat", async ({ customerId, storeId, firstMessage, firstFile }) => {
+    console.log("🆕 Starting customer chat for store", storeId);
+    if (!mongoose.Types.ObjectId.isValid(customerId) || !mongoose.Types.ObjectId.isValid(storeId)) {
+      return socket.emit("error", { message: "Invalid customerId or storeId" });
     }
-
     try {
       const customerObjectId = new mongoose.Types.ObjectId(customerId);
-      const ownerObjectId = new mongoose.Types.ObjectId(ownerId);
-
-      let conversation = await Conversation.findOne({
-        participants: { $all: [customerObjectId, ownerObjectId] },
-      });
-
-      if (!conversation) {
-        conversation = await Conversation.create({
-          participants: [customerObjectId, ownerObjectId],
-          lastMessage: firstMessage || firstFile || "New conversation started",
-        });
-        console.log(`🆕 Created conversation: ${conversation._id}`);
-      } else {
-        console.log(`✅ Using existing conversation: ${conversation._id}`);
+      const storeObjectId = new mongoose.Types.ObjectId(storeId);
+      let chat = await findOrMigrateCustomerChat({ customerId: customerObjectId, storeId: storeObjectId });
+      if (!chat) {
+        chat = await CustomerChat.create({ participants: [customerObjectId, storeObjectId], storeId: storeObjectId });
+        console.log("🆕 Created customer chat", chat._id.toString());
       }
-
-      // If there's a first message, create it
       if (firstMessage || firstFile) {
-        const message = await Message.create({
-          conversationId: conversation._id,
-          senderId: customerObjectId,
-          text: firstMessage || "",
-          fileName: firstFile || null,
-          createdAt: new Date(),
-        });
-
-        await Conversation.findByIdAndUpdate(conversation._id, {
-          lastMessage: firstMessage || firstFile || "File",
-          updatedAt: new Date(),
-        });
-
-        // Send the created message back
-        socket.emit("messageSent", {
-          _id: message._id.toString(),
-          conversationId: conversation._id.toString(),
-          senderId: customerId,
-          text: message.text,
-          fileName: message.fileName,
-          createdAt: message.createdAt,
-        });
+        await chat.appendMessage({ senderId: customerObjectId, text: firstMessage || "", fileName: firstFile || null });
       }
-
-      socket.emit("conversationCreated", { 
-        conversationId: conversation._id.toString(),
-        customerId: customerId 
+      const resolvedStoreId = chat.storeId ? chat.storeId.toString() : storeId;
+      const { memberIds } = await getStoreRecipients(resolvedStoreId);
+      socket.emit("customerChatCreated", {
+        chatId: chat._id.toString(),
+        customerId,
+        storeId: resolvedStoreId,
+        storeMemberIds: memberIds,
       });
-
-      // Notify owner about new conversation/message
-      if (onlineUsers[ownerId]) {
+      if (memberIds.length) {
         const customer = await User.findById(customerObjectId).select("firstName lastName").lean();
-        const customerName = customer ? `${customer.firstName} ${customer.lastName}` : "Unknown Customer";
-
-        io.to(onlineUsers[ownerId].socketId).emit("newConversation", {
-          customerId: customerId,
-          customerName: customerName,
-          conversationId: conversation._id.toString(),
-          lastMessage: firstMessage || firstFile || "New conversation",
-        });
-        console.log(`📢 Notified owner ${ownerId} about new conversation`);
+        const notifyPayload = {
+          customerId,
+          chatId: chat._id.toString(),
+          lastMessage: firstMessage || firstFile || chat.lastMessage || "New chat",
+          customerName: customer ? `${customer.firstName} ${customer.lastName}` : "Customer",
+          storeId: resolvedStoreId,
+        };
+        emitToUserIds(io, memberIds, "newCustomerChat", notifyPayload);
+        console.log(`📢 Emitted newCustomerChat to store ${resolvedStoreId} member(s)`);
       }
     } catch (err) {
-      console.error("❌ Error starting conversation:", err);
-      socket.emit("error", { message: "Failed to start conversation" });
+      console.error("❌ startCustomerChat error", err);
+      socket.emit("error", { message: "Failed to start customer chat" });
     }
   });
 
-  // --- SEND MESSAGE ---
-  socket.on("sendMessage", async ({ conversationId, senderId, receiverId, text, fileUrl, fileName }) => {
-    console.log("📨 Sending message to conversation:", conversationId);
-    
-    if (!mongoose.Types.ObjectId.isValid(conversationId) || !mongoose.Types.ObjectId.isValid(senderId)) {
+  // --- SEND CUSTOMER MESSAGE ---
+  socket.on("sendCustomerMessage", async ({ chatId, senderId, receiverId, text, fileUrl, fileName }) => {
+    console.log("📨 Customer message -> chat:", chatId);
+    if (!mongoose.Types.ObjectId.isValid(chatId) || !mongoose.Types.ObjectId.isValid(senderId)) {
       return socket.emit("error", { message: "Invalid IDs" });
     }
-
     try {
-      const conversationObjectId = new mongoose.Types.ObjectId(conversationId);
-      const senderObjectId = new mongoose.Types.ObjectId(senderId);
-
-      const message = await Message.create({
-        conversationId: conversationObjectId,
-        senderId: senderObjectId,
-        text: text || "",
-        fileUrl: fileUrl || null,
-        fileName: fileName || null,
-        createdAt: new Date(),
-      });
-
-      await Conversation.findByIdAndUpdate(conversationObjectId, {
-        lastMessage: text || fileName || "File",
-        updatedAt: new Date(),
-      });
-
-      const messageData = {
+      const chat = await CustomerChat.findById(chatId);
+      if (!chat) return socket.emit("error", { message: "Chat not found" });
+      const message = await chat.appendMessage({ senderId, text: text || "", fileUrl: fileUrl || null, fileName: fileName || null });
+      const msgPayload = {
         _id: message._id.toString(),
-        conversationId: conversationId,
-        senderId: senderId,
+        chatId,
+        senderId,
         text: message.text,
         fileUrl: message.fileUrl,
         fileName: message.fileName,
         createdAt: message.createdAt,
+        storeId: chat.storeId ? chat.storeId.toString() : null,
       };
-
-      // Emit to receiver
-      if (receiverId && onlineUsers[receiverId]) {
-        io.to(onlineUsers[receiverId].socketId).emit("receiveMessage", messageData);
-        console.log(`✅ Sent message to receiver ${receiverId}`);
+      const customerId = getCustomerIdFromChat(chat);
+      const senderIdStr = senderId.toString();
+      const isCustomerSender = customerId && senderIdStr === customerId;
+      let storeMemberIds = [];
+      if (chat.storeId) {
+        const recipients = await getStoreRecipients(chat.storeId);
+        storeMemberIds = recipients.memberIds;
       }
-
-      // Echo to sender
-      socket.emit("messageSent", messageData);
-      console.log(`✅ Confirmed message sent to sender ${senderId}`);
+      if (isCustomerSender) {
+        emitToUserIds(io, storeMemberIds, "receiveCustomerMessage", msgPayload);
+      } else {
+        const targetId = receiverId || customerId;
+        if (targetId && onlineUsers[targetId]) {
+          io.to(onlineUsers[targetId].socketId).emit("receiveCustomerMessage", msgPayload);
+        }
+        emitToUserIds(io, storeMemberIds, "receiveCustomerMessage", msgPayload, senderIdStr);
+      }
+      socket.emit("customerMessageSent", msgPayload);
     } catch (err) {
-      console.error("❌ Error sending message:", err);
-      socket.emit("error", { message: "Failed to send message" });
+      console.error("❌ sendCustomerMessage error", err);
+      socket.emit("error", { message: "Failed to send customer message" });
+    }
+  });
+
+  // --- STAFF GET/CREATE CHAT ---
+  socket.on("staffGetOrCreateChat", async ({ userAId, userBId }) => {
+    if (!mongoose.Types.ObjectId.isValid(userAId) || !mongoose.Types.ObjectId.isValid(userBId)) return socket.emit("error", { message: "Invalid user IDs" });
+    try {
+      const aId = new mongoose.Types.ObjectId(userAId);
+      const bId = new mongoose.Types.ObjectId(userBId);
+      let chat = await StaffChat.findOne({ participants: { $all: [aId, bId] } });
+      if (!chat) chat = await StaffChat.create({ participants: [aId, bId] });
+      socket.emit("staffChatReady", { chatId: chat._id.toString(), participants: chat.participants.map((p) => p.toString()) });
+    } catch (err) {
+      console.error("staffGetOrCreateChat error", err);
+      socket.emit("error", { message: "Failed staff chat init" });
+    }
+  });
+
+  // --- STAFF SEND MESSAGE ---
+  socket.on("staffSendMessage", async ({ chatId, senderId, receiverId, text, fileUrl, fileName }) => {
+    if (!mongoose.Types.ObjectId.isValid(chatId) || !mongoose.Types.ObjectId.isValid(senderId)) return socket.emit("error", { message: "Invalid IDs" });
+    try {
+      const chat = await StaffChat.findById(chatId);
+      if (!chat) return socket.emit("error", { message: "Staff chat not found" });
+      const message = await chat.appendMessage({ senderId, text: text || "", fileUrl: fileUrl || null, fileName: fileName || null });
+      const payload = { _id: message._id.toString(), chatId, senderId, text: message.text, fileUrl: message.fileUrl, fileName: message.fileName, createdAt: message.createdAt };
+      if (receiverId && onlineUsers[receiverId]) io.to(onlineUsers[receiverId].socketId).emit("staffReceiveMessage", payload);
+      socket.emit("staffMessageSent", payload);
+    } catch (err) {
+      console.error("staffSendMessage error", err);
+      socket.emit("error", { message: "Failed to send staff message" });
     }
   });
 
   // --- TYPING INDICATOR ---
   socket.on("typing", ({ conversationId, isTyping, userId }) => {
-    console.log(`⌨️ Typing: ${isTyping} by ${userId}`);
-    
-    // Broadcast typing status to other participants in the conversation
-    socket.to(conversationId).emit("userTyping", { 
-      isTyping, 
-      userId 
+    if (!conversationId) return;
+    console.log(`⌨️ Typing: ${isTyping} by ${userId} in ${conversationId}`);
+    socket.to(conversationId).emit("userTyping", {
+      conversationId,
+      isTyping,
+      userId,
     });
   });
 
   // --- JOIN CONVERSATION ROOM ---
-  socket.on("joinConversation", (conversationId) => {
-    socket.join(conversationId);
-    console.log(`👥 User joined conversation: ${conversationId}`);
+  socket.on("joinChat", (chatId) => {
+    socket.join(chatId);
+    console.log(`👥 User joined chat room: ${chatId}`);
   });
 
   // --- DISCONNECT ---

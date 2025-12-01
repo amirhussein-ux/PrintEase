@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import DashboardLayout from '../shared_components/DashboardLayout';
 import api from '../../../lib/api';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 
 type OrderStatus = 'pending' | 'processing' | 'ready' | 'completed' | 'cancelled';
@@ -218,12 +218,26 @@ export default function OrderManagement() {
 	const [showSkeleton, setShowSkeleton] = useState(true);
 	const [contentReady, setContentReady] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [activeTab, setActiveTab] = useState<Exclude<OrderStatus, 'cancelled'>>('pending');
+	const getStatusFromSearch = (search: string) => {
+		const s = new URLSearchParams(search).get('status') || '';
+		if (s === 'pending' || s === 'processing' || s === 'ready' || s === 'completed') return s as Exclude<OrderStatus, 'cancelled'>;
+		return 'pending' as Exclude<OrderStatus, 'cancelled'>;
+	};
+
+	const [activeTab, setActiveTab] = useState<Exclude<OrderStatus, 'cancelled'>>(() =>
+		typeof window !== 'undefined' ? getStatusFromSearch(window.location.search) : 'pending'
+	);
 	const [updatingId, setUpdatingId] = useState<string | null>(null);
 	const [searchQuery, setSearchQuery] = useState('');
 	const [dateFilter, setDateFilter] = useState<string>('all');
 	const [showDateFilter, setShowDateFilter] = useState(false);
 	const navigate = useNavigate();
+	const location = useLocation();
+
+	useEffect(() => {
+		const st = getStatusFromSearch(location.search);
+		setActiveTab(st);
+	}, [location.search]);
 
 	useEffect(() => {
 		let cancelled = false;
@@ -498,7 +512,10 @@ export default function OrderManagement() {
 									return (
 										<button
 											key={value}
-											onClick={() => setActiveTab(value)}
+											onClick={() => {
+												setActiveTab(value);
+												navigate(`/dashboard/orders?status=${value}`);
+											}}
 											className={`flex-1 sm:flex-none min-w-[9rem] inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out transform hover:scale-105 ${
 												active
 													? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25'

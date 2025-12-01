@@ -31,7 +31,7 @@ async function getOwnerStore(req) {
 
 exports.listMyEmployees = async (req, res) => {
   try {
-    const store = await getManagedStore(req, { allowEmployeeRoles: ['Operations Manager'] });
+    const store = await getManagedStore(req, { allowEmployeeRoles: ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'] });
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
     const employees = await Employee.find({ store: store._id }).sort({ createdAt: -1 });
     res.json(employees);

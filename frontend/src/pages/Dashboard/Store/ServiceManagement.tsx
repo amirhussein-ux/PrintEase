@@ -1,4 +1,5 @@
-import { Fragment, useMemo, useState, useEffect } from "react";
+import React, { Fragment, useMemo, useState, useEffect, useLayoutEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import { useAuth } from "../../../context/AuthContext";
 import { Dialog, DialogPanel, Transition, Tab } from "@headlessui/react";
@@ -194,6 +195,14 @@ export default function ServiceManagement() {
   const [loading, setLoading] = useState(false);
   const [deletedServices, setDeletedServices] = useState<ServiceItem[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<null | string>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [tabIndex, setTabIndex] = useState<number>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.location.pathname.includes('/dashboard/services/deleted')) return 1;
+    } catch {}
+    return 0;
+  });
   // UI transition helpers
   const [showSkeleton, setShowSkeleton] = useState(true);
   const [contentReady, setContentReady] = useState(false);
@@ -234,6 +243,40 @@ export default function ServiceManagement() {
       cancelled = true;
     };
   }, []);
+
+  // sync tab index and modal with route (useLayoutEffect to apply before paint)
+  useLayoutEffect(() => {
+    if (location.pathname.includes("/dashboard/services/add")) {
+      // open add modal
+      setEditing(null);
+      setShowModal(true);
+      setTabIndex(0);
+      return;
+    }
+    if (location.pathname.includes("/dashboard/services/deleted")) {
+      setTabIndex(1);
+      return;
+    }
+    // default to services tab
+    setTabIndex(0);
+  }, [location.pathname]);
+
+  // when user closes the add modal, navigate back to /dashboard/services
+  useEffect(() => {
+    if (!showModal && location.pathname.includes("/dashboard/services/add")) {
+      navigate("/dashboard/services", { replace: true });
+    }
+  }, [showModal, location.pathname, navigate]);
+
+  // update URL when tab changes (keep in sync)
+  useEffect(() => {
+    if (tabIndex === 1 && !location.pathname.includes("/dashboard/services/deleted")) {
+      navigate("/dashboard/services/deleted", { replace: true });
+    } else if (tabIndex === 0 && location.pathname.includes("/dashboard/services/deleted")) {
+      navigate("/dashboard/services", { replace: true });
+    }
+    // otherwise do not navigate to avoid stomping /add route when opening modal
+  }, [tabIndex]);
 
   // Crossfade skeleton -> content
   useEffect(() => {
@@ -526,7 +569,7 @@ export default function ServiceManagement() {
         </div>
 
         {/* Tabs: Active/Disabled and Deleted */}
-        <Tab.Group>
+        <Tab.Group selectedIndex={tabIndex} onChange={(i) => setTabIndex(i)}>
           <Tab.List className="mb-6 flex gap-3 p-1 bg-gray-800/50 rounded-2xl border border-gray-600 backdrop-blur-sm w-fit">
             <Tab
               className={({ selected }) =>

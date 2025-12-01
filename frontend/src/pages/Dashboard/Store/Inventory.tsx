@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, Fragment, useRef, useCallback } from "react";
+import { useLocation } from "react-router-dom";
 import { Dialog, DialogPanel, Transition } from "@headlessui/react";
 import {
     PencilSquareIcon,
@@ -122,6 +123,19 @@ const Inventory: React.FC = () => {
 
     // Tab state
     const [activeTab, setActiveTab] = useState<"graph" | "products" | "employee">("graph");
+    const location = useLocation();
+
+    // Set initial tab based on the current path (so we can route to specific inventory subpages)
+    useEffect(() => {
+        try {
+            const p = location.pathname || "";
+            if (p.includes("/dashboard/inventory/products")) setActiveTab("products");
+            else if (p.includes("/dashboard/inventory/employees")) setActiveTab("employee");
+            else if (p.includes("/dashboard/inventory/analytics") || p.includes("/dashboard/inventory")) setActiveTab("graph");
+        } catch {
+            // ignore
+        }
+    }, [location.pathname]);
 
     // Product state
     const [showModal, setShowModal] = useState(false);

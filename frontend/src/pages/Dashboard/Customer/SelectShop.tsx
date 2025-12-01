@@ -714,7 +714,10 @@ export default function SelectShop() {
                   type="button"
                   onClick={() => {
                     if (!selectedStore) return;
-                    // navigate to customer dashboard and include selected store id in state
+                    try {
+                      localStorage.setItem('customerStoreId', selectedStore._id);
+                      localStorage.setItem('customerStore', JSON.stringify(selectedStore));
+                    } catch { /* ignore */ }
                     navigate('/dashboard/customer', { state: { storeId: selectedStore._id } });
                   }}
           className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white border border-blue-600 px-3 py-2 text-sm"
@@ -979,7 +982,14 @@ export default function SelectShop() {
         <div>
                 <button
                   type="button"
-                  onClick={() => navigate('/dashboard/customer', { state: { storeId: selectedStore._id } })}
+                  onClick={() => {
+                    if (!selectedStore) return;
+                    try {
+                      localStorage.setItem('customerStoreId', selectedStore._id);
+                      localStorage.setItem('customerStore', JSON.stringify(selectedStore));
+                    } catch { /* ignore */ }
+                    navigate('/dashboard/customer', { state: { storeId: selectedStore._id } });
+                  }}
           className="w-full rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-sm text-white border border-blue-600"
                 >
                   Select this store

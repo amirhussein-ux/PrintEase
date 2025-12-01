@@ -120,7 +120,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       else if (data.avatar === '') form.append('avatar', '');
     }
 
-    const res = await api.put('/auth/profile', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    // Let axios set the Content-Type (including multipart boundary) automatically
+    // when sending FormData. Setting it manually can omit the required boundary.
+    const res = await api.put('/auth/profile', form);
     const updated: User = res.data.user;
     if (!updated) throw new Error('Failed updating profile');
     setUser(updated);

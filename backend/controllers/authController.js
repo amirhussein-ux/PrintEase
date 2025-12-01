@@ -113,6 +113,8 @@ exports.loginUser = async (req, res) => {
         return res.status(400).json({ message: "Invalid email or password" });
       }
 
+      // Include avatar information if present
+      const avatarUrl = user.avatarFileId ? `${req.protocol}://${req.get('host')}/api/auth/avatar/${user.avatarFileId}` : null;
       return res.json({
         user: {
           _id: user._id,
@@ -120,6 +122,9 @@ exports.loginUser = async (req, res) => {
           lastName: user.lastName,
           email: user.email,
           role: user.role,
+          avatarFileId: user.avatarFileId || null,
+          avatarMime: user.avatarMime || null,
+          avatarUrl,
         },
         token: generateToken({ id: user._id, role: user.role }),
       });
@@ -189,7 +194,13 @@ exports.updateProfile = async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
+    // Basic request logging for debugging upload/deletion issues
+    console.log('updateProfile called for userId=', userId, 'hasFile=', !!req.file, 'bodyKeys=', Object.keys(req.body || {}));
+
     const { firstName, lastName, address, phone } = req.body;
+
+    // Load existing user to know if an avatar file exists (for cleanup)
+    const existingUser = await User.findById(userId).select('avatarFileId');
 
     const updates = {};
     if (typeof firstName === 'string') updates.firstName = firstName;
@@ -197,8 +208,9 @@ exports.updateProfile = async (req, res) => {
     if (typeof address === 'string') updates.address = address;
     if (typeof phone === 'string') updates.phone = phone;
 
-  // If avatar uploaded, store to GridFS
-  if (req.file && req.file.buffer) {
+    // If avatar uploaded, store to GridFS. After successful upload, delete previous avatar file if present.
+    if (req.file && req.file.buffer) {
+      console.log('Uploading new avatar for user', userId, 'mimetype=', req.file.mimetype, 'size=', req.file.size);
       const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
       const uploadStream = bucket.openUploadStream(`${userId}-avatar`, { contentType: req.file.mimetype });
       uploadStream.end(req.file.buffer);
@@ -208,18 +220,72 @@ exports.updateProfile = async (req, res) => {
         uploadStream.on('error', reject);
       });
 
-      // If existing avatar exists, it could be cleaned up later; keep simple for now.
+      // Set new avatar info
       updates.avatarFileId = uploadStream.id;
       updates.avatarMime = req.file.mimetype;
+
+      // Clean up previous avatar file if it exists and is different
+      try {
+        if (existingUser && existingUser.avatarFileId && existingUser.avatarFileId.toString() !== uploadStream.id.toString()) {
+          const prevId = existingUser.avatarFileId;
+          console.log('Deleting previous avatar for user', userId, 'fileId=', prevId.toString());
+          try {
+            // Check file exists first to avoid GridFSBucket.delete throwing when file not found
+            const _id = (prevId && typeof prevId === 'object' && prevId._bsontype) ? prevId : new mongoose.Types.ObjectId(prevId);
+            const files = await bucket.find({ _id }).toArray();
+            if (files && files.length) {
+              await new Promise((resolve, reject) => {
+                bucket.delete(_id, (err) => (err ? reject(err) : resolve()));
+              });
+            } else {
+              console.log('Previous avatar file not found in GridFS, skipping delete for', prevId.toString());
+            }
+          } catch (innerErr) {
+            console.warn('Error while attempting to delete previous avatar file:', innerErr && innerErr.message ? innerErr.message : innerErr);
+          }
+        }
+      } catch (e) {
+        // Log but don't fail the request on cleanup errors
+        console.warn('Failed deleting previous avatar file (outer):', e && e.message ? e.message : e);
+      }
     }
-    // if client passes avatar as empty string, treat as delete avatar
+
+    // if client passes avatar as empty string, treat as delete avatar and remove existing file
     if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'avatar') && req.body.avatar === '') {
+      // delete existing file if present
+      if (existingUser && existingUser.avatarFileId) {
+        const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+        try {
+          const prevId = existingUser.avatarFileId;
+          console.log('Deleting avatar per user request for', userId, 'fileId=', prevId.toString());
+          try {
+            const _id = (prevId && typeof prevId === 'object' && prevId._bsontype) ? prevId : new mongoose.Types.ObjectId(prevId);
+            const files = await bucket.find({ _id }).toArray();
+            if (files && files.length) {
+              await new Promise((resolve, reject) => {
+                bucket.delete(_id, (err) => (err ? reject(err) : resolve()));
+              });
+            } else {
+              console.log('Avatar file not found in GridFS during removal request, skipping delete for', prevId.toString());
+            }
+          } catch (innerErr) {
+            console.warn('Failed deleting avatar during removal request (inner):', innerErr && innerErr.message ? innerErr.message : innerErr);
+          }
+        } catch (e) {
+          console.warn('Failed deleting avatar during removal request (outer):', e && e.message ? e.message : e);
+        }
+      }
       updates.avatarFileId = undefined;
       updates.avatarMime = undefined;
     }
 
     const user = await User.findByIdAndUpdate(userId, updates, { new: true }).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Build a convenient avatar URL for the client if an avatar file exists
+    const avatarUrl = user.avatarFileId
+      ? `${req.protocol}://${req.get('host')}/api/auth/avatar/${user.avatarFileId}`
+      : null;
 
     res.json({
       user: {
@@ -232,6 +298,7 @@ exports.updateProfile = async (req, res) => {
         phone: user.phone || '',
         avatarFileId: user.avatarFileId || null,
         avatarMime: user.avatarMime || null,
+        avatarUrl,
       }
     });
   } catch (error) {
@@ -247,13 +314,47 @@ exports.getAvatarById = async (req, res) => {
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
     const _id = new mongoose.Types.ObjectId(id);
 
-    // Optionally set content type header by looking up file metadata
+    // Look up file metadata first. If file doesn't exist, return an SVG with initials.
+    let files = [];
     try {
-      const files = await bucket.find({ _id }).toArray();
-      if (files && files[0] && files[0].contentType) {
+      files = await bucket.find({ _id }).toArray();
+    } catch (e) {
+      files = [];
+    }
+
+    if (!files || files.length === 0) {
+      // Try to find a user that references this avatarFileId to get names for initials
+      let initials = 'CU';
+      try {
+        const user = await User.findOne({ avatarFileId: _id }).select('firstName lastName');
+        if (user) {
+          const fn = (user.firstName || '').trim();
+          const ln = (user.lastName || '').trim();
+          const a = fn ? fn.charAt(0).toUpperCase() : '';
+          const b = ln ? ln.charAt(0).toUpperCase() : (fn ? (fn.length > 1 ? fn.charAt(1).toUpperCase() : '') : 'U');
+          initials = (a || 'C') + (b || 'U');
+        }
+      } catch (e) {
+        // ignore and fall through to default initials
+      }
+
+      // Generate a simple SVG avatar with initials. Use inline SVG so it can be returned as an image.
+      const svg = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+        `<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'>` +
+        `<rect width='100%' height='100%' fill='#4b5563'/>` +
+        `<text x='50%' y='50%' dominant-baseline='central' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='96' fill='#ffffff'>${initials}</text>` +
+        `</svg>`;
+
+      res.setHeader('Content-Type', 'image/svg+xml');
+      return res.status(200).send(svg);
+    }
+
+    // If file exists, set content type from metadata and stream it
+    try {
+      if (files[0] && files[0].contentType) {
         res.setHeader('Content-Type', files[0].contentType);
       }
-    } catch {}
+    } catch (e) {}
 
     bucket.openDownloadStream(_id).on('error', () => res.status(404).end()).pipe(res);
   } catch (error) {

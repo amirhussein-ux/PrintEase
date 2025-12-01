@@ -59,6 +59,22 @@ function App() {
               <ServiceManagement />
             </PrivateRoute>
           }
+          />
+           <Route
+          path="/dashboard/services/add"
+          element={
+            <PrivateRoute>
+              <ServiceManagement />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/dashboard/services/deleted"
+          element={
+            <PrivateRoute>
+              <ServiceManagement />
+            </PrivateRoute>
+          }
         />
         <Route
           path="/dashboard/inventory"
@@ -69,7 +85,31 @@ function App() {
           }
         />
         <Route
-          path="/dashboard/chat-owner"
+          path="/dashboard/inventory/analytics"
+          element={
+            <PrivateRoute>
+              <Inventory />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/dashboard/inventory/products"
+          element={
+            <PrivateRoute>
+              <Inventory />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/dashboard/inventory/employees"
+          element={
+            <PrivateRoute>
+              <Inventory />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/dashboard/chat-store"
           element={
             <PrivateRoute>
               <Chat role="owner" />

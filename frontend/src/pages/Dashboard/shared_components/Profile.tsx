@@ -71,7 +71,7 @@ export default function Profile() {
   };
 
   const openCropper = () => {
-    const src = avatarPreview || currentAvatarUrl;
+    const src = avatarPreview || effectiveAvatarUrl;
     if (src) {
       setCropperSrc(src);
     } else if (isEditing) {
@@ -109,6 +109,8 @@ export default function Profile() {
     { id: 'phone', label: 'Phone Number', value: phone, setValue: setPhone, type: 'tel' },
   ];
   const currentAvatarUrl = user?.avatarUrl || null;
+  // When user chooses to remove the avatar locally, treat it as absent so UI shows initials immediately
+  const effectiveAvatarUrl = avatarDeleted ? null : currentAvatarUrl;
 
   const gradientClass = isOwnerContext
     ? 'bg-gradient-to-r from-[#0f172a] via-[#1e3a8a]/90 to-white'
@@ -168,8 +170,8 @@ export default function Profile() {
                 >
                   {avatarPreview ? (
                     <img src={avatarPreview} alt="Profile avatar preview" className="h-full w-full rounded-full object-cover" />
-                  ) : currentAvatarUrl ? (
-                    <img src={currentAvatarUrl} alt="Profile avatar" className="h-full w-full rounded-full object-cover" />
+                  ) : effectiveAvatarUrl ? (
+                    <img src={effectiveAvatarUrl} alt="Profile avatar" className="h-full w-full rounded-full object-cover" />
                   ) : (
                     initials
                   )}
@@ -185,7 +187,7 @@ export default function Profile() {
                 )}
               </div>
 
-              {isEditing && (avatarPreview || avatarFile || user?.avatarUrl) && (
+              {isEditing && (avatarPreview || avatarFile || (!avatarDeleted && currentAvatarUrl)) && (
                 <button
                   type="button"
                   onClick={onDeleteAvatar}

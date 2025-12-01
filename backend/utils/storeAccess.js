@@ -30,10 +30,6 @@ async function findStoreById(storeId) {
   return store;
 }
 
-/**
- * Resolve the store the current request user is allowed to manage.
- * Owners resolve via their owned store; employees require explicit allow-list for their employee role.
- */
 async function getManagedStore(req, { allowEmployeeRoles = [] } = {}) {
   if (!req || !req.user) {
     throw new AccessError('Unauthorized', 401);

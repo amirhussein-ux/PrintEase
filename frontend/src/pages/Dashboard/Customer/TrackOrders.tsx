@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
 import DashboardLayout from '../../Dashboard/shared_components/DashboardLayout';
 import jsPDF from 'jspdf';
@@ -128,6 +129,8 @@ export default function TrackOrders() {
   const [showReceiptFor, setShowReceiptFor] = useState<string | null>(null);
   const { socket } = useSocket();
   const [storeCache, setStoreCache] = useState<Record<string, { name: string; addressLine?: string; city?: string; state?: string; country?: string; postal?: string; mobile?: string }>>({});
+  const location = useLocation();
+  const navigate = useNavigate();
 
   // Close modal on ESC and lock body scroll when open
   useEffect(() => {
@@ -165,6 +168,21 @@ export default function TrackOrders() {
       cancelled = true;
     };
   }, []);
+
+  // Sync filter from query param (?status=processing etc.)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const status = params.get('status');
+    if (!status) {
+      setActiveFilter('all');
+      return;
+    }
+    if (['pending','processing','ready','completed','cancelled'].includes(status)) {
+      setActiveFilter(status as OrderStatus);
+    } else if (status === 'all') {
+      setActiveFilter('all');
+    }
+  }, [location.search]);
 
   // Fetch store info on-demand for receipt
   // Fetch (and cache) store info; return it immediately for use in rendering or PDF
@@ -323,7 +341,13 @@ export default function TrackOrders() {
               return (
                 <button
                   key={value}
-                  onClick={() => setActiveFilter(value)}
+                  onClick={() => {
+                    setActiveFilter(value);
+                    const params = new URLSearchParams();
+                    if (value !== 'all') params.set('status', value);
+                    const qs = params.toString();
+                    navigate(`/dashboard/my-orders${qs ? `?${qs}` : ''}`, { replace: false });
+                  }}
                   className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${
                     active
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-500/25'
