@@ -359,7 +359,8 @@ exports.listMyServices = async (req, res) => {
 exports.listByStore = async (req, res) => {
   try {
     const { storeId } = req.params;
-    const list = await Service.find({ store: storeId, active: true, deletedAt: null }).sort({ createdAt: -1 });
+    // REMOVED "active: true" so it returns ALL items (both enabled and disabled)
+    const list = await Service.find({ store: storeId, deletedAt: null }).sort({ createdAt: -1 });
     res.json(list);
   } catch (err) {
     res.status(500).json({ message: err.message });

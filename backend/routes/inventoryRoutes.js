@@ -5,25 +5,29 @@ const {
   listMyInventory,
   createItem,
   updateItem,
-  deleteItem,
+  archiveItem,        // Renamed from deleteItem
   listByStore,
-  listDeletedItems,
-  restoreDeletedItem,
-  purgeDeletedItem,
+  listArchivedItems,  // Renamed from listDeletedItems
+  restoreArchivedItem, // Renamed from restoreDeletedItem
+  purgeArchivedItem,   // Renamed from purgeDeletedItem
 } = require('../controllers/inventoryController');
 
 const router = express.Router();
 
-// owner
+// Owner Routes
 router.get('/mine', protect, listMyInventory);
 router.post('/', protect, auditLogger('create', 'Inventory'), createItem);
 router.put('/:id', protect, auditLogger('update', 'Inventory'), updateItem);
-router.delete('/:id', protect, auditLogger('delete', 'Inventory'), deleteItem);
-router.get('/deleted', protect, listDeletedItems);
-router.post('/deleted/:deletedId/restore', protect, auditLogger('restore', 'Inventory'), restoreDeletedItem);
-router.delete('/deleted/:deletedId', protect, auditLogger('purge', 'Inventory'), purgeDeletedItem);
 
-// public
+// Using DELETE method, but logic is Archive
+router.delete('/:id', protect, auditLogger('archive', 'Inventory'), archiveItem);
+
+// Archive Routes
+router.get('/deleted', protect, listArchivedItems);
+router.post('/deleted/:deletedId/restore', protect, auditLogger('restore', 'Inventory'), restoreArchivedItem);
+router.delete('/deleted/:deletedId', protect, auditLogger('purge', 'Inventory'), purgeArchivedItem);
+
+// Public Routes
 router.get('/store/:storeId', listByStore);
 
 module.exports = router;
