@@ -116,6 +116,12 @@ export default function Testimonials(): JSX.Element {
   const SIDE_SCALE = 0.92;
   const SIDE_OPACITY = 0.55;
 
+  // Fast transition durations
+  const FAST_TRANSITION = {
+    duration: 0.3, // Much faster - was 0.8
+    ease: "easeInOut"
+  };
+
   return (
     <section className="w-full py-20 bg-gradient-to-b from-white via-blue-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -123,7 +129,7 @@ export default function Testimonials(): JSX.Element {
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+          transition={FAST_TRANSITION}
           viewport={{ once: true }}
           className="text-center mb-16"
         >
@@ -140,7 +146,7 @@ export default function Testimonials(): JSX.Element {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: 0.4, delay: 0.2 }} // Faster
           viewport={{ once: true }}
           className="flex justify-center mb-12"
         >
@@ -156,10 +162,10 @@ export default function Testimonials(): JSX.Element {
                   setFilter(key as any);
                   setIndex(0);
                 }}
-                className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                className={`px-6 py-3 rounded-xl font-semibold transition-colors ${
                   filter === key
                     ? 'bg-blue-600 text-white shadow-md'
-                    : 'text-gray-600 hover:text-blue-600'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                 }`}
               >
                 {label}
@@ -171,7 +177,7 @@ export default function Testimonials(): JSX.Element {
         {/* Testimonials Stage */}
         <div className="relative flex justify-center items-center w-full overflow-visible px-4">
           <div className="relative w-full max-w-4xl h-[28rem] sm:h-96">
-            <AnimatePresence mode="wait">
+            <AnimatePresence mode="sync"> {/* Changed from "wait" to "sync" */}
               {testimonials.map((t, i) => {
                 const pos = getPosition(i);
                 if (pos === "hidden") return null;
@@ -200,17 +206,35 @@ export default function Testimonials(): JSX.Element {
                   <motion.div
                     key={`${t.author}-${i}`}
                     layout
-                    initial={{ opacity: 0, scale: 0.8, x: isMobile ? 0 : 100 }}
-                    animate={{ x, y, scale, opacity, zIndex }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ type: "spring", stiffness: 70, damping: 20 }}
+                    initial={{ opacity: 0, scale: 0.9, x: isMobile ? 0 : 100 }}
+                    animate={{ 
+                      x, 
+                      y, 
+                      scale, 
+                      opacity, 
+                      zIndex,
+                      transition: {
+                        type: "tween", // Changed from "spring" for faster animation
+                        duration: 0.3, // Much faster
+                        ease: "easeInOut"
+                      }
+                    }}
+                    exit={{ 
+                      opacity: 0, 
+                      scale: 0.9,
+                      x: isMobile ? 0 : -100,
+                      transition: {
+                        duration: 0.2, // Very fast exit
+                        ease: "easeIn"
+                      }
+                    }}
                     onClick={() => setIndex(filteredTestimonials.indexOf(t))}
-                    className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-md w-full rounded-2xl p-8 shadow-2xl cursor-pointer border ${
+                    className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-md w-full rounded-2xl p-8 shadow-2xl cursor-pointer border transition-colors ${
                       pos === "center" 
                         ? t.type === 'customer' 
                           ? "bg-blue-900 text-white border-blue-700" 
-                          : "bg-gradient-to-r from-cyan-900 to-blue-900 text-white border-cyan-700"
-                        : "bg-white text-gray-800 border-gray-200"
+                          : "bg-gradient-to-r from-blue-900 to-indigo-900 text-white border-blue-700"
+                        : "bg-white text-gray-800 border-gray-200 hover:border-blue-300"
                     }`}
                   >
                     {/* Quote Icon */}
@@ -254,14 +278,14 @@ export default function Testimonials(): JSX.Element {
                         }`}>
                           {t.role}
                         </p>
-                        <div className={`inline-flex items-center gap-1 mt-1 px-2 py-1 rounded-full text-xs font-medium ${
+                        <div className={`inline-flex items-center gap-1 mt-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
                           t.type === 'customer'
                             ? pos === "center" 
                               ? "bg-blue-700 text-blue-100" 
                               : "bg-blue-100 text-blue-700"
                             : pos === "center"
-                              ? "bg-cyan-700 text-cyan-100"
-                              : "bg-cyan-100 text-cyan-700"
+                              ? "bg-indigo-700 text-indigo-100"
+                              : "bg-indigo-100 text-indigo-700"
                         }`}>
                           {t.type === 'customer' ? '👤 Customer' : '🏪 Shop Owner'}
                         </div>
@@ -278,7 +302,7 @@ export default function Testimonials(): JSX.Element {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+          transition={{ duration: 0.4, delay: 0.4 }} // Faster
           viewport={{ once: true }}
           className="flex justify-center mt-8 space-x-3"
         >
@@ -286,14 +310,14 @@ export default function Testimonials(): JSX.Element {
             <button
               key={i}
               onClick={() => setIndex(i)}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+              className={`w-3 h-3 rounded-full transition-colors ${
                 i === index 
                   ? filter === 'customer' 
                     ? 'bg-blue-600' 
                     : filter === 'shop'
-                    ? 'bg-cyan-600'
-                    : 'bg-gray-600'
-                  : 'bg-gray-300'
+                    ? 'bg-indigo-600'
+                    : 'bg-blue-600'
+                  : 'bg-gray-300 hover:bg-gray-400'
               }`}
             />
           ))}
@@ -303,19 +327,19 @@ export default function Testimonials(): JSX.Element {
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.6 }}
+          transition={FAST_TRANSITION}
           viewport={{ once: true }}
           className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 text-center"
         >
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
             <div className="text-3xl font-bold text-blue-600 mb-2">4.9/5</div>
             <div className="text-gray-600">Average Rating</div>
           </div>
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
             <div className="text-3xl font-bold text-green-600 mb-2">95%</div>
             <div className="text-gray-600">Would Recommend</div>
           </div>
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
             <div className="text-3xl font-bold text-purple-600 mb-2">2min</div>
             <div className="text-gray-600">Average Pickup Time</div>
           </div>

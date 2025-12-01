@@ -304,8 +304,8 @@ const Contact = () => {
                     <span>Monday - Saturday: 8:00 AM - 6:00 PM</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Phone className="w-5 h-5 text-cyan-400" />
-                    <span>+63 (2) 1234-5678</span>
+                    <Mail className="w-5 h-5 text-cyan-400" />
+                    <span>printease@business.com</span>
                   </div>
                 </div>
               </div>
