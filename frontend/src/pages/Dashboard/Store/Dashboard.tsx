@@ -22,6 +22,19 @@ interface BackendInventoryItem {
   createdAt: string; 
 }
 
+// Audit Trail Types
+interface AuditLog {
+  _id: string;
+  action: string;
+  resource: string;
+  resourceId?: string;
+  user: string;
+  userRole: string;
+  timestamp: string;
+  details?: Record<string, any>;
+  ipAddress?: string;
+}
+
 // Constants
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020]
 const COLORS = ["#1e3a8a", "#60a5fa", "#d1d5db"]
@@ -252,8 +265,196 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
 }
 
 
-// Main dashboard with modern UI
-const OwnerDashboardContent: React.FC = () => {
+// Audit Trail Component
+  const AuditTrailSection = ({ 
+    logs, 
+    loading 
+  }: { 
+    logs: AuditLog[]; 
+    loading: boolean; 
+  }) => {
+    const [expandedLog, setExpandedLog] = useState<string | null>(null);
+
+    const formatDate = (dateString: string) => {
+      return new Date(dateString).toLocaleString();
+    };
+
+    const getActionColor = (action: string) => {
+      const colors: Record<string, string> = {
+        create: "bg-green-100 text-green-800 border-green-200",
+        update: "bg-blue-100 text-blue-800 border-blue-200",
+        delete: "bg-red-100 text-red-800 border-red-200",
+        login: "bg-purple-100 text-purple-800 border-purple-200",
+        logout: "bg-gray-100 text-gray-800 border-gray-200",
+        download: "bg-orange-100 text-orange-800 border-orange-200",
+        register: "bg-teal-100 text-teal-800 border-teal-200",
+        guest_login: "bg-indigo-100 text-indigo-800 border-indigo-200",
+        create_service: "bg-green-100 text-green-800 border-green-200",
+        update_service: "bg-blue-100 text-blue-800 border-blue-200",
+        delete_service: "bg-red-100 text-red-800 border-red-200",
+        restore_service: "bg-yellow-100 text-yellow-800 border-yellow-200",
+        create_employee: "bg-green-100 text-green-800 border-green-200",
+        update_employee: "bg-blue-100 text-blue-800 border-blue-200", 
+        delete_employee: "bg-red-100 text-red-800 border-red-200",
+        restore_employee: "bg-yellow-100 text-yellow-800 border-yellow-200",
+        purge_employee: "bg-red-100 text-red-800 border-red-200",
+        create_store: "bg-green-100 text-green-800 border-green-200",
+        update_store: "bg-blue-100 text-blue-800 border-blue-200",
+        update_profile: "bg-blue-100 text-blue-800 border-blue-200"
+      };
+      return colors[action.toLowerCase()] || "bg-gray-100 text-gray-800 border-gray-200";
+    };
+
+    const capitalizeFirst = (str: string) => {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    };
+
+    const getRoleColor = (role: string) => {
+      const colors: Record<string, string> = {
+        owner: "bg-yellow-100 text-yellow-800 border-yellow-300 font-bold",
+        employee: "bg-blue-100 text-blue-800 border-blue-300 font-medium",
+        customer: "bg-green-100 text-green-800 border-green-300",
+        guest: "bg-gray-100 text-gray-800 border-gray-300",
+      };
+      return colors[role.toLowerCase()] || "bg-gray-100 text-gray-800 border-gray-200";
+    };
+
+    const getActionIcon = (action: string) => {
+      const icons: Record<string, string> = {
+        // Authentication
+        login: "🔐",
+        logout: "📤",
+        register: "👤", 
+        guest_login: "👥",
+        
+        // Generic actions  
+        create: "🆕",
+        update: "✏️",
+        delete: "🗑️",
+        download: "📥",
+        restore: "🔄",
+        purge: "💥",
+        
+        // Service actions
+        create_service: "📋",
+        update_service: "✏️",
+        delete_service: "🗑️",
+        restore_service: "🔄",
+        
+        // Employee actions  
+        create_employee: "👨‍💼",
+        update_employee: "✏️",
+        delete_employee: "🗑️",
+        restore_employee: "🔄",
+        purge_employee: "💥",
+        
+        // Store actions
+        create_store: "🏪",
+        update_store: "✏️",
+        
+        // Profile actions
+        update_profile: "👤"
+      };
+      return icons[action.toLowerCase()] || "📋";
+    };
+
+    if (loading) {
+      return (
+        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+          <div className="animate-pulse space-y-4">
+            <div className="h-6 w-48 bg-gray-200 rounded"></div>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center space-x-4">
+                <div className="h-4 w-4 bg-gray-200 rounded-full"></div>
+                <div className="h-4 flex-1 bg-gray-200 rounded"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">Audit Trail</h3>
+            <p className="text-gray-600 mt-1">Recent system activities and changes</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-gray-500">Live</span>
+          </div>
+        </div>
+
+        <div className="space-y-4 max-h-96 overflow-y-auto">
+          {logs.length === 0 ? (
+            <div className="text-center py-8">
+              <DocumentChartBarIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No audit logs available</p>
+              <p className="text-gray-400 text-sm mt-2">Login or perform actions to see audit logs</p>
+            </div>
+          ) : (
+            logs.map((log) => (
+              <div
+                key={log._id}
+                className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-all duration-200 bg-white"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3 flex-1">
+                    <div className="text-lg mt-1">{getActionIcon(log.action)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getActionColor(log.action)}`}>
+                          {log.action.toUpperCase()}
+                        </div>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(log.userRole)}`}>
+                          {capitalizeFirst(log.userRole)}
+                        </div>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {log.resource}
+                      </p>
+                      <p className="text-xs text-gray-600 mt-1">
+                        By <span className="font-semibold">{log.user}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500">
+                      {formatDate(log.timestamp)}
+                    </p>
+                    <button
+                      onClick={() => setExpandedLog(expandedLog === log._id ? null : log._id)}
+                      className="text-blue-600 hover:text-blue-800 text-xs font-medium mt-1"
+                    >
+                      {expandedLog === log._id ? "Hide" : "Details"}
+                    </button>
+                  </div>
+                </div>
+
+                {expandedLog === log._id && log.details && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <pre className="text-xs text-gray-700 whitespace-pre-wrap">
+                      {JSON.stringify(log.details, null, 2)}
+                    </pre>
+                    {log.ipAddress && (
+                      <p className="text-xs text-gray-500 mt-2">
+                        IP: {log.ipAddress}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // Main dashboard with modern UI
+  const OwnerDashboardContent: React.FC = () => {
   const [year, setYear] = useState(2025)
   const [selectedServiceId, setSelectedServiceId] = useState<string>('ALL')
   const [showModal, setShowModal] = useState(false)
@@ -277,6 +478,11 @@ const OwnerDashboardContent: React.FC = () => {
     subtotal?: number
   }>>([])
   const [services, setServices] = useState<ServiceLite[]>([])
+
+  // Audit Trail State
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [showAuditTrail, setShowAuditTrail] = useState(false);
 
   // Compute monthly sales for the selected service/year based on backend orders
   const salesData = useMemo(() => {
@@ -392,6 +598,88 @@ const OwnerDashboardContent: React.FC = () => {
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Load Audit Trail - Using fetch instead of axios
+  useEffect(() => {
+    let cancelled = false;
+    
+    async function loadAuditLogs() {
+      if (!showAuditTrail) return;
+      
+      try {
+        setAuditLoading(true);
+        console.log('🔄 Loading audit logs with fetch...');
+        
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://localhost:8000/api/audit-logs/mine', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('📊 Audit logs loaded:', data.logs?.length || 0, 'entries');
+          
+          const logs: AuditLog[] = Array.isArray(data.logs) ? data.logs : [];
+          
+          if (!cancelled) {
+            setAuditLogs(logs);
+          }
+        } else {
+          console.error('❌ Failed to load audit logs:', response.status);
+          if (!cancelled) {
+            setAuditLogs([]);
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error loading audit logs:', error);
+        if (!cancelled) {
+          setAuditLogs([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setAuditLoading(false);
+        }
+      }
+    }
+
+    loadAuditLogs();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [showAuditTrail]);
+
+  // Mock data generator for demonstration
+  const generateMockAuditLogs = (): AuditLog[] => {
+    const actions = ['create', 'update', 'delete', 'login', 'download'];
+    const resources = ['Order', 'Inventory', 'Service', 'User', 'Report'];
+    const users = ['john_doe', 'jane_smith', 'admin_user', 'manager_1'];
+    const roles = ['Owner', 'Manager', 'Staff'];
+    
+    return Array.from({ length: 8 }, (_, i) => ({
+      _id: `log-${i + 1}`,
+      action: actions[Math.floor(Math.random() * actions.length)],
+      resource: resources[Math.floor(Math.random() * resources.length)],
+      resourceId: `res-${Math.floor(Math.random() * 1000)}`,
+      user: users[Math.floor(Math.random() * users.length)],
+      userRole: roles[Math.floor(Math.random() * roles.length)],
+      timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      details: {
+        changes: {
+          field: 'status',
+          from: 'pending',
+          to: 'completed'
+        },
+        notes: 'Automated system update'
+      },
+      ipAddress: `192.168.1.${Math.floor(Math.random() * 255)}`
+    }));
+  };
 
   // Crossfade skeleton -> content when loading completes
   useEffect(() => {
@@ -548,13 +836,26 @@ const OwnerDashboardContent: React.FC = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard Overview</h1>
             <p className="text-gray-600 mt-2">Welcome back! Here's your business performance summary.</p>
           </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
-          >
-            <DocumentChartBarIcon className="w-5 h-5" />
-            Generate Report
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowAuditTrail(!showAuditTrail)}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl ${
+                showAuditTrail 
+                  ? "bg-gray-600 hover:bg-gray-700 text-white" 
+                  : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200"
+              }`}
+            >
+              <DocumentChartBarIcon className="w-5 h-5" />
+              {showAuditTrail ? "Hide Audit" : "Show Audit"}
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+            >
+              <DocumentChartBarIcon className="w-5 h-5" />
+              Generate Report
+            </button>
+          </div>
         </div>
 
         {/* Overlay for skeleton and content */}
@@ -740,6 +1041,15 @@ const OwnerDashboardContent: React.FC = () => {
             </div>
           )}
         </div>
+
+        
+        {/* Audit Trail Section */}
+        {showAuditTrail && (
+          <AuditTrailSection 
+            logs={auditLogs} 
+            loading={auditLoading} 
+          />
+        )}
 
         {/* Modal */}
         {showModal && (

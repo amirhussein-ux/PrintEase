@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Star } from "lucide-react";
-import { motion } from "framer-motion";
+import { Star, Quote } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 type TestimonialType = {
   text: string;
@@ -9,30 +9,58 @@ type TestimonialType = {
   role: string;
   image: string;
   rating: number;
+  type: 'customer' | 'shop';
 };
 
 const testimonials: TestimonialType[] = [
   {
-    text: "Qui dolor enim consectetur do et non ex amet culpa sint in ea non dolore.",
-    author: "Judith Black",
-    role: "CEO of Workcation",
-    image: "https://randomuser.me/api/portraits/women/44.jpg",
+    text: "PrintEase completely transformed how I handle printing needs. Finding local shops with real-time availability and tracking my orders has never been easier!",
+    author: "Maria Santos",
+    role: "Small Business Owner",
+    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
     rating: 5,
+    type: 'customer'
   },
   {
-    text: "Amet elit laborum culpa irure incididunt adipisicing culpa amet officia exercitation.",
-    author: "Michael Green",
-    role: "Founder of Startup Inc.",
-    image: "https://randomuser.me/api/portraits/men/32.jpg",
+    text: "Since joining PrintEase, our shop has seen a 40% increase in customers. The digital order management system saves us hours every day!",
+    author: "Juan Dela Cruz",
+    role: "Print Shop Owner",
+    image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
     rating: 5,
+    type: 'shop'
   },
   {
-    text: "Anim incididunt reprehenderit in exercitation ad ex minim velit aute.",
-    author: "Sophia Carter",
-    role: "Designer at Pixel Co.",
-    image: "https://randomuser.me/api/portraits/women/68.jpg",
-    rating: 4,
+    text: "The QR code pickup system is genius! No more waiting in line. I can track my order and just scan to pick up. Absolutely love this platform!",
+    author: "Sarah Chen",
+    role: "College Student",
+    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+    rating: 5,
+    type: 'customer'
   },
+  {
+    text: "As a printing shop owner, PrintEase gave us the digital presence we needed. The analytics help us understand customer trends and grow strategically.",
+    author: "Roberto Lim",
+    role: "Printing Business Owner",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+    rating: 5,
+    type: 'shop'
+  },
+  {
+    text: "I used to drive across town for printing. Now with PrintEase, I discovered an amazing shop just 5 minutes away! The platform is a game-changer.",
+    author: "Andrea Torres",
+    role: "Freelance Designer",
+    image: "https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+    rating: 5,
+    type: 'customer'
+  },
+  {
+    text: "The customer management features helped us build lasting relationships with our clients. PrintEase isn't just a platform, it's a growth partner.",
+    author: "Michael Tan",
+    role: "Print Shop Manager",
+    image: "https://images.unsplash.com/photo-1519244703995-f4e0f30006d5?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80",
+    rating: 5,
+    type: 'shop'
+  }
 ];
 
 /** Hook: true on screens <= 640px */
@@ -56,108 +84,266 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-export default function Testimonial(): JSX.Element {
+export default function Testimonials(): JSX.Element {
   const [index, setIndex] = useState<number>(0);
+  const [filter, setFilter] = useState<'all' | 'customer' | 'shop'>('all');
   const isMobile = useIsMobile();
 
+  const filteredTestimonials = testimonials.filter(
+    testimonial => filter === 'all' || testimonial.type === filter
+  );
+
   const getPosition = (i: number) => {
-    if (i === index) return "center";
-    if (i === (index + 1) % testimonials.length) return "next";
-    if (i === (index - 1 + testimonials.length) % testimonials.length) return "prev";
+    const currentIndex = filteredTestimonials.indexOf(testimonials[i]);
+    if (currentIndex === -1) return "hidden";
+    if (currentIndex === index) return "center";
+    if (currentIndex === (index + 1) % filteredTestimonials.length) return "next";
+    if (currentIndex === (index - 1 + filteredTestimonials.length) % filteredTestimonials.length) return "prev";
     return "hidden";
   };
 
+  // Auto-advance testimonials
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % filteredTestimonials.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [filteredTestimonials.length]);
+
   // Offsets
-  const DESKTOP_X = 300;           // left/right spread
-  const MOBILE_Y = 70;             // vertical stack offset
+  const DESKTOP_X = 300;
+  const MOBILE_Y = 70;
   const SIDE_SCALE = 0.92;
   const SIDE_OPACITY = 0.55;
 
+  // Fast transition durations
+  const FAST_TRANSITION = {
+    duration: 0.3, // Much faster - was 0.8
+    ease: "easeInOut"
+  };
+
   return (
-    <section className="w-full py-16 bg-gradient-to-b from-white via-blue-100 to-white">
-      <div className="text-center mb-12">
-        <h3 className="text-indigo-600 font-semibold">Testimonials</h3>
-        <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mt-2">
-          We have worked with thousands of amazing people
-        </h2>
-      </div>
+    <section className="w-full py-20 bg-gradient-to-b from-white via-blue-50 to-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={FAST_TRANSITION}
+          viewport={{ once: true }}
+          className="text-center mb-16"
+        >
+          <h3 className="text-blue-600 font-semibold text-lg mb-3">Testimonials</h3>
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+            Loved by Customers & Shop Owners
+          </h2>
+          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+            Discover how PrintEase is transforming the printing experience for everyone in the community
+          </p>
+        </motion.div>
 
-      {/* Stage */}
-      <div className="relative flex justify-center items-center w-full overflow-visible px-4">
-        {/* Taller on mobile for the vertical stack */}
-        <div className="relative w-full max-w-4xl h-[28rem] sm:h-96">
-          {testimonials.map((t, i) => {
-            const pos = getPosition(i);
-            if (pos === "hidden") return null;
-
-            // Decide offsets based on screen size
-            const x = isMobile
-              ? 0
-              : pos === "center"
-              ? 0
-              : pos === "prev"
-              ? -DESKTOP_X
-              : DESKTOP_X;
-
-            const y = isMobile
-              ? pos === "center"
-                ? 0
-                : pos === "prev"
-                ? -MOBILE_Y
-                : MOBILE_Y
-              : 0;
-
-            const scale = pos === "center" ? 1 : SIDE_SCALE;
-            const opacity = pos === "center" ? 1 : SIDE_OPACITY;
-            const zIndex = pos === "center" ? 30 : pos === "prev" ? 20 : 10;
-
-            return (
-              <motion.div
-                key={i}
-                onClick={() => setIndex(i)}
-                layout
-                initial={false}
-                whileHover={{ scale: pos === "center" ? 1.02 : 0.95 }}
-                animate={{ x, y, scale, opacity, zIndex }}
-                transition={{ type: "spring", stiffness: 70, damping: 20 }}
-                className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-md w-full rounded-2xl p-6 shadow-2xl cursor-pointer ${
-                  pos === "center" ? "bg-blue-900 text-white" : "bg-white text-gray-800 border"
+        {/* Filter Buttons */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }} // Faster
+          viewport={{ once: true }}
+          className="flex justify-center mb-12"
+        >
+          <div className="bg-white rounded-2xl p-2 shadow-lg border border-gray-100 inline-flex">
+            {[
+              { key: 'all', label: 'All Reviews' },
+              { key: 'customer', label: 'Customers' },
+              { key: 'shop', label: 'Shop Owners' }
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => {
+                  setFilter(key as any);
+                  setIndex(0);
+                }}
+                className={`px-6 py-3 rounded-xl font-semibold transition-colors ${
+                  filter === key
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
                 }`}
               >
-                {/* Stars */}
-                <div className="flex space-x-1 mb-3">
-                  {[...Array(t.rating)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`w-5 h-5 ${
-                        pos === "center" ? "fill-indigo-400 text-indigo-400" : "fill-yellow-400 text-yellow-400"
-                      }`}
-                    />
-                  ))}
-                </div>
+                {label}
+              </button>
+            ))}
+          </div>
+        </motion.div>
 
-                {/* Text */}
-                <blockquote className="text-sm sm:text-base font-medium leading-relaxed mb-4">
-                  “{t.text}”
-                </blockquote>
+        {/* Testimonials Stage */}
+        <div className="relative flex justify-center items-center w-full overflow-visible px-4">
+          <div className="relative w-full max-w-4xl h-[28rem] sm:h-96">
+            <AnimatePresence mode="sync"> {/* Changed from "wait" to "sync" */}
+              {testimonials.map((t, i) => {
+                const pos = getPosition(i);
+                if (pos === "hidden") return null;
 
-                {/* Author */}
-                <div className="flex items-center space-x-3">
-                  <img src={t.image} alt={t.author} className="w-10 h-10 rounded-full object-cover" />
-                  <div>
-                    <p className="font-semibold">{t.author}</p>
-                    <p className={`text-xs ${pos === "center" ? "text-gray-300" : "text-gray-500"}`}>{t.role}</p>
-                  </div>
-                </div>
+                const x = isMobile
+                  ? 0
+                  : pos === "center"
+                  ? 0
+                  : pos === "prev"
+                  ? -DESKTOP_X
+                  : DESKTOP_X;
 
-                {/* Subtle stacked shadow on mobile*/}
-                {isMobile && pos !== "center" && (
-                  <div className="absolute inset-x-8 -bottom-3 h-3 rounded-full bg-black/10 blur-md" />
-                )}
-              </motion.div>
-            );
-          })}
+                const y = isMobile
+                  ? pos === "center"
+                    ? 0
+                    : pos === "prev"
+                    ? -MOBILE_Y
+                    : MOBILE_Y
+                  : 0;
+
+                const scale = pos === "center" ? 1 : SIDE_SCALE;
+                const opacity = pos === "center" ? 1 : SIDE_OPACITY;
+                const zIndex = pos === "center" ? 30 : pos === "prev" ? 20 : 10;
+
+                return (
+                  <motion.div
+                    key={`${t.author}-${i}`}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9, x: isMobile ? 0 : 100 }}
+                    animate={{ 
+                      x, 
+                      y, 
+                      scale, 
+                      opacity, 
+                      zIndex,
+                      transition: {
+                        type: "tween", // Changed from "spring" for faster animation
+                        duration: 0.3, // Much faster
+                        ease: "easeInOut"
+                      }
+                    }}
+                    exit={{ 
+                      opacity: 0, 
+                      scale: 0.9,
+                      x: isMobile ? 0 : -100,
+                      transition: {
+                        duration: 0.2, // Very fast exit
+                        ease: "easeIn"
+                      }
+                    }}
+                    onClick={() => setIndex(filteredTestimonials.indexOf(t))}
+                    className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 max-w-md w-full rounded-2xl p-8 shadow-2xl cursor-pointer border transition-colors ${
+                      pos === "center" 
+                        ? t.type === 'customer' 
+                          ? "bg-blue-900 text-white border-blue-700" 
+                          : "bg-gradient-to-r from-blue-900 to-indigo-900 text-white border-blue-700"
+                        : "bg-white text-gray-800 border-gray-200 hover:border-blue-300"
+                    }`}
+                  >
+                    {/* Quote Icon */}
+                    <div className={`mb-4 ${
+                      pos === "center" ? "text-blue-300" : "text-gray-400"
+                    }`}>
+                      <Quote size={24} className="opacity-50" />
+                    </div>
+
+                    {/* Stars */}
+                    <div className="flex space-x-1 mb-4">
+                      {[...Array(t.rating)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`w-5 h-5 ${
+                            pos === "center" 
+                              ? "fill-yellow-400 text-yellow-400" 
+                              : "fill-yellow-400 text-yellow-400"
+                          }`}
+                          fill="currentColor"
+                        />
+                      ))}
+                    </div>
+
+                    {/* Text */}
+                    <blockquote className="text-lg font-medium leading-relaxed mb-6">
+                      "{t.text}"
+                    </blockquote>
+
+                    {/* Author */}
+                    <div className="flex items-center space-x-4">
+                      <img 
+                        src={t.image} 
+                        alt={t.author} 
+                        className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-md" 
+                      />
+                      <div>
+                        <p className="font-semibold">{t.author}</p>
+                        <p className={`text-sm ${
+                          pos === "center" ? "text-blue-200" : "text-gray-500"
+                        }`}>
+                          {t.role}
+                        </p>
+                        <div className={`inline-flex items-center gap-1 mt-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+                          t.type === 'customer'
+                            ? pos === "center" 
+                              ? "bg-blue-700 text-blue-100" 
+                              : "bg-blue-100 text-blue-700"
+                            : pos === "center"
+                              ? "bg-indigo-700 text-indigo-100"
+                              : "bg-indigo-100 text-indigo-700"
+                        }`}>
+                          {t.type === 'customer' ? '👤 Customer' : '🏪 Shop Owner'}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
         </div>
+
+        {/* Navigation Dots */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.4 }} // Faster
+          viewport={{ once: true }}
+          className="flex justify-center mt-8 space-x-3"
+        >
+          {filteredTestimonials.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setIndex(i)}
+              className={`w-3 h-3 rounded-full transition-colors ${
+                i === index 
+                  ? filter === 'customer' 
+                    ? 'bg-blue-600' 
+                    : filter === 'shop'
+                    ? 'bg-indigo-600'
+                    : 'bg-blue-600'
+                  : 'bg-gray-300 hover:bg-gray-400'
+              }`}
+            />
+          ))}
+        </motion.div>
+
+        {/* Stats Bar */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={FAST_TRANSITION}
+          viewport={{ once: true }}
+          className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 text-center"
+        >
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
+            <div className="text-3xl font-bold text-blue-600 mb-2">4.9/5</div>
+            <div className="text-gray-600">Average Rating</div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
+            <div className="text-3xl font-bold text-green-600 mb-2">95%</div>
+            <div className="text-gray-600">Would Recommend</div>
+          </div>
+          <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100 hover:shadow-xl transition-all">
+            <div className="text-3xl font-bold text-purple-600 mb-2">2min</div>
+            <div className="text-gray-600">Average Pickup Time</div>
+          </div>
+        </motion.div>
       </div>
     </section>
   );

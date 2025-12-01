@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import { Dialog, DialogPanel, Transition } from "@headlessui/react";
 import {
     PencilSquareIcon,
-    TrashIcon,
     UserPlusIcon,
     FunnelIcon,
     PlusIcon,
@@ -15,17 +14,16 @@ import {
     UsersIcon,
     DocumentArrowDownIcon,
     ArrowPathIcon,
-
     ChartBarIcon,
     CubeIcon,
-    UserGroupIcon
+    UserGroupIcon,
+    ArchiveBoxIcon // Changed from TrashIcon to ArchiveBoxIcon
 } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import api from "../../../lib/api";
 import { isAxiosError } from "axios";
 import jsPDF from 'jspdf';
-// Removed unused auth import after simplifying permissions
 
 // Types
 interface InventoryItem {
@@ -52,7 +50,8 @@ interface Employee {
     avatarUrl?: string;
 }
 
-interface DeletedInventoryItem {
+// Renamed interface for clarity (maps to backend deleted items)
+interface ArchivedInventoryItem {
     _id: string;
     originalId: string;
     name: string;
@@ -65,7 +64,7 @@ interface DeletedInventoryItem {
     deletedAt: string;
 }
 
-interface DeletedEmployee {
+interface ArchivedEmployee {
     _id: string;
     originalId: string;
     fullName: string;
@@ -101,10 +100,6 @@ const createEmptyProductForm = () => ({
     entryPrice: "",
 });
 
-// Removed unused EMPLOYEE_ROLE_OPTIONS constant
-
-// Removed unused blob/file helpers after avatar feature removal
-
 function toErrorMessage(e: unknown, fallback: string): string {
     if (isAxiosError(e)) {
         const data = e.response?.data as { message?: string } | undefined;
@@ -116,7 +111,7 @@ function toErrorMessage(e: unknown, fallback: string): string {
 
 const Inventory: React.FC = () => {
 
-    // Permissions (owner has full access; adjust if role-based logic expands)
+    // Permissions
     const canManageEmployees = true;
     const hasInventoryAccess = true;
     const canViewEmployees = true;
@@ -145,10 +140,8 @@ const Inventory: React.FC = () => {
     const [product, setProduct] = useState("");
     const [editIndex, setEditIndex] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
-    // Removed isSavingProduct loader state (unused)
 
     const [searchTerm, setSearchTerm] = useState("");
-    // Removed product status/sort/filter state (simplified)
 
     // Employee state
     const [employees, setEmployees] = useState<Employee[]>([]);
@@ -157,11 +150,7 @@ const Inventory: React.FC = () => {
     const [employeeForm, setEmployeeForm] = useState({ fullName: "", role: "", email: "", phone: "" });
     const [employeeErrors, setEmployeeErrors] = useState<{ [key: string]: string }>({});
     const [employeeSearch, setEmployeeSearch] = useState("");
-    // Removed employee role/sort/filter state (simplified)
     const [editEmployeeIndex, setEditEmployeeIndex] = useState<string | null>(null);
-    // Removed avatar/cropper related states (feature not active)
-
-    // Cleaned up unused effects for avatar preview/cropper
 
     const resetEmployeeModalState = () => {
         setEmployeeForm(createEmptyEmployeeForm());
@@ -169,29 +158,28 @@ const Inventory: React.FC = () => {
         setEditEmployeeIndex(null);
     };
 
-    // Removed avatar handler functions (not used)
-
-    // Delete safeguards
-    const [deleteProductId, setDeleteProductId] = useState<string | null>(null);
-    const [deleteEmployeeId, setDeleteEmployeeId] = useState<string | null>(null);
-    const productToDeleteName = useMemo(
-        () => (deleteProductId ? products.find(p => p._id === deleteProductId)?.name || "" : ""),
-        [deleteProductId, products]
+    // Archive safeguards (Renamed from Delete)
+    const [archiveProductId, setArchiveProductId] = useState<string | null>(null);
+    const [archiveEmployeeId, setArchiveEmployeeId] = useState<string | null>(null);
+    
+    const productToArchiveName = useMemo(
+        () => (archiveProductId ? products.find(p => p._id === archiveProductId)?.name || "" : ""),
+        [archiveProductId, products]
     );
-    const employeeToDeleteName = useMemo(
-        () => (deleteEmployeeId ? employees.find(e => e._id === deleteEmployeeId)?.fullName || "" : ""),
-        [deleteEmployeeId, employees]
+    const employeeToArchiveName = useMemo(
+        () => (archiveEmployeeId ? employees.find(e => e._id === archiveEmployeeId)?.fullName || "" : ""),
+        [archiveEmployeeId, employees]
     );
 
-    // Deleted collections
-    const [deletedProducts, setDeletedProducts] = useState<DeletedInventoryItem[]>([]);
-    const [deletedEmployees, setDeletedEmployees] = useState<DeletedEmployee[]>([]);
-    const [showDeletedProducts, setShowDeletedProducts] = useState(false);
-    const [showDeletedEmployees, setShowDeletedEmployees] = useState(false);
+    // Archived collections
+    const [archivedProducts, setArchivedProducts] = useState<ArchivedInventoryItem[]>([]);
+    const [archivedEmployees, setArchivedEmployees] = useState<ArchivedEmployee[]>([]);
+    const [showArchivedProducts, setShowArchivedProducts] = useState(false);
+    const [showArchivedEmployees, setShowArchivedEmployees] = useState(false);
 
     useEffect(() => {
         if (!canManageEmployees) {
-            setShowDeletedEmployees(false);
+            setShowArchivedEmployees(false);
             if (showEmployeeModal) {
                 setShowEmployeeModal(false);
             }
@@ -204,22 +192,22 @@ const Inventory: React.FC = () => {
         if (!hasInventoryAccess) {
             if (isMountedRef.current) {
                 setProducts([]);
-                setDeletedProducts([]);
+                setArchivedProducts([]);
             }
             return;
         }
         const [inventoryRes, deletedRes] = await Promise.all([
             api.get("/inventory/mine"),
-            api.get("/inventory/deleted"),
+            api.get("/inventory/deleted"), // Backend likely still calls this 'deleted'
         ]);
 
         if (!isMountedRef.current) return;
 
         const inventoryItems: InventoryItem[] = inventoryRes.data || [];
-        const archivedInventory: DeletedInventoryItem[] = deletedRes.data || [];
+        const archivedInventory: ArchivedInventoryItem[] = deletedRes.data || [];
 
         setProducts(inventoryItems);
-        setDeletedProducts(archivedInventory);
+        setArchivedProducts(archivedInventory);
         setProduct(current => {
             if (!inventoryItems.length) return "ALL";
             if (!current || current === "ALL") return "ALL";
@@ -231,7 +219,7 @@ const Inventory: React.FC = () => {
         if (!canViewEmployees) {
             if (isMountedRef.current) {
                 setEmployees([]);
-                setDeletedEmployees([]);
+                setArchivedEmployees([]);
             }
             return;
         }
@@ -244,10 +232,10 @@ const Inventory: React.FC = () => {
         if (!isMountedRef.current) return;
 
         const employeeList: Employee[] = employeeRes.data || [];
-        const archivedEmployees: DeletedEmployee[] = deletedRes?.data || [];
+        const archivedEmpList: ArchivedEmployee[] = deletedRes?.data || [];
 
         setEmployees(employeeList);
-        setDeletedEmployees(archivedEmployees);
+        setArchivedEmployees(archivedEmpList);
     }, [canViewEmployees, canManageEmployees]);
 
     // Load data from backend
@@ -270,11 +258,9 @@ const Inventory: React.FC = () => {
     }, [reloadInventoryLists, reloadEmployeeLists]);
 
 
-    // Enhanced Graph data
+    // Graph data logic (Unchanged)
     const stockAmountData = useMemo(() => {
-        if (products.length === 0) {
-            return [{ month: "No Data", amount: 0 }];
-        }
+        if (products.length === 0) return [{ month: "No Data", amount: 0 }];
         
         if (product && product !== "ALL") {
             const selectedProduct = products.find(p => p.name === product);
@@ -287,18 +273,14 @@ const Inventory: React.FC = () => {
         } else {
             const categoryData = products.reduce((acc, p) => {
                 const category = p.category || "Uncategorized";
-                if (!acc[category]) {
-                    acc[category] = { amount: 0, minAmount: 0 };
-                }
+                if (!acc[category]) acc[category] = { amount: 0, minAmount: 0 };
                 acc[category].amount += p.amount;
                 acc[category].minAmount += p.minAmount;
                 return acc;
             }, {} as Record<string, { amount: number; minAmount: number }>);
             
             const entries = Object.entries(categoryData);
-            if (entries.length === 0) {
-                return [{ month: "No Data", amount: 0 }];
-            }
+            if (entries.length === 0) return [{ month: "No Data", amount: 0 }];
             
             return entries.map(([category, data]) => ({
                 month: category.length > 8 ? category.substring(0, 8) + "..." : category,
@@ -309,9 +291,7 @@ const Inventory: React.FC = () => {
     }, [products, product]);
 
     const stockPriceData = useMemo(() => {
-        if (products.length === 0) {
-            return [{ month: "No Data", prize: 0 }];
-        }
+        if (products.length === 0) return [{ month: "No Data", prize: 0 }];
         
         if (product && product !== "ALL") {
             const selectedProduct = products.find(p => p.name === product);
@@ -324,17 +304,13 @@ const Inventory: React.FC = () => {
         } else {
             const categoryData = products.reduce((acc, p) => {
                 const category = p.category || "Uncategorized";
-                if (!acc[category]) {
-                    acc[category] = 0;
-                }
+                if (!acc[category]) acc[category] = 0;
                 acc[category] += p.price * p.amount;
                 return acc;
             }, {} as Record<string, number>);
             
             const entries = Object.entries(categoryData);
-            if (entries.length === 0) {
-                return [{ month: "No Data", prize: 0 }];
-            }
+            if (entries.length === 0) return [{ month: "No Data", prize: 0 }];
             
             return entries.map(([category, value]) => ({
                 month: category.length > 8 ? category.substring(0, 8) + "..." : category,
@@ -343,13 +319,10 @@ const Inventory: React.FC = () => {
         }
     }, [products, product]);
 
-    // Enhanced analytics data
     const categoryDistributionData = useMemo(() => {
         const categoryData = products.reduce((acc, p) => {
             const category = p.category || "Uncategorized";
-            if (!acc[category]) {
-                acc[category] = 0;
-            }
+            if (!acc[category]) acc[category] = 0;
             acc[category]++;
             return acc;
         }, {} as Record<string, number>);
@@ -367,7 +340,6 @@ const Inventory: React.FC = () => {
         return products.filter(p => p.amount <= p.minAmount).length;
     }, [products]);
 
-    // Calculate profit and expenses
     const profitAndExpenses = useMemo(() => {
         const totalStockValue = products.reduce((sum, p) => sum + (p.price * p.amount), 0);
         const totalEntryCost = products.reduce((sum, p) => sum + (p.entryPrice * p.amount), 0);
@@ -375,16 +347,9 @@ const Inventory: React.FC = () => {
         const profitMargin = totalEntryCost > 0 ? (grossProfit / totalEntryCost) * 100 : 0;
         const estimatedExpenses = totalEntryCost * 0.1;
 
-        return {
-            totalStockValue,
-            totalEntryCost,
-            grossProfit,
-            profitMargin,
-            estimatedExpenses
-        };
+        return { totalStockValue, totalEntryCost, grossProfit, profitMargin, estimatedExpenses };
     }, [products]);
 
-    // Removed duplicate product handler block (keeping improved version below)
     // Category dropdown state
     const [showCategoryMenu, setShowCategoryMenu] = useState(false);
     const [categoryHighlight, setCategoryHighlight] = useState<number>(-1);
@@ -488,21 +453,21 @@ const Inventory: React.FC = () => {
             setShowModal(false);
         } catch (e: unknown) {
             setError(toErrorMessage(e, "Failed to save product"));
-        } finally {
-            // no loader state
         }
     };
 
-    const confirmDeleteProduct = async () => {
-        if (!deleteProductId) return;
-        const id = deleteProductId;
-        setDeleteProductId(null);
+    // ARCHIVE PRODUCT FUNCTION
+    const confirmArchiveProduct = async () => {
+        if (!archiveProductId) return;
+        const id = archiveProductId;
+        setArchiveProductId(null);
         try {
             setError(null);
-            await api.delete(`/inventory/${id}`);
+            // Calling DELETE API but functionally treating it as "Archive"
+            await api.delete(`/inventory/${id}`); 
             await reloadInventoryLists();
         } catch (e: unknown) {
-            setError(toErrorMessage(e, "Failed to delete product"));
+            setError(toErrorMessage(e, "Failed to archive product"));
         }
     };
 
@@ -516,7 +481,6 @@ const Inventory: React.FC = () => {
         setForm(f => ({ ...f, category: value }));
         setShowCategoryMenu(false);
         setCategoryHighlight(-1);
-
         requestAnimationFrame(()=>categoryInputRef.current?.focus());
     }
 
@@ -537,16 +501,14 @@ const Inventory: React.FC = () => {
             setCategoryHighlight(h => {
                 const list = filteredCategorySuggestions;
                 if (!list.length) return -1;
-                const next = h + 1 >= list.length ? 0 : h + 1;
-                return next;
+                return h + 1 >= list.length ? 0 : h + 1;
             });
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
             setCategoryHighlight(h => {
                 const list = filteredCategorySuggestions;
                 if (!list.length) return -1;
-                const next = h - 1 < 0 ? list.length - 1 : h - 1;
-                return next;
+                return h - 1 < 0 ? list.length - 1 : h - 1;
             });
         } else if (e.key === "Enter") {
             if (categoryHighlight >= 0 && categoryHighlight < filteredCategorySuggestions.length) {
@@ -556,7 +518,6 @@ const Inventory: React.FC = () => {
         }
     }
 
-    // Improved filteredProducts using useMemo
     const filteredProducts = useMemo(() => {
         return products.filter(p =>
             p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -566,21 +527,18 @@ const Inventory: React.FC = () => {
     }, [products, searchTerm]);
 
 
-    // Employee filter and sort
     const filteredEmployees = useMemo(() => {
         return employees.filter(e =>
             e.fullName.toLowerCase().includes(employeeSearch.toLowerCase()) ||
             e.role.toLowerCase().includes(employeeSearch.toLowerCase())
         );
-    }, [employees, employeeSearch, canViewEmployees]);
+    }, [employees, employeeSearch]);
 
 
-    // Employee handlers
     const handleAddEmployee = () => {
         if (!canManageEmployees) return;
         resetEmployeeModalState();
         setShowEmployeeModal(true);
-
         setEmployeeForm({ fullName: "", role: "", email: "", phone: "" });
         setEmployeeErrors({});
         setEditEmployeeIndex(null);
@@ -589,7 +547,6 @@ const Inventory: React.FC = () => {
     const validateEmployeeFields = () => {
         const newErrors: { [key: string]: string } = {};
         if (!employeeForm.fullName.trim()) newErrors.fullName = "Full name is required.";
-
         if (!employeeForm.role.trim()) newErrors.role = "Role is required.";
         if (employeeForm.email && !/\S+@\S+\.\S+/.test(employeeForm.email)) newErrors.email = "Email is invalid.";
         return newErrors;
@@ -611,7 +568,6 @@ const Inventory: React.FC = () => {
             };
 
             if (editEmployeeIndex !== null) {
-
                 const res = await api.put(`/employees/${editEmployeeIndex}`, payload);
                 const updated = res.data;
                 setEmployees(prev => prev.map(e => e._id === editEmployeeIndex ? updated : e));
@@ -624,8 +580,6 @@ const Inventory: React.FC = () => {
             setShowEmployeeModal(false);
         } catch (e: unknown) {
             setError(toErrorMessage(e, "Failed to save employee"));
-        } finally {
-            // no employee saving loader state
         }
     };
 
@@ -638,30 +592,29 @@ const Inventory: React.FC = () => {
             fullName: e.fullName,
             role: e.role,
             email: e.email || "",
-
             phone: e.phone || ""
         });
-        // avatar feature removed
         setEditEmployeeIndex(id);
         setShowEmployeeModal(true);
         setEmployeeErrors({});
     };
 
-    const confirmDeleteEmployee = async () => {
+    // ARCHIVE EMPLOYEE FUNCTION
+    const confirmArchiveEmployee = async () => {
         if (!canManageEmployees) return;
-        if (!deleteEmployeeId) return;
-        const id = deleteEmployeeId;
-        setDeleteEmployeeId(null);
+        if (!archiveEmployeeId) return;
+        const id = archiveEmployeeId;
+        setArchiveEmployeeId(null);
         try {
             setError(null);
             await api.delete(`/employees/${id}`);
             await reloadEmployeeLists();
         } catch (e: unknown) {
-            setError(toErrorMessage(e, "Failed to delete employee"));
+            setError(toErrorMessage(e, "Failed to archive employee"));
         }
     };
 
-    const restoreDeletedProduct = async (archivedId: string) => {
+    const restoreArchivedProduct = async (archivedId: string) => {
         try {
             setError(null);
             await api.post(`/inventory/deleted/${archivedId}/restore`);
@@ -671,7 +624,7 @@ const Inventory: React.FC = () => {
         }
     };
 
-    const restoreDeletedEmployee = async (archivedId: string) => {
+    const restoreArchivedEmployee = async (archivedId: string) => {
         if (!canManageEmployees) return;
         try {
             setError(null);
@@ -687,7 +640,6 @@ const Inventory: React.FC = () => {
         setShowEmployeeModal(false);
     };
 
-    // PDF Export function
     const exportToPDF = async () => {
         try {
             const pdf = new jsPDF('p', 'mm', 'a4');
@@ -756,7 +708,6 @@ const Inventory: React.FC = () => {
         }
     };
 
-
     // Tab navigation component
     const TabButton: React.FC<{ 
         active: boolean; 
@@ -798,7 +749,6 @@ const Inventory: React.FC = () => {
                     </div>
 
                     {/* Summary Cards */}
-
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl shadow-xl p-4 text-white">
                             <div className="flex items-center justify-between">
@@ -882,7 +832,6 @@ const Inventory: React.FC = () => {
                             {activeTab === "graph" && (
                                 <div className="space-y-6">
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                                        {/* Stock Levels Graph */}
                                         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
                                             <h3 className="text-lg font-semibold text-gray-800 mb-4">
                                                 {product === "ALL" || !product ? "Stock by Category" : `${product} Stock Levels`}
@@ -901,7 +850,6 @@ const Inventory: React.FC = () => {
                                             </ResponsiveContainer>
                                         </div>
 
-                                        {/* Stock Value Graph */}
                                         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
                                             <h3 className="text-lg font-semibold text-gray-800 mb-4">
                                                 {product === "ALL" || !product ? "Value by Category" : `${product} Price Analysis`}
@@ -922,7 +870,6 @@ const Inventory: React.FC = () => {
                                     </div>
 
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                        {/* Category Distribution */}
                                         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
                                             <h3 className="text-lg font-semibold text-gray-800 mb-4">Category Distribution</h3>
                                             <ResponsiveContainer width="100%" height={200}>
@@ -945,8 +892,6 @@ const Inventory: React.FC = () => {
                                             </ResponsiveContainer>
                                         </div>
 
-
-                                        {/* Product Selection */}
                                         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200 lg:col-span-2">
                                             <h3 className="text-lg font-semibold text-gray-800 mb-4">Product Selection</h3>
                                             <div className="relative">
@@ -979,7 +924,6 @@ const Inventory: React.FC = () => {
                                                         ))}
                                                     </div>
                                                 </div>
-
                                                 <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none" />
                                             </div>
                                         </div>
@@ -1004,17 +948,16 @@ const Inventory: React.FC = () => {
                                                 <FunnelIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                                             </div>
                                             <div className="flex gap-2">
-                                                {/* Removed product filters toggle */}
                                                 <button
                                                     className={`rounded-lg px-4 py-3 font-medium text-sm flex items-center gap-2 border transition-colors ${
-                                                        showDeletedProducts 
-                                                            ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' 
+                                                        showArchivedProducts 
+                                                            ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200' 
                                                             : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
                                                     }`}
-                                                    onClick={() => setShowDeletedProducts(v => !v)}
+                                                    onClick={() => setShowArchivedProducts(v => !v)}
                                                 >
                                                     <ArrowPathIcon className="w-4 h-4" />
-                                                    {showDeletedProducts ? 'Active' : 'Deleted'}
+                                                    {showArchivedProducts ? 'View Active' : 'View Archived'}
                                                 </button>
                                             </div>
                                         </div>
@@ -1036,12 +979,11 @@ const Inventory: React.FC = () => {
                                         </div>
                                     </div>
 
-
                                     {/* Products Table */}
                                     <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-                                        <div className="p-4 bg-gradient-to-r from-gray-800 to-gray-900">
+                                        <div className={`p-4 bg-gradient-to-r ${showArchivedProducts ? 'from-amber-700 to-amber-800' : 'from-gray-800 to-gray-900'}`}>
                                             <h2 className="text-xl font-bold text-white text-center">
-                                                {showDeletedProducts ? 'DELETED PRODUCTS ARCHIVE' : 'PRODUCT INVENTORY'}
+                                                {showArchivedProducts ? 'ARCHIVED PRODUCTS' : 'PRODUCT INVENTORY'}
                                             </h2>
                                         </div>
                                         <div className="overflow-x-auto">
@@ -1059,7 +1001,7 @@ const Inventory: React.FC = () => {
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-200">
-                                                    {!showDeletedProducts && filteredProducts.map((p) => (
+                                                    {!showArchivedProducts && filteredProducts.map((p) => (
                                                         <tr key={p._id} className="hover:bg-gray-50 transition-colors">
                                                             <td className="px-6 py-4 text-sm font-mono text-gray-600">{p._id.slice(-6).toUpperCase()}</td>
                                                             <td className="px-6 py-4">
@@ -1096,18 +1038,18 @@ const Inventory: React.FC = () => {
                                                                         <PencilSquareIcon className="w-4 h-4" />
                                                                     </button>
                                                                     <button
-                                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                        title="Delete"
-                                                                        onClick={() => setDeleteProductId(p._id)}
+                                                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                        title="Archive"
+                                                                        onClick={() => setArchiveProductId(p._id)}
                                                                     >
-                                                                        <TrashIcon className="w-4 h-4" />
+                                                                        <ArchiveBoxIcon className="w-4 h-4" />
                                                                     </button>
                                                                 </div>
                                                             </td>
                                                         </tr>
                                                     ))}
-                                                    {showDeletedProducts && deletedProducts.map((item) => (
-                                                        <tr key={item._id} className="hover:bg-gray-50 transition-colors bg-red-50">
+                                                    {showArchivedProducts && archivedProducts.map((item) => (
+                                                        <tr key={item._id} className="hover:bg-gray-50 transition-colors bg-amber-50/50">
                                                             <td className="px-6 py-4 text-sm font-mono text-gray-600">{item.originalId.slice(-6).toUpperCase()}</td>
                                                             <td className="px-6 py-4">
                                                                 <div className="font-medium text-gray-900 line-through">{item.name}</div>
@@ -1128,20 +1070,20 @@ const Inventory: React.FC = () => {
                                                             <td className="px-6 py-4 text-right">
                                                                 <button
                                                                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                                                                    onClick={() => restoreDeletedProduct(item._id)}
+                                                                    onClick={() => restoreArchivedProduct(item._id)}
                                                                 >
                                                                     Restore
                                                                 </button>
                                                             </td>
                                                         </tr>
                                                     ))}
-                                                    {((!showDeletedProducts && filteredProducts.length === 0) || 
-                                                      (showDeletedProducts && deletedProducts.length === 0)) && (
+                                                    {((!showArchivedProducts && filteredProducts.length === 0) || 
+                                                      (showArchivedProducts && archivedProducts.length === 0)) && (
                                                         <tr>
                                                             <td colSpan={8} className="px-6 py-12 text-center">
                                                                 <div className="text-gray-500 text-lg">No products found</div>
                                                                 <div className="text-gray-400 text-sm mt-2">
-                                                                    {!showDeletedProducts ? "Try adjusting your search or add a new product" : "No deleted products to display"}
+                                                                    {!showArchivedProducts ? "Try adjusting your search or add a new product" : "No archived products to display"}
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -1149,10 +1091,10 @@ const Inventory: React.FC = () => {
                                                 </tbody>
                                             </table>
                                         </div>
-                                        {showDeletedProducts && (
+                                        {showArchivedProducts && (
                                             <div className="p-4 bg-gray-50 border-t border-gray-200">
                                                 <p className="text-sm text-gray-600 text-center">
-                                                    📝 Deleted products are automatically purged after 30 days
+                                                    📝 Archived products are automatically purged after 30 days
                                                 </p>
                                             </div>
                                         )}
@@ -1177,17 +1119,16 @@ const Inventory: React.FC = () => {
                                                 <FunnelIcon className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
                                             </div>
                                             <div className="flex gap-2">
-                                                {/* Removed employee filters toggle */}
                                                 <button
                                                     className={`rounded-lg px-4 py-3 font-medium text-sm flex items-center gap-2 border transition-colors ${
-                                                        showDeletedEmployees 
-                                                            ? 'bg-green-100 text-green-700 border-green-300 hover:bg-green-200' 
+                                                        showArchivedEmployees 
+                                                            ? 'bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200' 
                                                             : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
                                                     }`}
-                                                    onClick={() => setShowDeletedEmployees(v => !v)}
+                                                    onClick={() => setShowArchivedEmployees(v => !v)}
                                                 >
                                                     <ArrowPathIcon className="w-4 h-4" />
-                                                    {showDeletedEmployees ? 'Active' : 'Deleted'}
+                                                    {showArchivedEmployees ? 'View Active' : 'View Archived'}
                                                 </button>
                                             </div>
                                         </div>
@@ -1202,9 +1143,9 @@ const Inventory: React.FC = () => {
 
                                     {/* Employees Table */}
                                     <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-                                        <div className="p-4 bg-gradient-to-r from-blue-800 to-blue-900">
+                                        <div className={`p-4 bg-gradient-to-r ${showArchivedEmployees ? 'from-amber-700 to-amber-800' : 'from-blue-800 to-blue-900'}`}>
                                             <h2 className="text-xl font-bold text-white text-center">
-                                                {showDeletedEmployees ? 'DELETED EMPLOYEES ARCHIVE' : 'EMPLOYEE DIRECTORY'}
+                                                {showArchivedEmployees ? 'ARCHIVED EMPLOYEES' : 'EMPLOYEE DIRECTORY'}
                                             </h2>
                                         </div>
                                         <div className="overflow-x-auto">
@@ -1220,7 +1161,7 @@ const Inventory: React.FC = () => {
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-200">
-                                                    {!showDeletedEmployees && filteredEmployees.map((e) => (
+                                                    {!showArchivedEmployees && filteredEmployees.map((e) => (
                                                         <tr key={e._id} className="hover:bg-gray-50 transition-colors">
                                                             <td className="px-6 py-4">
                                                                 <div className="font-medium text-gray-900">{e.fullName}</div>
@@ -1255,18 +1196,18 @@ const Inventory: React.FC = () => {
                                                                         <PencilSquareIcon className="w-4 h-4" />
                                                                     </button>
                                                                     <button
-                                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                                                        title="Delete"
-                                                                        onClick={() => setDeleteEmployeeId(e._id)}
+                                                                        className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                                                                        title="Archive"
+                                                                        onClick={() => setArchiveEmployeeId(e._id)}
                                                                     >
-                                                                        <TrashIcon className="w-4 h-4" />
+                                                                        <ArchiveBoxIcon className="w-4 h-4" />
                                                                     </button>
                                                                 </div>
                                                             </td>
                                                         </tr>
                                                     ))}
-                                                    {showDeletedEmployees && deletedEmployees.map((item) => (
-                                                        <tr key={item._id} className="hover:bg-gray-50 transition-colors bg-red-50">
+                                                    {showArchivedEmployees && archivedEmployees.map((item) => (
+                                                        <tr key={item._id} className="hover:bg-gray-50 transition-colors bg-amber-50/50">
                                                             <td className="px-6 py-4">
                                                                 <div className="font-medium text-gray-900 line-through">{item.fullName}</div>
                                                             </td>
@@ -1279,26 +1220,26 @@ const Inventory: React.FC = () => {
                                                             <td className="px-6 py-4 text-sm text-gray-600">{item.phone || '-'}</td>
                                                             <td className="px-6 py-4">
                                                                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                                                                    Deleted
+                                                                    Archived
                                                                 </span>
                                                             </td>
                                                             <td className="px-6 py-4 text-right">
                                                                 <button
                                                                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                                                                    onClick={() => restoreDeletedEmployee(item._id)}
+                                                                    onClick={() => restoreArchivedEmployee(item._id)}
                                                                 >
                                                                     Restore
                                                                 </button>
                                                             </td>
                                                         </tr>
                                                     ))}
-                                                    {((!showDeletedEmployees && filteredEmployees.length === 0) || 
-                                                      (showDeletedEmployees && deletedEmployees.length === 0)) && (
+                                                    {((!showArchivedEmployees && filteredEmployees.length === 0) || 
+                                                      (showArchivedEmployees && archivedEmployees.length === 0)) && (
                                                         <tr>
                                                             <td colSpan={6} className="px-6 py-12 text-center">
                                                                 <div className="text-gray-500 text-lg">No employees found</div>
                                                                 <div className="text-gray-400 text-sm mt-2">
-                                                                    {!showDeletedEmployees ? "Try adjusting your search or add a new employee" : "No deleted employees to display"}
+                                                                    {!showArchivedEmployees ? "Try adjusting your search or add a new employee" : "No archived employees to display"}
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -1306,10 +1247,10 @@ const Inventory: React.FC = () => {
                                                 </tbody>
                                             </table>
                                         </div>
-                                        {showDeletedEmployees && (
+                                        {showArchivedEmployees && (
                                             <div className="p-4 bg-gray-50 border-t border-gray-200">
                                                 <p className="text-sm text-gray-600 text-center">
-                                                    📝 Deleted employees are automatically purged after 30 days
+                                                    📝 Archived employees are automatically purged after 30 days
                                                 </p>
                                             </div>
                                         )}
@@ -1320,10 +1261,9 @@ const Inventory: React.FC = () => {
                     </div>
                 </div>
 
-                {/* All modals remain exactly the same - they are preserved with original functionality */}
-                {/* Confirm Delete Product Modal */}
-                <Transition show={deleteProductId !== null} as={Fragment}>
-                    <Dialog onClose={() => setDeleteProductId(null)} className="relative z-50">
+                {/* Confirm Archive Product Modal */}
+                <Transition show={archiveProductId !== null} as={Fragment}>
+                    <Dialog onClose={() => setArchiveProductId(null)} className="relative z-50">
                         <Transition.Child
                             as={Fragment}
                             enter="ease-out duration-200"
@@ -1348,27 +1288,27 @@ const Inventory: React.FC = () => {
                                 >
                                     <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
                                         <div className="flex items-center justify-between p-4 border-b border-white/10">
-                                            <Dialog.Title className="text-lg font-semibold">Delete Product</Dialog.Title>
-                                            <button onClick={() => setDeleteProductId(null)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+                                            <Dialog.Title className="text-lg font-semibold">Archive Product</Dialog.Title>
+                                            <button onClick={() => setArchiveProductId(null)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
                                                 <XMarkIcon className="h-5 w-5" />
                                             </button>
                                         </div>
                                         <div className="p-4 space-y-3 text-sm">
-                                            <p>Are you sure you want to delete the product{productToDeleteName ? ` "${productToDeleteName}"` : ""}? This action cannot be undone.</p>
+                                            <p>Are you sure you want to archive the product{productToArchiveName ? ` "${productToArchiveName}"` : ""}? It can be restored later from the Archived view.</p>
                                             <div className="flex justify-end gap-2 pt-2">
                                                 <button
                                                     type="button"
-                                                    onClick={() => setDeleteProductId(null)}
+                                                    onClick={() => setArchiveProductId(null)}
                                                     className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 text-sm inline-flex items-center gap-1"
                                                 >
                                                     <XMarkIcon className="w-4 h-4" /> Cancel
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={confirmDeleteProduct}
-                                                    className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-semibold text-sm inline-flex items-center gap-1"
+                                                    onClick={confirmArchiveProduct}
+                                                    className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 font-semibold text-sm inline-flex items-center gap-1"
                                                 >
-                                                    <TrashIcon className="w-4 h-4" /> Delete
+                                                    <ArchiveBoxIcon className="w-4 h-4" /> Archive
                                                 </button>
                                             </div>
                                         </div>
@@ -1559,9 +1499,9 @@ const Inventory: React.FC = () => {
                     </Dialog>
                 </Transition>
 
-                {/* Confirm Delete Employee Modal */}
-                <Transition show={deleteEmployeeId !== null} as={Fragment}>
-                    <Dialog onClose={() => setDeleteEmployeeId(null)} className="relative z-50">
+                {/* Confirm Archive Employee Modal */}
+                <Transition show={archiveEmployeeId !== null} as={Fragment}>
+                    <Dialog onClose={() => setArchiveEmployeeId(null)} className="relative z-50">
                         <Transition.Child
                             as={Fragment}
                             enter="ease-out duration-200"
@@ -1586,27 +1526,27 @@ const Inventory: React.FC = () => {
                                 >
                                     <DialogPanel className="rounded-xl bg-gray-900 text-white border border-white/10 shadow-xl">
                                         <div className="flex items-center justify-between p-4 border-b border-white/10">
-                                            <Dialog.Title className="text-lg font-semibold">Delete Employee</Dialog.Title>
-                                            <button onClick={() => setDeleteEmployeeId(null)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
+                                            <Dialog.Title className="text-lg font-semibold">Archive Employee</Dialog.Title>
+                                            <button onClick={() => setArchiveEmployeeId(null)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close">
                                                 <XMarkIcon className="h-5 w-5" />
                                             </button>
                                         </div>
                                         <div className="p-4 space-y-3 text-sm">
-                                            <p>Are you sure you want to delete{employeeToDeleteName ? ` "${employeeToDeleteName}"` : " this employee"}? This action cannot be undone.</p>
+                                            <p>Are you sure you want to archive{employeeToArchiveName ? ` "${employeeToArchiveName}"` : " this employee"}? This action can be reversed in the Archived view.</p>
                                             <div className="flex justify-end gap-2 pt-2">
                                                 <button
                                                     type="button"
-                                                    onClick={() => setDeleteEmployeeId(null)}
+                                                    onClick={() => setArchiveEmployeeId(null)}
                                                     className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/10 text-sm inline-flex items-center gap-1"
                                                 >
                                                     <XMarkIcon className="w-4 h-4" /> Cancel
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    onClick={confirmDeleteEmployee}
-                                                    className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-semibold text-sm inline-flex items-center gap-1"
+                                                    onClick={confirmArchiveEmployee}
+                                                    className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 font-semibold text-sm inline-flex items-center gap-1"
                                                 >
-                                                    <TrashIcon className="w-4 h-4" /> Delete
+                                                    <ArchiveBoxIcon className="w-4 h-4" /> Archive
                                                 </button>
                                             </div>
                                         </div>

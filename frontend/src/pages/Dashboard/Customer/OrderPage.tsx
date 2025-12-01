@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { FunnelIcon, ShoppingCartIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { FunnelIcon, ShoppingCartIcon, TrashIcon, XMarkIcon, NoSymbolIcon } from '@heroicons/react/24/outline';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import api from '../../../lib/api';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -14,6 +14,7 @@ type Service = {
     unit: 'per page' | 'per sq ft' | 'per item' | string;
     currency?: string;
     imageFileId?: unknown;
+    active?: boolean; // Added active status
     createdAt?: string;
     variants?: Array<{
         label: string;
@@ -748,11 +749,15 @@ export default function OrderPage() {
                                                 const imgSrc = hasImage ? `${api.defaults.baseURL}/services/${svc._id}/image` : undefined;
                                                 const isBest = bestSellingIds.has(String(svc._id)) || bestSellingNames.has((svc.name || '').toLowerCase());
                                                 
+                                                // Check if active (default to true if undefined to be safe, or false if strictly required)
+                                                const isActive = svc.active !== false; 
+
                                                 return (
                                                     <div 
                                                         key={svc._id} 
-                                                        className="group cursor-pointer transform hover:scale-[1.02] transition-all duration-300"
+                                                        className={`group cursor-pointer transition-all duration-300 h-full flex flex-col ${isActive ? 'hover:scale-[1.02]' : 'opacity-75 grayscale'}`}
                                                         onClick={() => {
+                                                            if (!isActive) return; // Prevent click if disabled
                                                             if (showFilters) setShowFilters(false);
                                                             setSelected(svc);
                                                             const init: Record<string, number> = {};
@@ -770,7 +775,7 @@ export default function OrderPage() {
                                                                     <img 
                                                                         src={imgSrc} 
                                                                         alt={`${svc.name} image`} 
-                                                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                                                        className={`w-full h-full object-cover transition-transform duration-500 ${isActive ? 'group-hover:scale-110' : ''}`}
                                                                     />
                                                                 ) : (
                                                                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
@@ -780,8 +785,17 @@ export default function OrderPage() {
                                                                     </div>
                                                                 )}
                                                                 
+                                                                {/* UNAVAILABLE OVERLAY */}
+                                                                {!isActive && (
+                                                                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[2px]">
+                                                                        <span className="px-4 py-2 bg-slate-800/90 text-slate-300 rounded-lg font-bold border border-slate-600">
+                                                                            UNAVAILABLE
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+
                                                                 {/* Enhanced Best Seller Badge */}
-                                                                {isBest && (
+                                                                {isActive && isBest && (
                                                                     <div className="absolute top-3 left-3">
                                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold shadow-lg backdrop-blur-sm">
                                                                             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -825,8 +839,15 @@ export default function OrderPage() {
                                                                 )}
                                                                 
                                                                 <div className="mt-auto pt-4 border-t border-slate-700">
-                                                                    <button className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold hover:from-blue-500 hover:to-blue-600 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105">
-                                                                        Customize & Order
+                                                                    <button 
+                                                                        disabled={!isActive}
+                                                                        className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg ${
+                                                                            isActive 
+                                                                            ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 hover:shadow-xl transform hover:scale-105' 
+                                                                            : 'bg-slate-700 text-slate-400 cursor-not-allowed border border-slate-600'
+                                                                        }`}
+                                                                    >
+                                                                        {isActive ? 'Customize & Order' : 'Out of Stock'}
                                                                     </button>
                                                                 </div>
                                                             </div>
@@ -861,8 +882,8 @@ export default function OrderPage() {
                                     <p className="text-slate-400 text-sm">Customize your {selected.name} order</p>
                                 </div>
                             </div>
-                            <button
-                                type="button"
+                            <button 
+                                type="button" 
                                 onClick={() => setSelected(null)}
                                 className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 transition-colors hover:scale-105"
                             >
@@ -1134,7 +1155,7 @@ export default function OrderPage() {
                                     <p className="text-slate-400 text-sm">{cart.length} item{cart.length !== 1 ? 's' : ''} in your cart</p>
                                 </div>
                             </div>
-                            <button
+                            <button 
                                 onClick={() => setShowCart(false)}
                                 className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 transition-colors hover:scale-105"
                             >
@@ -1221,21 +1242,21 @@ export default function OrderPage() {
                                             {/* Enhanced Quantity Controls */}
                                             <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-600">
                                                 <div className="flex items-center gap-2">
-                                                    <button
+                                                    <button 
                                                         onClick={() => updateCartItemQuantity(index, item.quantity - 1)}
                                                         className="w-8 h-8 rounded-lg bg-slate-600 hover:bg-slate-500 flex items-center justify-center transition-colors"
                                                     >
                                                         -
                                                     </button>
                                                     <span className="w-12 text-center font-medium">{item.quantity}</span>
-                                                    <button
+                                                    <button 
                                                         onClick={() => updateCartItemQuantity(index, item.quantity + 1)}
                                                         className="w-8 h-8 rounded-lg bg-slate-600 hover:bg-slate-500 flex items-center justify-center transition-colors"
                                                     >
                                                         +
                                                     </button>
                                                 </div>
-                                                <button
+                                                <button 
                                                     onClick={() => removeFromCart(index)}
                                                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 border border-red-500/30 transition-all duration-200"
                                                 >
@@ -1333,7 +1354,7 @@ export default function OrderPage() {
 
                             <div className="space-y-2">
                                 <label className="block text-sm font-medium text-slate-200">Upload Receipt</label>
-                                <div
+                                <div 
                                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                     onDrop={(e) => {
                                         e.preventDefault(); e.stopPropagation();
@@ -1370,8 +1391,8 @@ export default function OrderPage() {
                                     </div>
 
                                     {/* Invisible full-size file input so the whole dropbox is clickable; placed above visual but below the remove button */}
-                                    <input
-                                        type="file"
+                                    <input 
+                                        type="file" 
                                         accept="image/*,.pdf"
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                                         onChange={(e) => handleDpFile(e.target.files ? e.target.files[0] : null)}
@@ -1417,8 +1438,8 @@ export default function OrderPage() {
                             <div className="text-xl font-bold">
                                 Order Status
                             </div>
-                            <button
-                                type="button"
+                            <button 
+                                type="button" 
                                 onClick={() => setShowPaymentModal(false)}
                                 className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 transition-colors"
                             >
@@ -1451,10 +1472,10 @@ export default function OrderPage() {
                                         <div className="text-center">
                                             <div className="text-sm text-slate-300 mb-3">Show this QR code at pickup</div>
                                             <div className="flex items-center justify-center p-4 bg-white rounded-2xl shadow-2xl">
-                                                <QRCodeCanvas
-                                                    value={`ORDER:${paymentOrderId}`}
-                                                    size={180}
-                                                    includeMargin
+                                                <QRCodeCanvas 
+                                                    value={`ORDER:${paymentOrderId}`} 
+                                                    size={180} 
+                                                    includeMargin 
                                                     className="rounded-lg"
                                                 />
                                             </div>
@@ -1466,9 +1487,9 @@ export default function OrderPage() {
                                     {watchedOrderStatus === 'completed' && receiptUrl && (
                                         <div className="text-center">
                                             <div className="text-sm text-slate-300 mb-3">Your receipt is ready</div>
-                                            <a
-                                                href={receiptUrl}
-                                                target="_blank"
+                                            <a 
+                                                href={receiptUrl} 
+                                                target="_blank" 
                                                 rel="noopener noreferrer"
                                                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
                                             >
@@ -1484,14 +1505,14 @@ export default function OrderPage() {
 
                             {/* Actions */}
                             <div className="flex flex-col gap-3">
-                                <button
+                                <button 
                                     onClick={() => setShowPaymentModal(false)}
                                     className="w-full px-6 py-3 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 font-medium"
                                 >
                                     Close
                                 </button>
                                 {(watchedOrderStatus === 'ready' || watchedOrderStatus === 'completed') && (
-                                    <button
+                                    <button 
                                         onClick={() => setShowPaymentModal(false)}
                                         className="w-full px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
                                     >

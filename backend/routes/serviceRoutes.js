@@ -1,5 +1,6 @@
 const express = require('express');
 const { protect } = require('../middleware/authMiddleware');
+const auditLogger = require('../middleware/auditLogger');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 const {
@@ -20,10 +21,10 @@ const router = express.Router();
 router.get('/mine', protect, listMyServices);
 router.get('/mine/with-inventory', protect, getServicesWithInventoryStatus);
 router.get('/mine/deleted', protect, listDeleted);
-router.post('/', protect, upload.single('image'), createService);
-router.put('/:id', protect, upload.single('image'), updateService);
-router.delete('/:id', protect, deleteService);
-router.post('/:id/restore', protect, restoreService);
+router.post('/', protect, auditLogger('create', 'Service'), upload.single('image'), createService);
+router.put('/:id', protect, auditLogger('update', 'Service'), upload.single('image'), updateService);
+router.delete('/:id', protect, auditLogger('delete', 'Service'), deleteService);
+router.post('/:id/restore', protect, auditLogger('restore', 'Service'), restoreService);
 
 // public
 router.get('/store/:storeId', listByStore);

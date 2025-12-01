@@ -134,14 +134,17 @@ exports.updateEmployee = async (req, res) => {
   }
 };
 
-exports.deleteEmployee = async (req, res) => {
+// --- ARCHIVE FUNCTION (Renamed from deleteEmployee) ---
+exports.archiveEmployee = async (req, res) => {
   try {
     const store = await getOwnerStore(req);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
     const { id } = req.params;
     const employee = await Employee.findOne({ _id: id, store: store._id }).select('+passwordHash');
+    
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
+    // Prepare archive payload
     const archivedPayload = {
       store: store._id,
       originalId: employee._id,
@@ -155,22 +158,24 @@ exports.deleteEmployee = async (req, res) => {
       avatar: employee.avatar,
     };
 
+    // Save to Archive
     const archived = await DeletedEmployee.findOneAndUpdate(
       { store: store._id, originalId: employee._id },
       archivedPayload,
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    // Remove from active
     await employee.deleteOne();
 
-    res.json({ success: true, archived: sanitizeEmployee(archived) });
+    res.json({ success: true, message: 'Employee archived successfully', archived: sanitizeEmployee(archived) });
   } catch (err) {
     const status = err.statusCode || 500;
     res.status(status).json({ message: err.message });
   }
 };
 
-exports.listDeletedEmployees = async (req, res) => {
+exports.listArchivedEmployees = async (req, res) => {
   try {
     const store = await getOwnerStore(req);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
@@ -182,11 +187,12 @@ exports.listDeletedEmployees = async (req, res) => {
   }
 };
 
-exports.restoreDeletedEmployee = async (req, res) => {
+exports.restoreArchivedEmployee = async (req, res) => {
   try {
     const store = await getOwnerStore(req);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
     const { deletedId } = req.params;
+    
     const archived = await DeletedEmployee.findOne({ _id: deletedId, store: store._id }).select('+passwordHash');
     if (!archived) return res.status(404).json({ message: 'Archived employee not found' });
     if (!archived.passwordHash) {
@@ -211,8 +217,8 @@ exports.restoreDeletedEmployee = async (req, res) => {
     } catch (err) {
       if (err && err.code === 11000) {
         const message = err?.keyPattern?.email
-          ? 'An active employee with this email already exists'
-          : 'An active employee with this name already exists';
+          ? 'Cannot restore: An active employee with this email already exists'
+          : 'Cannot restore: An active employee with this name already exists';
         return res.status(409).json({ message });
       }
       throw err;
@@ -227,14 +233,17 @@ exports.restoreDeletedEmployee = async (req, res) => {
   }
 };
 
-exports.purgeDeletedEmployee = async (req, res) => {
+// Permanent Delete
+exports.purgeArchivedEmployee = async (req, res) => {
   try {
     const store = await getOwnerStore(req);
     if (!store) return res.status(404).json({ message: 'No print store found for owner' });
     const { deletedId } = req.params;
+    
     const archived = await DeletedEmployee.findOneAndDelete({ _id: deletedId, store: store._id });
+    
     if (!archived) return res.status(404).json({ message: 'Archived employee not found' });
-    res.json({ success: true });
+    res.json({ success: true, message: 'Employee permanently deleted' });
   } catch (err) {
     const status = err.statusCode || 500;
     res.status(status).json({ message: err.message });
