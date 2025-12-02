@@ -139,7 +139,7 @@ export default function Header() {
                     <div className="flex items-center gap-x-6">
                       <div className="flex size-11 flex-none items-center justify-center rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors">
                         {React.isValidElement(item.icon)
-                          ? React.cloneElement(item.icon, { className: "size-6 text-blue-600 group-hover:text-blue-700", 'aria-hidden': true })
+                          ? React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: "size-6 text-blue-600 group-hover:text-blue-700" })
                           : null}
                       </div>
                       <div className="flex-auto">
@@ -194,7 +194,7 @@ export default function Header() {
                     <div className="flex items-center gap-x-6">
                       <div className="flex size-11 flex-none items-center justify-center rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-colors">
                         {React.isValidElement(item.icon)
-                          ? React.cloneElement(item.icon, { className: "size-6 text-blue-600 group-hover:text-blue-700", 'aria-hidden': true })
+                          ? React.cloneElement(item.icon as React.ReactElement<{ className?: string }>, { className: "size-6 text-blue-600 group-hover:text-blue-700" })
                           : null}
                       </div>
                       <div className="flex-auto">

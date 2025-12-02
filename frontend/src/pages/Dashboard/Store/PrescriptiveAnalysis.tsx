@@ -5,8 +5,7 @@ import api from '../../../lib/api';
 import { isAxiosError } from 'axios';
 import {
   ChartBarIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon,
   ExclamationTriangleIcon,
   LightBulbIcon,
   CurrencyDollarIcon,
@@ -207,7 +206,7 @@ export default function PrescriptiveAnalysis() {
           </div>
           <div className="rounded-xl border border-blue-800 bg-blue-800 p-4">
             <div className="flex items-center gap-3">
-              <TrendingUpIcon className="h-8 w-8 text-yellow-400" />
+              <ArrowTrendingUpIcon className="h-8 w-8 text-yellow-400" />
               <div>
                 <div className="text-2xl font-bold text-white">{analysisData.summary.topService}</div>
                 <div className="text-sm text-gray-300">Top Service</div>

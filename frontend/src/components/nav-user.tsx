@@ -48,7 +48,7 @@ export function NavUser({
     document.addEventListener("click", onDocClick)
     return () => document.removeEventListener("click", onDocClick)
   }, [])
-  const { isMobile, state: sidebarState, setOpen: setSidebarOpen } = useSidebar()
+  const { state: sidebarState, setOpen: setSidebarOpen } = useSidebar()
   const navigate = useNavigate()
   const capitalizeFirst = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 

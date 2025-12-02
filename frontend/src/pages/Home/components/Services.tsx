@@ -2,10 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   BsQrCode, 
-  BsShop, 
-  BsGeoAlt,
   BsGraphUp,
-  BsShieldCheck,
   BsClock
 } from 'react-icons/bs'
 import { 
@@ -14,8 +11,7 @@ import {
   MdCloudUpload,
   MdPeople
 } from 'react-icons/md'
-import { GrDocumentCloud } from 'react-icons/gr'
-import { FiUsers } from 'react-icons/fi'
+// removed unused GrDocumentCloud, FiUsers
 import { IoStatsChart, IoCard } from 'react-icons/io5'
 
 const platformFeatures = [
@@ -148,7 +144,7 @@ export default function Services() {
       y: 0,
       transition: {
         duration: 0.6,
-        ease: "easeOut"
+        ease: [0, 0, 0.58, 1] as [number, number, number, number]
       }
     }
   }

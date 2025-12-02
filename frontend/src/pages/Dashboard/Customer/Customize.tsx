@@ -1,4 +1,4 @@
-import React, { useState, Suspense, useRef, useEffect, Component, useCallback } from "react";
+import React, { useState, Suspense, useRef, useEffect, Component } from "react";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Decal, useGLTF, Html } from "@react-three/drei";
@@ -136,7 +136,7 @@ function ProductModel3D({
   if (!modelPath) return <Loader />;
   const { nodes } = useGLTF(modelPath);
   const [actualMesh, setActualMesh] = useState<THREE.Mesh | null>(null);
-  const meshRef = useRef<THREE.Mesh>(null);
+  const meshRef = useRef<THREE.Mesh>(null!);
   const [textureAspect, setTextureAspect] = useState(1);
 
   useEffect(() => {
@@ -148,7 +148,7 @@ function ProductModel3D({
     if (!targetNode) return;
     
     let foundMesh: THREE.Mesh | null = null;
-    if (targetNode.isMesh) foundMesh = targetNode as THREE.Mesh;
+    if (targetNode instanceof THREE.Mesh) foundMesh = targetNode as THREE.Mesh;
     else {
       targetNode.traverse((child) => {
         if (child instanceof THREE.Mesh && !foundMesh) foundMesh = child;
@@ -434,7 +434,7 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
               aspect={aspectRatio}
               onCropChange={onCropChange}
               onZoomChange={onZoomChange}
-              onCropComplete={(croppedArea, croppedAreaPixels) => {
+              onCropComplete={(_croppedArea, croppedAreaPixels) => {
                 setCroppedAreaPixels(croppedAreaPixels);
               }}
               classes={{
@@ -564,7 +564,7 @@ function DraggablePositionControl({ position, onChange, productType, productName
 
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
-    updatePosition(e);
+    updatePosition(e.nativeEvent as MouseEvent);
   };
 
   const handleMouseMove = (e: MouseEvent) => {
@@ -578,7 +578,7 @@ function DraggablePositionControl({ position, onChange, productType, productName
 
   const handleTouchStart = (e: React.TouchEvent) => {
     setIsDragging(true);
-    updatePosition(e.touches[0]);
+    updatePosition(e.touches[0] as unknown as Touch);
   };
 
   const handleTouchMove = (e: TouchEvent) => {
@@ -586,7 +586,7 @@ function DraggablePositionControl({ position, onChange, productType, productName
     updatePosition(e.touches[0]);
   };
 
-  const updatePosition = (event: MouseEvent | Touch) => {
+  const updatePosition = (event: { clientX: number; clientY: number }) => {
     if (!containerRef.current) return;
     
     const rect = containerRef.current.getBoundingClientRect();
@@ -844,7 +844,7 @@ const Customize: React.FC = () => {
     loader.load(
       croppedImageUrl, 
       (loadedTexture) => {
-        loadedTexture.encoding = THREE.sRGBEncoding;
+        loadedTexture.colorSpace = THREE.SRGBColorSpace;
         setTexture(loadedTexture);
       },
       undefined,

@@ -33,8 +33,7 @@ import {
 } from 'react-icons/fi';
 import { 
   MdLocationOn, 
-  MdOutlineRateReview,
-  MdImage
+  MdOutlineRateReview
 } from 'react-icons/md';
 import { 
   XMarkIcon,
@@ -43,7 +42,6 @@ import {
   PhoneIcon
 } from '@heroicons/react/24/outline';
 import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
-import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
 import api from '../../../lib/api';
 import { isAxiosError } from 'axios';
 import { useAuth } from "../../../context/AuthContext";
@@ -128,7 +126,7 @@ export default function SelectShop() {
     visible: { 
       opacity: 1, 
       y: 0,
-      transition: { duration: 0.6, ease: "easeOut" }
+      transition: { duration: 0.6, ease: [0, 0, 0.58, 1] as [number, number, number, number] }
     }
   };
 
@@ -571,7 +569,7 @@ export default function SelectShop() {
                     <p className="text-blue-200">Try adjusting your search or location</p>
                   </motion.div>
                 ) : (
-                  filteredStores.map((store, index) => (
+                  filteredStores.map((store) => (
                     <motion.div
                       key={store._id}
                       variants={fadeInUp}

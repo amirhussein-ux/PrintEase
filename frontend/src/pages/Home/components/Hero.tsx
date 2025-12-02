@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContext";
 import { motion } from "framer-motion";
-import { MdLocationOn, MdPerson } from "react-icons/md";
+import { MdPerson } from "react-icons/md";
 import { BsShop, BsQrCode, BsCloudUpload, BsClock } from "react-icons/bs";
 
 const Hero: React.FC = () => {
@@ -14,7 +14,7 @@ const Hero: React.FC = () => {
   const fadeInUp = {
     initial: { opacity: 0, y: 60 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.8, ease: "easeOut" }
+    transition: { duration: 0.8, ease: [0, 0, 0.58, 1] as [number, number, number, number] }
   };
 
   const staggerChildren = {
@@ -214,7 +214,7 @@ const Hero: React.FC = () => {
             <motion.div
               className="w-1.5 h-3 bg-cyan-400 rounded-full mt-1 shadow-lg"
               animate={{ y: [0, 16, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+              transition={{ duration: 2, repeat: Infinity, ease: [0.42, 0, 0.58, 1] as [number, number, number, number] }}
             />
           </div>
         </div>

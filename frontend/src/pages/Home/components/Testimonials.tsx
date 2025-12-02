@@ -84,7 +84,7 @@ function useIsMobile(breakpoint = 640) {
   return isMobile;
 }
 
-export default function Testimonials(): JSX.Element {
+export default function Testimonials() {
   const [index, setIndex] = useState<number>(0);
   const [filter, setFilter] = useState<'all' | 'customer' | 'shop'>('all');
   const isMobile = useIsMobile();
@@ -118,8 +118,8 @@ export default function Testimonials(): JSX.Element {
 
   // Fast transition durations
   const FAST_TRANSITION = {
-    duration: 0.3, // Much faster - was 0.8
-    ease: "easeInOut"
+    duration: 0.3,
+    ease: [0.42, 0, 0.58, 1] as [number, number, number, number]
   };
 
   return (
@@ -214,9 +214,9 @@ export default function Testimonials(): JSX.Element {
                       opacity, 
                       zIndex,
                       transition: {
-                        type: "tween", // Changed from "spring" for faster animation
-                        duration: 0.3, // Much faster
-                        ease: "easeInOut"
+                        type: "tween",
+                        duration: 0.3,
+                        ease: [0.42, 0, 0.58, 1] as [number, number, number, number]
                       }
                     }}
                     exit={{ 
@@ -224,8 +224,8 @@ export default function Testimonials(): JSX.Element {
                       scale: 0.9,
                       x: isMobile ? 0 : -100,
                       transition: {
-                        duration: 0.2, // Very fast exit
-                        ease: "easeIn"
+                        duration: 0.2,
+                        ease: [0.42, 0, 1, 1] as [number, number, number, number]
                       }
                     }}
                     onClick={() => setIndex(filteredTestimonials.indexOf(t))}

@@ -15,6 +15,7 @@ import ConfirmDialog from "./ConfirmDialog";
 interface DashboardLayoutProps {
   role: "owner" | "customer";
   children: React.ReactNode;
+  centerContent?: React.ReactNode;
 }
 
 interface Notification {
@@ -27,9 +28,7 @@ interface Notification {
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => {
   const { user, logout, token } = useAuth();
-  const isOwnerUser = user?.role === "owner";
-  const isOperationsManager = user?.role === "employee" && user.employeeRole === "Operations Manager";
-  const canEditShop = isOwnerUser || isOperationsManager;
+  // removed unused role flags
   const { socket } = useSocket() as { socket: Socket | null };
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);

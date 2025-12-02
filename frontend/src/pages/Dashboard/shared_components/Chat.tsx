@@ -454,7 +454,7 @@ const OwnerChat: React.FC = () => {
             const details = (c.participantDetails || []).find((d: StaffChatSummaryParticipant) => d._id === pid);
             mapped.push({
               id: pid,
-              name: details ? details.name : 'User',
+              name: details?.name ?? 'User',
               email: details?.email,
               chatId: c._id,
               lastMessage: c.lastMessage,

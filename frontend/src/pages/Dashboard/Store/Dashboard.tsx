@@ -5,7 +5,6 @@ import "@fontsource/crimson-pro/700.css"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { ExclamationTriangleIcon, ChartBarIcon, CubeIcon, DocumentChartBarIcon } from '@heroicons/react/24/outline'
 import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
 import logo from "/src/assets/PrintEase-Logo-Dark.png"
 import autoTable from "jspdf-autotable"
 import "@/assets/fonts/Roboto-Regular-normal"
@@ -654,32 +653,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
     };
   }, [showAuditTrail]);
 
-  // Mock data generator for demonstration
-  const generateMockAuditLogs = (): AuditLog[] => {
-    const actions = ['create', 'update', 'delete', 'login', 'download'];
-    const resources = ['Order', 'Inventory', 'Service', 'User', 'Report'];
-    const users = ['john_doe', 'jane_smith', 'admin_user', 'manager_1'];
-    const roles = ['Owner', 'Manager', 'Staff'];
-    
-    return Array.from({ length: 8 }, (_, i) => ({
-      _id: `log-${i + 1}`,
-      action: actions[Math.floor(Math.random() * actions.length)],
-      resource: resources[Math.floor(Math.random() * resources.length)],
-      resourceId: `res-${Math.floor(Math.random() * 1000)}`,
-      user: users[Math.floor(Math.random() * users.length)],
-      userRole: roles[Math.floor(Math.random() * roles.length)],
-      timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      details: {
-        changes: {
-          field: 'status',
-          from: 'pending',
-          to: 'completed'
-        },
-        notes: 'Automated system update'
-      },
-      ipAddress: `192.168.1.${Math.floor(Math.random() * 255)}`
-    }));
-  };
+  // (removed unused mock generator)
 
   // Crossfade skeleton -> content when loading completes
   useEffect(() => {

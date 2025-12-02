@@ -61,7 +61,7 @@ const Feedback = () => {
       y: 0,
       transition: {
         duration: 0.8,
-        ease: "easeOut"
+        ease: [0, 0, 0.58, 1] as [number, number, number, number]
       }
     }
   };

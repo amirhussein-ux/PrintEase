@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import EmblaCarousel from "./Embla Carousel/EmblaCarousel";
 
@@ -50,7 +49,7 @@ export default function About() {
       y: 0,
       transition: {
         duration: 0.8,
-        ease: "easeOut"
+        ease: [0, 0, 0.58, 1] as [number, number, number, number]
       }
     }
   };
@@ -132,7 +131,7 @@ export default function About() {
               variants={containerVariants}
               className="mt-12 grid grid-cols-2 gap-8"
             >
-              {stats.map((stat, index) => (
+              {stats.map((stat) => (
                 <motion.div
                   key={stat.label}
                   variants={itemVariants}
@@ -163,7 +162,7 @@ export default function About() {
               >
                 <h4 className="font-semibold text-gray-900 mb-3">Our Values</h4>
                 <div className="space-y-3">
-                  {values.slice(0, 2).map((value, index) => (
+                  {values.slice(0, 2).map((value) => (
                     <div key={value.title} className="flex items-center gap-3">
                       <span className="text-2xl">{value.icon}</span>
                       <div>
@@ -200,7 +199,7 @@ export default function About() {
           viewport={{ once: true }}
           className="mt-20 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
         >
-          {values.map((value, index) => (
+          {values.map((value) => (
             <motion.div
               key={value.title}
               whileHover={{ y: -5, scale: 1.02 }}

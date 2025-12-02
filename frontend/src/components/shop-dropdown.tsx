@@ -11,7 +11,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -21,6 +20,23 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+
+// Define the Shop shape used by this component
+interface ShopAddress {
+  addressLine?: string
+  city?: string
+  state?: string
+  country?: string
+  postal?: string
+  location?: { lat: number; lng: number }
+}
+
+interface Shop {
+  _id?: string
+  name: string
+  logoFileId?: unknown
+  address?: ShopAddress
+}
 
 export function TeamSwitcher({
   teams,
@@ -41,7 +57,7 @@ export function TeamSwitcher({
       }
   )
   const [isStoreDashboard, setIsStoreDashboard] = React.useState(false)
-  const [store, setStore] = React.useState<null | unknown>(null)
+  const [store, setStore] = React.useState<Shop | null>(null)
   const navigate = useNavigate()
   const [logoSrc, setLogoSrc] = React.useState<string | null>(null)
 
@@ -66,7 +82,7 @@ export function TeamSwitcher({
     let active = true
     const load = async () => {
       try {
-        const res = await api.get("/print-store/mine")
+        const res = await api.get<Shop>("/print-store/mine")
         if (!active) return
         setStore(res.data)
       } catch {
@@ -87,7 +103,7 @@ export function TeamSwitcher({
       return
     }
     let logoId: string | undefined
-    const raw = store.logoFileId as unknown
+    const raw = store.logoFileId
     if (typeof raw === "string") logoId = raw
     else if (raw && typeof raw === "object") {
       const maybe = raw as { _id?: unknown; toString?: () => string }
@@ -125,7 +141,7 @@ export function TeamSwitcher({
                     className="h-6 w-6 object-cover rounded-md"
                   />
                 ) : (
-                  <activeTeam.logo className="size-4" />
+                  React.createElement(activeTeam.logo, { className: "size-4" })
                 )}
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">

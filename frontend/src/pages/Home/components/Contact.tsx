@@ -100,7 +100,7 @@ const Contact = () => {
       y: 0,
       transition: {
         duration: 0.8,
-        ease: "easeOut"
+        ease: [0, 0, 0.58, 1] as [number, number, number, number]
       }
     }
   };
@@ -149,7 +149,7 @@ const Contact = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
             {/* Contact Methods */}
             <motion.div variants={itemVariants} className="lg:col-span-1 space-y-6">
-              {contactMethods.map((method, index) => (
+              {contactMethods.map((method) => (
                 <motion.div
                   key={method.title}
                   whileHover={{ scale: 1.02, y: -2 }}

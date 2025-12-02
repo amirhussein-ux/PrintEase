@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../context/AuthContext';
-import { FunnelIcon, ShoppingCartIcon, TrashIcon, XMarkIcon, NoSymbolIcon } from '@heroicons/react/24/outline';
+import { FunnelIcon, ShoppingCartIcon, TrashIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import api from '../../../lib/api';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -100,7 +100,7 @@ export default function OrderPage() {
     // Payment confirmation state
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null);
-    const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'completed' | 'failed'>('pending');
+    const [_paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'completed' | 'failed'>('pending');
     const [watchedOrderStatus, setWatchedOrderStatus] = useState<OrderStatusLocal | null>(null);
     const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
     // Down payment modal state for bulk orders
@@ -131,7 +131,7 @@ export default function OrderPage() {
     const [dpReference, setDpReference] = useState('');
 
     // Inventory cache for sizes
-    const [inventoryCache, setInventoryCache] = useState<Record<string, any>>({});
+    const [inventoryCache, _setInventoryCache] = useState<Record<string, any>>({});
     const [sizeChoice, setSizeChoice] = useState<Record<string, string>>({});
 
     // Notification state

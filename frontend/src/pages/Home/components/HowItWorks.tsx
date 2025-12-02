@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   MdLocationOn, 
@@ -60,7 +59,7 @@ const HowItWorks = () => {
       y: 0,
       transition: {
         duration: 0.8,
-        ease: "easeOut"
+        ease: [0, 0, 0.58, 1] as [number, number, number, number]
       }
     }
   };
@@ -97,7 +96,7 @@ const HowItWorks = () => {
         >
           {/* Steps Section */}
           <div className="space-y-12">
-            {steps.map((step, index) => (
+            {steps.map((step) => (
               <motion.div
                 key={step.number}
                 variants={itemVariants}

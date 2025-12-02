@@ -14,8 +14,9 @@ export const initSocket = (userId: string, role: string): Socket => {
     });
 
     socket.on("connect", () => {
-      console.log("✅ Connected to socket server with id:", socket.id);
-      socket.emit("register", { userId, role });
+      const s = socket!;
+      console.log("✅ Connected to socket server with id:", s.id);
+      s.emit("register", { userId, role });
     });
 
     socket.on("disconnect", (reason) => {
