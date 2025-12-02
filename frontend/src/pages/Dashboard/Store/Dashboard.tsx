@@ -5,7 +5,7 @@ import "@fontsource/crimson-pro/700.css"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
 import { ExclamationTriangleIcon, ChartBarIcon, CubeIcon, DocumentChartBarIcon } from '@heroicons/react/24/outline'
 import jsPDF from "jspdf"
-import logo from "/src/assets/PrintEase-Logo-Dark.png"
+import logo from "../../../assets/PrintEase-logo-dark.png"
 import autoTable from "jspdf-autotable"
 import "@/assets/fonts/Roboto-Regular-normal"
 

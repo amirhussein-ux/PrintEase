@@ -41,7 +41,7 @@ import {
   ClockIcon,
   PhoneIcon
 } from '@heroicons/react/24/outline';
-import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
+import PrintEaseLogo from '../../../assets/PrintEase-logo.png';
 import api from '../../../lib/api';
 import { isAxiosError } from 'axios';
 import { useAuth } from "../../../context/AuthContext";

@@ -4,7 +4,7 @@ import { AppSidebar } from "../../../components/app-sidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "../../../components/ui/sidebar";
 import { useAuth } from "../../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import logo from "/src/assets/PrintEase-Logo-Dark.png";
+import logo from "../../../assets/PrintEase-logo-dark.png";
 import { useSocket } from "../../../context/SocketContext";
 import axios from "axios";
 import { Socket } from "socket.io-client";

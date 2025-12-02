@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { ChangeEvent } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { AiOutlineEdit, AiOutlineDelete, AiOutlineArrowLeft } from 'react-icons/ai';
-import PrintEaseLogo from '../../../assets/PrintEase-Logo.png';
+import PrintEaseLogo from '../../../assets/PrintEase-logo.png';
 import PrintEaseLogoMobile from '../../../assets/PrintEase-logo1.png';
 import { useAuth } from "../../../context/AuthContext";
 import CropperModal from '../../../components/CropperModal';
