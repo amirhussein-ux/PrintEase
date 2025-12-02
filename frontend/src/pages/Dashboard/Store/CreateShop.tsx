@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../../../lib/api";
 import CropperModal from '../../../components/CropperModal';
-import PrintEaseLogo from "../../../assets/PrintEase-Logo.png";
+import PrintEaseLogo from "../../../assets/PrintEase-logo.png";
 import { useAuth } from "../../../context/AuthContext";
 
 /* map imports */
