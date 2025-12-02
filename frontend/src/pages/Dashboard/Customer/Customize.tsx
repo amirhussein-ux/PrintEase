@@ -4,8 +4,11 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Decal, useGLTF, Html } from "@react-three/drei";
 import * as THREE from "three";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import Cropper from 'react-easy-crop';
+import { saveDesign } from "@/lib/savedDesigns";
+import { useAuth } from "@/context/AuthContext";
+import html2canvas from 'html2canvas';
 
 // --- TYPES ---
 interface CropArea {
@@ -59,7 +62,7 @@ const productSettings: Record<string, any> = {
   // 2D Products
   Mousepad: {
     type: "2d",
-    dimensions: { width: 300, height: 100 }, // Long rectangle
+    dimensions: { width: 300, height: 100 },
     backgroundColor: "#ffffff",
     decalDefaults: { position: [0.5, 0.5], scale: 1, minScale: 0.5, maxScale: 1 },
     variations: {
@@ -81,7 +84,7 @@ const productSettings: Record<string, any> = {
   },
   "Phone Case": {
     type: "2d",
-    dimensions: { width: 80, height: 160 }, // Portrait orientation
+    dimensions: { width: 80, height: 160 },
     backgroundColor: "#ffffff",
     decalDefaults: { position: [0.5, 0.5], scale: 0.4, minScale: 0.05, maxScale: 0.8 },
     variations: {
@@ -256,7 +259,6 @@ function Product2DPreview({
       ref={containerRef} 
       className="w-full h-full flex items-center justify-center relative"
     >
-      {/* Product Outline */}
       <div 
         className="relative border-2 border-gray-700 rounded-lg shadow-2xl"
         style={{
@@ -266,7 +268,6 @@ function Product2DPreview({
           boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
         }}
       >
-        {/* Design Area Grid (subtle) */}
         <div className="absolute inset-0 opacity-20">
           <div className="w-full h-full" style={{
             backgroundImage: `linear-gradient(to right, #666 1px, transparent 1px),
@@ -275,7 +276,6 @@ function Product2DPreview({
           }} />
         </div>
 
-        {/* Decal Image */}
         {decalImage && (
           <div
             className="absolute border-2 border-blue-400/50 rounded-lg overflow-hidden transition-all duration-200"
@@ -292,13 +292,11 @@ function Product2DPreview({
               alt="Design"
               className="w-full h-full object-cover"
             />
-            {/* Drag Handle Indicator */}
             <div className="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white"></div>
             <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white"></div>
           </div>
         )}
 
-        {/* Dimensions Label */}
         <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-gray-400 text-sm font-mono">
           {dimensions.width}mm × {dimensions.height}mm
         </div>
@@ -350,16 +348,13 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
 
       if (!ctx) throw new Error('No 2d context');
 
-      // Set canvas size to the cropped area
       canvas.width = croppedAreaPixels.width;
       canvas.height = croppedAreaPixels.height;
 
-      // Apply rotation
       ctx.translate(croppedAreaPixels.width / 2, croppedAreaPixels.height / 2);
       ctx.rotate((rotation * Math.PI) / 180);
       ctx.translate(-croppedAreaPixels.width / 2, -croppedAreaPixels.height / 2);
 
-      // Draw the cropped image
       ctx.drawImage(
         imageEl,
         croppedAreaPixels.x,
@@ -372,7 +367,6 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
         croppedAreaPixels.height
       );
 
-      // Convert to blob and then to object URL
       return new Promise<string>((resolve) => {
         canvas.toBlob((blob) => {
           if (!blob) return;
@@ -407,7 +401,6 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
   return createPortal(
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in duration-300">
       <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 w-full max-w-4xl mx-4 overflow-hidden shadow-2xl">
-        {/* Header */}
         <div className="p-6 border-b border-gray-700 flex justify-between items-center">
           <div>
             <h3 className="text-xl font-bold text-white">Crop & Adjust Your Design</h3>
@@ -423,7 +416,6 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
           </button>
         </div>
 
-        {/* Cropper Area */}
         <div className="p-6">
           <div className="relative h-[400px] bg-gray-900 rounded-lg overflow-hidden">
             <Cropper
@@ -445,9 +437,7 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
             />
           </div>
 
-          {/* Controls */}
           <div className="mt-6 space-y-6">
-            {/* Zoom Control */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-semibold text-gray-200">Zoom</label>
@@ -466,7 +456,6 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
               />
             </div>
 
-            {/* Rotation Controls */}
             <div>
               <label className="block text-sm font-semibold text-gray-200 mb-3">Rotation</label>
               <div className="flex items-center gap-4">
@@ -507,7 +496,6 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="p-6 border-t border-gray-700 flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -551,13 +539,12 @@ function DraggablePositionControl({ position, onChange, productType, productName
   const [isDragging, setIsDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Get default position based on product type
   const getDefaultPosition = (): [number, number] => {
     if (productType === '3d') {
-      if (productName === 'Mug') return [0.5, 0.5]; // Center for mug
-      if (productName === 'T-Shirt') return [0.5, 0.5]; // Center for shirt
+      if (productName === 'Mug') return [0.5, 0.5];
+      if (productName === 'T-Shirt') return [0.5, 0.5];
     }
-    return [0.5, 0.5]; // Default center for 2D products
+    return [0.5, 0.5];
   };
 
   const defaultPosition = getDefaultPosition();
@@ -643,14 +630,12 @@ function DraggablePositionControl({ position, onChange, productType, productName
         </div>
       </div>
 
-      {/* Draggable Area */}
       <div 
         ref={containerRef}
         className="relative w-full h-48 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg border border-gray-600 overflow-hidden cursor-crosshair"
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
       >
-        {/* Grid */}
         <div className="absolute inset-0 opacity-20">
           <div className="w-full h-full" style={{
             backgroundImage: `linear-gradient(to right, #666 1px, transparent 1px),
@@ -659,11 +644,9 @@ function DraggablePositionControl({ position, onChange, productType, productName
           }} />
         </div>
 
-        {/* Center Lines */}
         <div className="absolute top-1/2 left-0 right-0 h-px bg-blue-500/30 transform -translate-y-1/2"></div>
         <div className="absolute left-1/2 top-0 bottom-0 w-px bg-blue-500/30 transform -translate-x-1/2"></div>
 
-        {/* Center Cross */}
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4">
           <div className="absolute top-0 left-1/2 w-px h-2 bg-blue-400/50 transform -translate-x-1/2"></div>
           <div className="absolute bottom-0 left-1/2 w-px h-2 bg-blue-400/50 transform -translate-x-1/2"></div>
@@ -671,7 +654,6 @@ function DraggablePositionControl({ position, onChange, productType, productName
           <div className="absolute right-0 top-1/2 w-2 h-px bg-blue-400/50 transform -translate-y-1/2"></div>
         </div>
 
-        {/* Position Dots */}
         <div className="absolute top-1/4 left-1/4">
           <div 
             className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
@@ -697,7 +679,6 @@ function DraggablePositionControl({ position, onChange, productType, productName
           />
         </div>
 
-        {/* Current Position Indicator */}
         <div 
           className="absolute w-8 h-8 rounded-full border-2 border-blue-400 bg-blue-400/20 flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2 shadow-lg z-10"
           style={{
@@ -708,7 +689,6 @@ function DraggablePositionControl({ position, onChange, productType, productName
           <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
         </div>
 
-        {/* Default Position Indicator */}
         <div 
           className="absolute w-6 h-6 rounded-full border border-blue-300/30 transform -translate-x-1/2 -translate-y-1/2"
           style={{
@@ -719,7 +699,6 @@ function DraggablePositionControl({ position, onChange, productType, productName
           <div className="w-1.5 h-1.5 bg-blue-300/30 rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
         </div>
 
-        {/* Corner Labels */}
         <div className="absolute top-2 left-2 text-xs text-gray-500">Top Left</div>
         <div className="absolute top-2 right-2 text-xs text-gray-500">Top Right</div>
         <div className="absolute bottom-2 left-2 text-xs text-gray-500">Bottom Left</div>
@@ -731,6 +710,65 @@ function DraggablePositionControl({ position, onChange, productType, productName
       </div>
     </div>
   );
+}
+
+// --- Helper function for fallback thumbnail ---
+async function createFallbackThumbnail(productType: string, color: string, preview: string | null): Promise<string> {
+  console.log("🔄 Creating fallback thumbnail...");
+  
+  const canvas = document.createElement('canvas');
+  canvas.width = 800;
+  canvas.height = 600;
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) return preview || '';
+  
+  // Create gradient background
+  const gradient = ctx.createLinearGradient(0, 0, 800, 600);
+  gradient.addColorStop(0, '#1e293b');
+  gradient.addColorStop(1, '#0f172a');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, 800, 600);
+  
+  // Add product icon
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.font = 'bold 72px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  
+  if (productType === 'Mug') {
+    ctx.fillText('☕', 400, 200);
+  } else if (productType === 'T-Shirt') {
+    ctx.fillText('👕', 400, 200);
+  } else if (productType === 'Mousepad') {
+    ctx.fillText('🖱️', 400, 200);
+  } else if (productType === 'Sticker') {
+    ctx.fillText('🏷️', 400, 200);
+  } else if (productType === 'Phone Case') {
+    ctx.fillText('📱', 400, 200);
+  } else {
+    ctx.fillText('🎨', 400, 200);
+  }
+  
+  // Add text
+  ctx.font = 'bold 28px Arial';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.fillText(productType || 'Custom Design', 400, 300);
+  
+  ctx.font = '18px Arial';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+  ctx.fillText('Custom Design Preview', 400, 340);
+  
+  // Add color indicator
+  ctx.fillStyle = color || '#ffffff';
+  ctx.beginPath();
+  ctx.arc(400, 400, 20, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  
+  return canvas.toDataURL('image/png', 1.0);
 }
 
 // --- MAIN CUSTOMIZER ---
@@ -747,23 +785,24 @@ const Customize: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'2d' | '3d'>('3d');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   
-  // For 3D products - convert 2D draggable position to 3D coordinates
   const [draggablePosition, setDraggablePosition] = useState<[number, number]>([0.5, 0.5]);
   const [decal3DScale, setDecal3DScale] = useState(0.15);
-  
-  // For 2D products
   const [decal2DPosition, setDecal2DPosition] = useState<[number, number]>([0.5, 0.5]);
   const [decal2DScale, setDecal2DScale] = useState(0.5);
   
   const [isDragging, setIsDragging] = useState(false);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
   const [aspectRatio, setAspectRatio] = useState(1);
+  const [autoRotate, setAutoRotate] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
 
-  // Filter products by type
   const available3DProducts = Object.keys(productSettings).filter(
     product => productSettings[product].type === "3d"
   );
@@ -775,7 +814,19 @@ const Customize: React.FC = () => {
   const currentVariation = selectedProduct && selectedColor ? currentProductInfo?.variations[selectedColor] : null;
   const decalScaleRange = currentProductInfo ? currentProductInfo.decalDefaults : { minScale: 0, maxScale: 1 };
 
-  // Convert 2D draggable position to 3D coordinates
+  useEffect(() => {
+    if (location.state?.storeId) {
+      console.log("📦 Store ID from navigation state:", location.state.storeId);
+      localStorage.setItem("customerStoreId", location.state.storeId);
+      
+      if (!localStorage.getItem("customerStoreId")) {
+        console.log("⚠️ No store ID found, setting from navigation state");
+      }
+    }
+    
+    console.log("🔍 Current localStorage customerStoreId:", localStorage.getItem("customerStoreId"));
+  }, [location.state]);
+
   const convertTo3DPosition = (position2D: [number, number]): [number, number, number] => {
     if (!selectedProduct) return [0, 0, 0];
     
@@ -784,16 +835,13 @@ const Customize: React.FC = () => {
     
     const defaults = product.decalDefaults.position;
     
-    // Map 2D coordinates (0-1) to 3D space based on product type
     if (selectedProduct === 'Mug') {
-      // For mug: X ranges from -0.3 to 0.3, Y from 0.8 to 1.5
-      const x = (position2D[0] - 0.5) * 0.6; // -0.3 to 0.3
-      const y = 0.8 + (position2D[1] * 0.7); // 0.8 to 1.5
+      const x = (position2D[0] - 0.5) * 0.6;
+      const y = 0.8 + (position2D[1] * 0.7);
       return [x, y, defaults[2]];
     } else if (selectedProduct === 'T-Shirt') {
-      // For shirt: X ranges from -0.5 to 0.5, Y from 0.3 to 0.8
-      const x = (position2D[0] - 0.5); // -0.5 to 0.5
-      const y = 0.3 + (position2D[1] * 0.5); // 0.3 to 0.8
+      const x = (position2D[0] - 0.5);
+      const y = 0.3 + (position2D[1] * 0.5);
       return [x, y, defaults[2]];
     }
     
@@ -806,7 +854,7 @@ const Customize: React.FC = () => {
     if (productName && productSettings[productName]) {
       const defaults = productSettings[productName].decalDefaults;
       if (productSettings[productName].type === "3d") {
-        setDraggablePosition([0.5, 0.5]); // Center position
+        setDraggablePosition([0.5, 0.5]);
         setDecal3DScale(defaults.scale);
       } else {
         setDecal2DPosition(defaults.position);
@@ -821,12 +869,10 @@ const Customize: React.FC = () => {
       return;
     }
 
-    // Create preview URL
     const url = URL.createObjectURL(file);
     setOriginalImage(url);
     setPreview(url);
     
-    // Get image dimensions for aspect ratio
     const img = new Image();
     img.onload = () => {
       setAspectRatio(img.width / img.height);
@@ -839,7 +885,6 @@ const Customize: React.FC = () => {
   const handleCropComplete = (croppedImageUrl: string) => {
     setPreview(croppedImageUrl);
     
-    // Load texture for 3D preview
     const loader = new THREE.TextureLoader();
     loader.load(
       croppedImageUrl, 
@@ -909,6 +954,7 @@ const Customize: React.FC = () => {
     setDecal3DScale(0.15);
     setDecal2DPosition([0.5, 0.5]);
     setDecal2DScale(0.5);
+    setAutoRotate(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     setNotification(null);
   };
@@ -935,8 +981,239 @@ const Customize: React.FC = () => {
     setDecal2DPosition(position);
   };
 
+  // FIXED: COMPLETE handleSaveAndProceed function with proper thumbnail capture
+  const handleSaveAndProceed = async () => {
+    if (!selectedProduct || !selectedColor || !preview || !user) {
+      setNotification("Please complete your design first.");
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      
+      // Get storeId
+      let storeId = 
+        localStorage.getItem("customerStoreId") ||
+        location.state?.storeId ||
+        null;
+
+      if (!storeId) {
+        setNotification("Please select a store first. Redirecting to store selection...");
+        setTimeout(() => {
+          navigate("/customer/select-shop");
+        }, 2000);
+        return;
+      }
+
+      console.log("📸 CAPTURING EXACT DESIGN VIEW FOR THUMBNAIL...");
+      
+      // CAPTURE 1: Front-facing thumbnail (what user sees in editor)
+      let frontViewThumbnail = "";
+      
+      try {
+        // Wait for everything to render
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        if (currentProductInfo?.type === '3d') {
+          console.log("🔄 Capturing front view of 3D model...");
+          
+          // IMPORTANT: Reset camera to front view before capturing
+          const canvas = document.querySelector('canvas');
+          if (canvas) {
+            console.log("✅ Found canvas, capturing front view...");
+            
+            // Capture from the canvas itself - it already shows the front view
+            const captureCanvas = document.createElement('canvas');
+            captureCanvas.width = 800; // Good thumbnail size
+            captureCanvas.height = 600;
+            const ctx = captureCanvas.getContext('2d');
+            
+            if (ctx) {
+              // Fill with nice gradient background
+              const gradient = ctx.createLinearGradient(0, 0, 800, 600);
+              gradient.addColorStop(0, '#1e293b');
+              gradient.addColorStop(1, '#0f172a');
+              ctx.fillStyle = gradient;
+              ctx.fillRect(0, 0, 800, 600);
+              
+              // Calculate dimensions to fit while maintaining aspect ratio
+              const canvasAspect = canvas.width / canvas.height;
+              const thumbnailAspect = 800 / 600;
+              
+              let drawWidth, drawHeight, offsetX, offsetY;
+              
+              if (canvasAspect > thumbnailAspect) {
+                // Canvas is wider than thumbnail
+                drawWidth = 800;
+                drawHeight = 800 / canvasAspect;
+                offsetX = 0;
+                offsetY = (600 - drawHeight) / 2;
+              } else {
+                // Canvas is taller than thumbnail
+                drawHeight = 600;
+                drawWidth = 600 * canvasAspect;
+                offsetX = (800 - drawWidth) / 2;
+                offsetY = 0;
+              }
+              
+              // Enable high-quality rendering
+              ctx.imageSmoothingEnabled = true;
+              ctx.imageSmoothingQuality = 'high';
+              
+              // Draw the canvas (this is the front view the user sees)
+              ctx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
+              
+              // Add a nice border
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+              ctx.lineWidth = 2;
+              ctx.strokeRect(offsetX, offsetY, drawWidth, drawHeight);
+              
+              // Add subtle shadow
+              ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+              ctx.shadowBlur = 20;
+              ctx.shadowOffsetX = 0;
+              ctx.shadowOffsetY = 10;
+              ctx.fillRect(offsetX, offsetY, drawWidth, drawHeight);
+              ctx.shadowColor = 'transparent';
+              ctx.shadowBlur = 0;
+              
+              // Add product label
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+              ctx.font = 'bold 16px Arial';
+              ctx.textAlign = 'center';
+              ctx.fillText(selectedProduct, 400, 30);
+              
+              frontViewThumbnail = captureCanvas.toDataURL('image/png', 1.0);
+              console.log('✅ Front view thumbnail captured:', frontViewThumbnail.substring(0, 100) + '...');
+              
+              // Save thumbnail to localStorage for testing
+              localStorage.setItem('lastThumbnail', frontViewThumbnail);
+            }
+          } else {
+            console.warn('⚠️ No canvas found for thumbnail capture');
+            // Create a fallback thumbnail
+            frontViewThumbnail = await createFallbackThumbnail(selectedProduct, selectedColor, preview);
+          }
+        } else {
+          // For 2D products
+          console.log("🖼️ Capturing 2D thumbnail...");
+          const containerId = `2d-preview-${selectedProduct}-${selectedColor}`;
+          const previewContainer = document.getElementById(containerId);
+          
+          if (previewContainer) {
+            const canvas = await html2canvas(previewContainer as HTMLElement, {
+              backgroundColor: '#1e293b',
+              scale: 2,
+              useCORS: true,
+              allowTaint: true,
+              logging: false
+            });
+            
+            frontViewThumbnail = canvas.toDataURL('image/png', 1.0);
+            console.log('✅ 2D thumbnail captured');
+          } else {
+            frontViewThumbnail = await createFallbackThumbnail(selectedProduct, selectedColor, preview);
+          }
+        }
+      } catch (captureError) {
+        console.error('❌ Thumbnail capture error:', captureError);
+        // Create a fallback thumbnail
+        frontViewThumbnail = await createFallbackThumbnail(selectedProduct, selectedColor, preview);
+      }
+
+      // CAPTURE 2: Original uploaded image (for recreation in preview modal)
+      const originalImage = preview;
+      
+      // Convert thumbnail to File
+      console.log("🔄 Converting thumbnail to file...");
+      let thumbnailFile: File;
+      try {
+        const response = await fetch(frontViewThumbnail);
+        const blob = await response.blob();
+        thumbnailFile = new File([blob], `thumbnail-${selectedProduct}-${Date.now()}.png`, { 
+          type: "image/png" 
+        });
+        console.log("✅ Thumbnail file created:", thumbnailFile.name, thumbnailFile.size, "bytes");
+      } catch (fileError) {
+        console.error("❌ Error creating thumbnail file:", fileError);
+        throw new Error("Failed to create thumbnail file");
+      }
+
+      // Convert original image to File
+      console.log("🔄 Converting original image to file...");
+      let originalFile: File;
+      try {
+        const response = await fetch(originalImage);
+        const blob = await response.blob();
+        originalFile = new File([blob], `original-${selectedProduct}-${Date.now()}.png`, { 
+          type: "image/png" 
+        });
+        console.log("✅ Original file created:", originalFile.name, originalFile.size, "bytes");
+      } catch (fileError) {
+        console.error("❌ Error creating original file:", fileError);
+        throw new Error("Failed to create original design file");
+      }
+
+      // Prepare design data - THUMBNAIL is the front view capture!
+      const designData = {
+        productType: selectedProduct,
+        color: selectedColor,
+        storeId,
+        customization: {
+          position: currentProductInfo?.type === '3d' ? 
+            { x: draggablePosition[0], y: draggablePosition[1] } : 
+            { x: decal2DPosition[0], y: decal2DPosition[1] },
+          scale: currentProductInfo?.type === '3d' ? decal3DScale : decal2DScale,
+          // Store 3D position
+          ...(currentProductInfo?.type === '3d' && {
+            decalPosition3D: {
+              x: decal3DPosition[0],
+              y: decal3DPosition[1],
+              z: decal3DPosition[2]
+            }
+          }),
+          // Store 2D dimensions
+          ...(currentProductInfo?.type === '2d' && {
+            productDimensions: currentProductInfo.dimensions
+          }),
+          // Store the original uploaded image FOR THE PREVIEW MODAL
+          originalImage: originalImage
+        },
+        name: `My ${selectedProduct} Design`,
+        thumbnail: frontViewThumbnail, // This is the FRONT VIEW CAPTURE!
+        tags: ['custom', selectedProduct.toLowerCase().replace(' ', '-'), selectedColor]
+      };
+
+      console.log("📦 Saving design with:", {
+        productType: designData.productType,
+        color: designData.color,
+        thumbnailSize: frontViewThumbnail.length,
+        hasOriginalImage: !!designData.customization.originalImage
+      });
+
+      // Save to backend
+      await saveDesign(designData, originalFile, thumbnailFile);
+      
+      console.log("✅ Design saved successfully!");
+      
+      // Show success message
+      setNotification("Design saved successfully!");
+      
+      // Close modal and navigate
+      handleCloseModal();
+      setTimeout(() => {
+        navigate("/dashboard/saved-designs");
+      }, 500);
+      
+    } catch (error) {
+      console.error("❌ Error saving design:", error);
+      setNotification("Failed to save design. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   useEffect(() => {
-    // Preload models for smoother experience
     useGLTF.preload("/models/mug.glb");
     useGLTF.preload("/models/shirt.glb");
   }, []);
@@ -944,7 +1221,6 @@ const Customize: React.FC = () => {
   return (
     <DashboardLayout role="customer">
       <div className="w-full max-w-7xl mx-auto">
-        {/* Header Section */}
         <div className="mt-6 text-center">
           <h1 className="text-3xl md:text-4xl font-bold text-white tracking-wide">
             Customize your Product
@@ -954,7 +1230,6 @@ const Customize: React.FC = () => {
           </p>
         </div>
 
-        {/* Tab Selection */}
         <div className="mt-6 flex justify-center">
           <div className="inline-flex rounded-xl bg-gray-800 p-1 border border-gray-700">
             <button
@@ -998,17 +1273,14 @@ const Customize: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="mt-8 flex flex-col lg:flex-row gap-6 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 p-6 shadow-2xl border border-gray-700">
           
-          {/* Sidebar with independent scroll */}
           <aside 
             ref={sidebarRef}
             className="w-full lg:w-96 bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-700 p-6 flex flex-col shadow-lg"
             style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}
           >
             <div className="flex flex-col gap-6">
-              {/* Product Selection */}
               <div className="space-y-2">
                 <label htmlFor="product-select" className="block text-sm font-semibold text-gray-200 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1036,7 +1308,6 @@ const Customize: React.FC = () => {
 
               {selectedProduct && currentProductInfo && (
                 <>
-                  {/* File Upload */}
                   <div className="space-y-4">
                     <div
                       onClick={() => fileInputRef.current?.click()}
@@ -1063,7 +1334,6 @@ const Customize: React.FC = () => {
                       <input type="file" accept="image/png, image/jpeg, image/jpg" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
                     </div>
 
-                    {/* Image Preview Panel */}
                     {preview && (
                       <div className="bg-gray-700/50 rounded-xl p-4 border border-gray-600">
                         <div className="flex items-center justify-between mb-2">
@@ -1092,9 +1362,7 @@ const Customize: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Customization Options */}
                   <div className="space-y-6 pt-4 border-t border-gray-700">
-                    {/* Color Selection */}
                     <div>
                       <label className="block text-sm font-semibold text-gray-200 mb-3 flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1119,10 +1387,8 @@ const Customize: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Design Controls */}
                     {preview && (
                       <div className="space-y-4">
-                        {/* Scale Control */}
                         <div>
                           <div className="flex justify-between items-center mb-2">
                             <label className="block text-sm font-semibold text-gray-200">DESIGN SCALE</label>
@@ -1148,7 +1414,6 @@ const Customize: React.FC = () => {
                           />
                         </div>
 
-                        {/* Position Control */}
                         <div>
                           <label className="block text-sm font-semibold text-gray-200 mb-3">DESIGN POSITION</label>
                           {currentProductInfo.type === '3d' ? (
@@ -1173,7 +1438,6 @@ const Customize: React.FC = () => {
                 </>
               )}
 
-              {/* Notification */}
               {notification && (
                 <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="text-red-400 text-sm font-medium flex items-center gap-2">
@@ -1181,82 +1445,120 @@ const Customize: React.FC = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     {notification}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 pt-4 border-t border-gray-700">
+                <div className="flex gap-3">
+                  <button 
+                    type="button" 
+                    onClick={handleReset} 
+                    className="flex-1 py-3.5 rounded-xl bg-gray-700 hover:bg-gray-600 font-semibold text-white text-sm border border-gray-600 shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reset
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={handleBuy} 
+                    disabled={!selectedProduct}
+                    className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 font-semibold text-white text-sm shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                    Buy Now
+                  </button>
                 </div>
               </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="mt-6 pt-4 border-t border-gray-700">
-              <div className="flex gap-3">
-                <button 
-                  type="button" 
-                  onClick={handleReset} 
-                  className="flex-1 py-3.5 rounded-xl bg-gray-700 hover:bg-gray-600 font-semibold text-white text-sm border border-gray-600 shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  Reset
-                </button>
-                <button 
-                  type="button" 
-                  onClick={handleBuy} 
-                  disabled={!selectedProduct}
-                  className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 font-semibold text-white text-sm shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                  </svg>
-                  Buy Now
-                </button>
-              </div>
             </div>
-          </div>
-        </aside>
+          </aside>
 
-          {/* Preview Area - Fixed height, no scrolling */}
-          <main className="flex-1 flex items-start justify-center bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border border-gray-700 p-6 shadow-2xl">
-            <div className="w-full h-[600px] rounded-xl border-2 border-gray-700 overflow-hidden bg-gradient-to-b from-gray-900 to-gray-800 shadow-inner">
+          <main className="flex-1 flex items-start justify-center bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border border-gray-700 p-6 shadow-2xl relative">
+            {selectedProduct && currentProductInfo && currentProductInfo.type === '3d' && (
+              <div className="absolute top-4 right-4 z-10">
+                <label className="flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-700 hover:bg-gray-800 cursor-pointer transition-all duration-200">
+                  <input
+                    type="checkbox"
+                    checked={autoRotate}
+                    onChange={(e) => setAutoRotate(e.target.checked)}
+                    className="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 rounded focus:ring-blue-600 focus:ring-offset-gray-800 focus:ring-2 focus:ring-offset-2 cursor-pointer"
+                  />
+                  <div className="flex items-center gap-2">
+                    <svg className={`w-4 h-4 ${autoRotate ? 'text-blue-400 animate-spin' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span className={`text-sm font-medium ${autoRotate ? 'text-blue-300' : 'text-gray-300'}`}>
+                      Rotate
+                    </span>
+                  </div>
+                </label>
+              </div>
+            )}
+            
+            <div 
+              ref={canvasRef}
+              className="w-full h-[600px] rounded-xl border-2 border-gray-700 overflow-hidden bg-gradient-to-b from-gray-900 to-gray-800 shadow-inner"
+            >
               <ErrorBoundary>
                 {selectedProduct && selectedColor && currentVariation ? (
                   currentProductInfo.type === '3d' ? (
-                    <Canvas 
-                      key={`${currentVariation.path}-${selectedColor}`} 
-                      camera={{ position: [0, 0, 5], fov: 50 }}
-                      onPointerDown={() => setIsDragging(true)} 
-                      onPointerUp={() => setIsDragging(false)}
-                      onCreated={({ gl }) => {
-                        gl.domElement.addEventListener('webglcontextlost', (e) => {
-                          console.error('WebGL context lost');
-                          e.preventDefault();
-                        }, false);
-                      }}
+                    <div 
+                      id={`preview-canvas-${selectedProduct}-${selectedColor}`}
+                      className="w-full h-full"
                     >
-                      <ambientLight intensity={0.8} />
-                      <Environment preset="city" />
-                      <Suspense fallback={<Loader />}>
-                        <ProductModel3D 
-                          decalTexture={texture} 
-                          decalPosition={decal3DPosition} 
-                          decalScale={decal3DScale} 
-                          modelPath={currentVariation.path}
-                          scale={currentVariation.scale} 
-                          position={currentVariation.position} 
-                          rotation={currentVariation.rotation}
-                          targetMeshName={currentVariation.targetMeshName} 
-                          baseColor={currentVariation.colorCode} 
+                      <Canvas 
+                        key={`${currentVariation.path}-${selectedColor}`} 
+                        camera={{ position: [0, 0, 5], fov: 50 }}
+                        onPointerDown={() => setIsDragging(true)} 
+                        onPointerUp={() => setIsDragging(false)}
+                        onCreated={({ gl }) => {
+                          gl.domElement.addEventListener('webglcontextlost', (e) => {
+                            console.error('WebGL context lost');
+                            e.preventDefault();
+                          }, false);
+                        }}
+                      >
+                        <ambientLight intensity={0.8} />
+                        <Environment preset="city" />
+                        <Suspense fallback={<Loader />}>
+                          <ProductModel3D 
+                            decalTexture={texture} 
+                            decalPosition={decal3DPosition} 
+                            decalScale={decal3DScale} 
+                            modelPath={currentVariation.path}
+                            scale={currentVariation.scale} 
+                            position={currentVariation.position} 
+                            rotation={currentVariation.rotation}
+                            targetMeshName={currentVariation.targetMeshName} 
+                            baseColor={currentVariation.colorCode} 
+                          />
+                        </Suspense>
+                        <OrbitControls 
+                          enablePan={false} 
+                          minDistance={2} 
+                          maxDistance={10} 
+                          autoRotate={autoRotate && !isDragging} 
+                          autoRotateSpeed={1.5} 
                         />
-                      </Suspense>
-                      <OrbitControls enablePan={false} minDistance={2} maxDistance={10} autoRotate={!isDragging} autoRotateSpeed={1.5} />
-                    </Canvas>
+                      </Canvas>
+                    </div>
                   ) : (
-                    <Product2DPreview
-                      decalImage={preview}
-                      position={decal2DPosition}
-                      scale={decal2DScale}
-                      dimensions={currentProductInfo.dimensions}
-                      backgroundColor={currentVariation.colorCode}
-                    />
+                    <div 
+                      id={`2d-preview-${selectedProduct}-${selectedColor}`}
+                      className="w-full h-full"
+                    >
+                      <Product2DPreview
+                        decalImage={preview}
+                        position={decal2DPosition}
+                        scale={decal2DScale}
+                        dimensions={currentProductInfo.dimensions}
+                        backgroundColor={currentVariation.colorCode}
+                      />
+                    </div>
                   )
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-gray-400">
@@ -1275,7 +1577,6 @@ const Customize: React.FC = () => {
         </div>
       </div>
 
-      {/* Cropper Modal */}
       {showCropper && imageToCrop && (
         <CropperModal
           image={imageToCrop}
@@ -1288,7 +1589,6 @@ const Customize: React.FC = () => {
         />
       )}
 
-      {/* Order Confirmation Modal */}
       {(showModal || modalClosing) && createPortal(
         <div 
           className={`fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300 ${
@@ -1302,7 +1602,6 @@ const Customize: React.FC = () => {
                 : 'scale-100 opacity-100 translate-y-0'
             }`}
           >
-            {/* Header */}
             <div className="p-6 border-b border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1327,9 +1626,7 @@ const Customize: React.FC = () => {
               </div>
             </div>
 
-            {/* Content */}
             <div className="p-6">
-              {/* Product Info */}
               <div className="mb-6">
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-16 h-16 bg-gray-700/50 rounded-xl border border-gray-600 flex items-center justify-center">
@@ -1373,7 +1670,6 @@ const Customize: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Design Status */}
                 <div className="bg-gray-700/30 rounded-xl p-4 border border-gray-600/50">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-sm font-medium text-gray-300">Customization Status</span>
@@ -1402,7 +1698,6 @@ const Customize: React.FC = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
               <div className="flex gap-3">
                 <button 
                   onClick={handleCloseModal}
@@ -1414,17 +1709,29 @@ const Customize: React.FC = () => {
                   Continue Editing
                 </button>
                 <button 
-                  onClick={() => navigate("/dashboard/customer")}
-                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 font-medium text-white text-sm shadow-lg transition-all duration-200 flex items-center justify-center gap-2"
+                  onClick={handleSaveAndProceed}
+                  disabled={isSaving}
+                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 font-medium text-white text-sm shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                  Proceed to Order
+                  {isSaving ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                      Save & Proceed
+                    </>
+                  )}
                 </button>
               </div>
 
-              {/* Help Text */}
               <p className="text-center text-xs text-gray-500 mt-4 pt-4 border-t border-gray-700/50">
                 Your design will be saved in your account for 30 days
               </p>
@@ -1434,7 +1741,6 @@ const Customize: React.FC = () => {
         document.body
       )}
       
-      {/* Slider styles */}
       <style>{`
         .slider-thumb::-webkit-slider-thumb {
           appearance: none;
@@ -1453,10 +1759,9 @@ const Customize: React.FC = () => {
           background: #3b82f6;
           cursor: pointer;
           border: 2px solid #1e40af;
-          box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+          boxShadow: 0 2px 6px rgba(59, 130, 246, 0.4);
         }
         
-        /* Custom scrollbar for sidebar */
         aside::-webkit-scrollbar {
           width: 6px;
         }

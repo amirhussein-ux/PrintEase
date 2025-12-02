@@ -665,6 +665,9 @@ export default function SelectShop() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  // SAVE TO LOCALSTORAGE - CRITICAL FIX
+                                  localStorage.setItem("customerStoreId", store._id);
+                                  console.log("Saved store to localStorage:", store._id);
                                   navigate('/dashboard/customer', { state: { storeId: store._id } });
                                 }}
                                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-500 transition-colors border border-blue-500"
@@ -968,6 +971,9 @@ export default function SelectShop() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => {
+                        // SAVE TO LOCALSTORAGE - CRITICAL FIX
+                        localStorage.setItem("customerStoreId", selectedStore._id);
+                        console.log("Saved store to localStorage from modal:", selectedStore._id);
                         navigate('/dashboard/customer', { state: { storeId: selectedStore._id } });
                       }}
                       className="w-full py-4 bg-blue-600 text-white rounded-xl font-semibold text-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-3 border border-blue-500"
