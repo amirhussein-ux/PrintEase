@@ -3,8 +3,8 @@ import DashboardLayout from "../shared_components/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
 import { getMyDesigns, deleteDesign, getThumbnailUrl, type SavedDesign } from "@/lib/savedDesigns";
 import { FiTrash2, FiEdit, FiDownload, FiEye, FiShoppingCart, FiShare2, FiCopy, FiFilter, FiX, FiRefreshCw } from "react-icons/fi";
-import { MdOutlineAddShoppingCart, MdOutline3dRotation, MdOutlineImage, MdOutlineRotateRight } from "react-icons/md";
-import { TbColorSwatch, TbPhotoEdit } from "react-icons/tb";
+import { MdOutlineAddShoppingCart, MdOutline3dRotation, MdOutlineImage, MdOutlineRotateRight, MdOutlineZoomIn, MdOutlineZoomOut, MdOutline3dRotation as Md3dRotation } from "react-icons/md";
+import { TbColorSwatch, TbPhotoEdit, TbArrowsMaximize, TbRotate, TbRotate2 } from "react-icons/tb";
 import { toast } from "react-toastify";
 import ConfirmDialog from "../shared_components/ConfirmDialog";
 import { useNavigate } from "react-router-dom";
@@ -81,6 +81,25 @@ const productSettings: Record<string, any> = {
   },
 };
 
+// Theme Variables for consistent dark/light mode - WHITE THEME
+const PANEL_SURFACE = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+const SOFT_PANEL = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+const INPUT_SURFACE = "rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400";
+const MUTED_TEXT = "text-gray-600 dark:text-gray-300";
+const MUTED_TEXT_LIGHT = "text-gray-500 dark:text-gray-400";
+const BACKGROUND_GRADIENT = "bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800";
+const CARD_BACKGROUND = "bg-white dark:bg-gray-800";
+const CARD_BORDER = "border border-gray-200 dark:border-gray-700";
+const CARD_HOVER = "hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xl transition-all duration-300";
+const BUTTON_PRIMARY = "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700";
+const BUTTON_SECONDARY = "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-500";
+const BUTTON_FILTER_ACTIVE = "bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700";
+const BUTTON_FILTER_INACTIVE = "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700";
+const STATS_CARD = "bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700";
+const STORE_INFO_BG = "bg-gray-50 dark:bg-gray-700/30";
+const MODAL_OVERLAY = "bg-black/50 dark:bg-black/70";
+const IMAGE_BACKGROUND = "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900";
+
 class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
   constructor(props: any) {
     super(props);
@@ -92,7 +111,7 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
   }
   render() {
     if (this.state.hasError) {
-      return <div className="p-4 text-red-400 text-center">Something went wrong with the preview. Please reload.</div>;
+      return <div className="p-4 text-red-600 dark:text-red-400 text-center">Something went wrong with the preview. Please reload.</div>;
     }
     return this.props.children;
   }
@@ -101,7 +120,7 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
 function Loader() {
   return (
     <Html center>
-      <div className="text-white text-lg animate-pulse">Loading Model...</div>
+      <div className="text-gray-900 dark:text-white text-lg animate-pulse">Loading Model...</div>
     </Html>
   );
 }
@@ -205,10 +224,16 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
   const [autoRotate, setAutoRotate] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
+  const navigate = useNavigate();
+  
+  // ENHANCED: Enhanced rotation controls
+  const [rotationSpeed, setRotationSpeed] = useState(1);
+  const [rotationAxis, setRotationAxis] = useState<'y' | 'x'>('y');
+  const [zoomLevel, setZoomLevel] = useState(1);
   
   const productInfo = productSettings[design.productType];
   const variation = productInfo?.variations[design.color];
-  
+
   const getPreviewImage = (): string => {
     if (design.customization?.originalImage) {
       const img = design.customization.originalImage;
@@ -269,45 +294,58 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
 
   const getProductTypeColor = (productType: string) => {
     switch (productType) {
-      case 'Mug': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
-      case 'T-Shirt': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      case 'Mousepad': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-      case 'Sticker': return 'bg-green-500/20 text-green-400 border-green-500/30';
-      case 'Phone Case': return 'bg-pink-500/20 text-pink-400 border-pink-500/30';
-      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+      case 'Mug': return 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700';
+      case 'T-Shirt': return 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700';
+      case 'Mousepad': return 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700';
+      case 'Sticker': return 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700';
+      case 'Phone Case': return 'bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-700';
+      default: return 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600';
     }
+  };
+
+  const handleResetCamera = () => {
+    // Reset all camera settings
+    setAutoRotate(false);
+    setRotationSpeed(1);
+    setRotationAxis('y');
+    setZoomLevel(1);
+  };
+
+  const handleOrderNow = () => {
+    navigate(`/dashboard/customer/?designId=${design._id}`);
+    onClose();
   };
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+      className={`fixed inset-0 z-50 ${MODAL_OVERLAY} backdrop-blur-sm flex items-center justify-center p-4`}
       onClick={onClose}
     >
       <div 
-        className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl"
+        className={`${PANEL_SURFACE} w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-white">{design.name}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{design.name}</h2>
             <div className="flex items-center gap-3 mt-1">
               <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getProductTypeColor(design.productType)}`}>
                 {design.productType}
               </span>
               <div className="flex items-center gap-2">
                 <div 
-                  className="w-3 h-3 rounded-full border border-gray-600"
+                  className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600"
                   style={{ backgroundColor: design.color || '#ffffff' }}
                 />
-                <span className="text-sm text-gray-400">{design.color}</span>
+                <span className={`text-sm ${MUTED_TEXT}`}>{design.color}</span>
               </div>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -319,15 +357,15 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
             </div>
           ) : imageError ? (
-            <div className="flex flex-col items-center justify-center h-96 text-gray-400">
+            <div className={`flex flex-col items-center justify-center h-96 ${MUTED_TEXT}`}>
               <p className="text-lg">Failed to load preview</p>
-              <p className="text-sm text-gray-500">{design.name}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{design.name}</p>
             </div>
           ) : is3DProduct && variation && productInfo ? (
-            <div className="h-[500px] rounded-xl overflow-hidden border border-gray-700">
+            <div className="h-[500px] rounded-xl overflow-hidden border border-gray-300 dark:border-gray-700 relative">
               <ErrorBoundary>
                 <Canvas 
-                  camera={{ position: [0, 0, 5], fov: 50 }}
+                  camera={{ position: [0, 0, 5 * zoomLevel], fov: 50 }}
                   onPointerDown={() => setIsDragging(true)}
                   onPointerUp={() => setIsDragging(false)}
                 >
@@ -348,34 +386,109 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
                   </Suspense>
                   <OrbitControls 
                     enablePan={false}
-                    minDistance={2}
-                    maxDistance={10}
+                    minDistance={2 * zoomLevel}
+                    maxDistance={10 * zoomLevel}
                     autoRotate={autoRotate && !isDragging}
-                    autoRotateSpeed={1.5}
+                    autoRotateSpeed={rotationSpeed}
                   />
                 </Canvas>
               </ErrorBoundary>
               
-              <div className="absolute top-4 right-4 z-10">
-                <label className="flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-700 hover:bg-gray-800 cursor-pointer transition-all duration-200">
-                  <input
-                    type="checkbox"
-                    checked={autoRotate}
-                    onChange={(e) => setAutoRotate(e.target.checked)}
-                    className="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 rounded focus:ring-blue-600 focus:ring-offset-gray-800 focus:ring-2 focus:ring-offset-2 cursor-pointer"
-                  />
-                  <div className="flex items-center gap-2">
-                    <MdOutlineRotateRight className={`w-4 h-4 ${autoRotate ? 'text-blue-400 animate-spin' : 'text-gray-400'}`} />
-                    <span className={`text-sm font-medium ${autoRotate ? 'text-blue-300' : 'text-gray-300'}`}>
-                      Auto Rotate
-                    </span>
+              {/* ENHANCED: Rotation & Camera Controls */}
+              <div className="absolute top-4 right-4 z-10 flex flex-col gap-3">
+                {/* Auto Rotate Toggle */}
+                <div className="flex flex-col gap-2">
+                  <label className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all duration-200">
+                    <input
+                      type="checkbox"
+                      checked={autoRotate}
+                      onChange={(e) => setAutoRotate(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 dark:text-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-600 focus:ring-offset-white dark:focus:ring-offset-gray-800 focus:ring-2 focus:ring-offset-2 cursor-pointer"
+                    />
+                    <div className="flex items-center gap-2">
+                      <MdOutlineRotateRight className={`w-4 h-4 ${autoRotate ? 'text-blue-600 dark:text-blue-400 animate-spin' : 'text-gray-600 dark:text-gray-400'}`} />
+                      <span className={`text-sm font-medium ${autoRotate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                        Auto Rotate
+                      </span>
+                    </div>
+                  </label>
+                  
+                  {/* Rotation Speed Control */}
+                  {autoRotate && (
+                    <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs text-gray-600 dark:text-gray-400">Speed</span>
+                        <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-blue-600 dark:text-blue-300">
+                          {rotationSpeed.toFixed(1)}x
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="3"
+                        step="0.1"
+                        value={rotationSpeed}
+                        onChange={(e) => setRotationSpeed(parseFloat(e.target.value))}
+                        className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Zoom Control */}
+                  <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-gray-600 dark:text-gray-400">Zoom</span>
+                      <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-blue-600 dark:text-blue-300">
+                        {zoomLevel.toFixed(1)}x
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setZoomLevel(prev => Math.max(0.5, prev - 0.5))}
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <MdOutlineZoomOut className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                      </button>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="3"
+                        step="0.1"
+                        value={zoomLevel}
+                        onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+                        className="flex-1 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                      />
+                      <button
+                        onClick={() => setZoomLevel(prev => Math.min(3, prev + 0.5))}
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                      >
+                        <MdOutlineZoomIn className="w-3 h-3 text-gray-600 dark:text-gray-400" />
+                      </button>
+                    </div>
                   </div>
-                </label>
+                  
+                  {/* Reset Camera */}
+                  <button
+                    onClick={handleResetCamera}
+                    className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  >
+                    <TbRotate2 className="w-4 h-4" />
+                    Reset View
+                  </button>
+                </div>
+              </div>
+              
+              {/* Instructions */}
+              <div className="absolute bottom-4 left-4 z-10 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700">
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <span className="text-blue-600 dark:text-blue-300 font-semibold">Drag</span> to rotate • 
+                  <span className="text-blue-600 dark:text-blue-300 font-semibold ml-2">Scroll</span> to zoom
+                </p>
               </div>
             </div>
           ) : (
             <div className="flex flex-col items-center">
-              <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-700">
+              <div className={`${IMAGE_BACKGROUND} rounded-xl p-8 border border-gray-300 dark:border-gray-700`}>
                 <img
                   src={previewImage}
                   alt={design.name}
@@ -387,12 +500,10 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
           )}
         </div>
 
-        <div className="p-6 border-t border-gray-700 flex justify-end gap-3">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
           <button
-            onClick={() => {
-              window.location.href = `/customer/order?designId=${design._id}`;
-            }}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+            onClick={handleOrderNow}
+            className={`${BUTTON_PRIMARY} px-6 py-3 rounded-lg flex items-center gap-2 transition-all duration-200 hover:shadow-lg font-medium`}
           >
             <FiShoppingCart /> Order Now
           </button>
@@ -539,7 +650,7 @@ const SavedDesigns: React.FC = () => {
   };
 
   const handleUseDesign = (design: SavedDesign) => {
-    navigate("/customer/order", { 
+    navigate("/dashboard/customer", { 
       state: { 
         designId: design._id,
         productType: design.productType,
@@ -551,7 +662,7 @@ const SavedDesigns: React.FC = () => {
   };
 
   const handleDuplicateDesign = (design: SavedDesign) => {
-    navigate("/dashboard/customize", {
+    navigate("/dashboard/customer/customize", {
       state: {
         designData: design,
         duplicate: true
@@ -575,12 +686,12 @@ const SavedDesigns: React.FC = () => {
 
   const getProductTypeColor = (productType: string) => {
     switch (productType) {
-      case 'Mug': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
-      case 'T-Shirt': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
-      case 'Mousepad': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
-      case 'Sticker': return 'bg-green-500/20 text-green-400 border-green-500/30';
-      case 'Phone Case': return 'bg-pink-500/20 text-pink-400 border-pink-500/30';
-      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+      case 'Mug': return 'bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-700';
+      case 'T-Shirt': return 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700';
+      case 'Mousepad': return 'bg-purple-100 text-purple-700 border-purple-300 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-700';
+      case 'Sticker': return 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700';
+      case 'Phone Case': return 'bg-pink-100 text-pink-700 border-pink-300 dark:bg-pink-900/30 dark:text-pink-300 dark:border-pink-700';
+      default: return 'bg-gray-100 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600';
     }
   };
 
@@ -618,12 +729,14 @@ const SavedDesigns: React.FC = () => {
   if (loading) {
     return (
       <DashboardLayout role="customer">
-        <div className="w-full max-w-7xl mx-auto p-6">
-          <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+        <div className={`${BACKGROUND_GRADIENT} min-h-screen`}>
+          <div className="w-full max-w-7xl mx-auto p-6">
+            <div className="flex flex-col items-center justify-center min-h-[60vh]">
+              <div className="relative">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
+              <p className={`mt-4 ${MUTED_TEXT} animate-pulse`}>Loading your designs...</p>
             </div>
-            <p className="mt-4 text-gray-400 animate-pulse">Loading your designs...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -632,359 +745,391 @@ const SavedDesigns: React.FC = () => {
 
   return (
     <DashboardLayout role="customer">
-      <div className="w-full max-w-7xl mx-auto p-4 sm:p-6">
-        <div className="mb-8 text-center sm:text-left">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white">
-                Design Gallery
-              </h1>
-              <p className="text-gray-400 mt-2">
-                {filteredDesigns.length === 0 
-                  ? "No designs match your filters" 
-                  : `${filteredDesigns.length} design${filteredDesigns.length !== 1 ? 's' : ''} found`}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-200 ${
-                  showFilters || productTypeFilter !== 'all' || dimensionFilter !== 'all'
-                    ? 'bg-blue-600/20 text-blue-400 border-blue-500/50'
-                    : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:border-gray-600'
-                }`}
-              >
-                <FiFilter />
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
-                {(productTypeFilter !== 'all' || dimensionFilter !== 'all') && (
-                  <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                )}
-              </button>
-              
-              <button
-                onClick={handleRefreshDesigns}
-                disabled={refreshing}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800/50 text-gray-400 border border-gray-700 hover:border-gray-600 hover:text-gray-300 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50"
-              >
-                <FiRefreshCw className={`${refreshing ? 'animate-spin' : ''}`} />
-                {refreshing ? 'Refreshing...' : 'Refresh'}
-              </button>
-              
-              <a
-                href="/dashboard/customize"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <span className="text-lg">+</span>
-                New Design
-              </a>
-            </div>
-          </div>
-
-          {showFilters && (
-            <div className="mb-8 bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6 animate-in slide-in-from-top duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">Filter Designs</h3>
-                {(productTypeFilter !== 'all' || dimensionFilter !== 'all') && (
-                  <button
-                    onClick={clearFilters}
-                    className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
-                  >
-                    <FiX /> Clear Filters
-                  </button>
-                )}
+      <div className={`${BACKGROUND_GRADIENT} min-h-screen`}>
+        <div className="w-full max-w-7xl mx-auto p-4 sm:p-6">
+          <div className="mb-8 text-center sm:text-left">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
+                  Design Gallery
+                </h1>
+                <p className={`${MUTED_TEXT} mt-2`}>
+                  {filteredDesigns.length === 0 
+                    ? "No designs match your filters" 
+                    : `${filteredDesigns.length} design${filteredDesigns.length !== 1 ? 's' : ''} found`}
+                </p>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-3">
-                    Product Type
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={() => setProductTypeFilter('all')}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        productTypeFilter === 'all'
-                          ? 'bg-gray-700 text-white border border-gray-600'
-                          : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
-                      }`}
-                    >
-                      All Products
-                    </button>
-                    <button
-                      onClick={() => setProductTypeFilter('3d')}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                        productTypeFilter === '3d'
-                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                          : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
-                      }`}
-                    >
-                      <MdOutline3dRotation className="text-sm" />
-                      3D Products
-                    </button>
-                    <button
-                      onClick={() => setProductTypeFilter('2d')}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                        productTypeFilter === '2d'
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                          : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
-                      }`}
-                    >
-                      <MdOutlineImage className="text-sm" />
-                      2D Products
-                    </button>
-                    {['Mug', 'T-Shirt', 'Mousepad', 'Sticker', 'Phone Case'].map(type => (
-                      <button
-                        key={type}
-                        onClick={() => setProductTypeFilter(type)}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          productTypeFilter === type
-                            ? getProductTypeColor(type)
-                            : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
-                        }`}
-                      >
-                        {type}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    showFilters || productTypeFilter !== 'all' || dimensionFilter !== 'all'
+                      ? BUTTON_FILTER_ACTIVE
+                      : BUTTON_FILTER_INACTIVE
+                  }`}
+                >
+                  <FiFilter />
+                  {showFilters ? 'Hide Filters' : 'Show Filters'}
+                  {(productTypeFilter !== 'all' || dimensionFilter !== 'all') && (
+                    <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+                  )}
+                </button>
+                
+                <button
+                  onClick={handleRefreshDesigns}
+                  disabled={refreshing}
+                  className={`inline-flex items-center gap-2 px-4 py-2 ${BUTTON_FILTER_INACTIVE} font-medium rounded-lg transition-all duration-200 disabled:opacity-50`}
+                >
+                  <FiRefreshCw className={`${refreshing ? 'animate-spin' : ''}`} />
+                  {refreshing ? 'Refreshing...' : 'Refresh'}
+                </button>
+                
+                <a
+                  href="/dashboard/customize"
+                  className={`${BUTTON_PRIMARY} inline-flex items-center gap-2 px-6 py-3 font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]`}
+                >
+                  <span className="text-lg">+</span>
+                  New Design
+                </a>
+              </div>
+            </div>
 
-                {(productTypeFilter === 'all' || productTypeFilter === '2d' || twoDProducts.includes(productTypeFilter)) && (
+            {showFilters && (
+              <div className={`${SOFT_PANEL} backdrop-blur-sm p-6 animate-in slide-in-from-top duration-300 mb-6`}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Filter Designs</h3>
+                  {(productTypeFilter !== 'all' || dimensionFilter !== 'all') && (
+                    <button
+                      onClick={clearFilters}
+                      className={`text-sm ${MUTED_TEXT_LIGHT} hover:text-gray-900 dark:hover:text-white flex items-center gap-1 font-medium`}
+                    >
+                      <FiX /> Clear Filters
+                    </button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-3">
-                      Product Size
+                    <label className={`block text-sm font-medium ${MUTED_TEXT} mb-3`}>
+                      Product Type
                     </label>
                     <div className="flex flex-wrap gap-2">
-                      {Object.entries(dimensionOptions).map(([key, label]) => (
+                      <button
+                        onClick={() => setProductTypeFilter('all')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          productTypeFilter === 'all'
+                            ? BUTTON_FILTER_ACTIVE
+                            : BUTTON_FILTER_INACTIVE
+                        }`}
+                      >
+                        All Products
+                      </button>
+                      <button
+                        onClick={() => setProductTypeFilter('3d')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                          productTypeFilter === '3d'
+                            ? 'bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'
+                            : BUTTON_FILTER_INACTIVE
+                        }`}
+                      >
+                        <MdOutline3dRotation className="text-sm" />
+                        3D Products
+                      </button>
+                      <button
+                        onClick={() => setProductTypeFilter('2d')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                          productTypeFilter === '2d'
+                            ? 'bg-green-100 text-green-700 border border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
+                            : BUTTON_FILTER_INACTIVE
+                        }`}
+                      >
+                        <MdOutlineImage className="text-sm" />
+                        2D Products
+                      </button>
+                      {['Mug', 'T-Shirt', 'Mousepad', 'Sticker', 'Phone Case'].map(type => (
                         <button
-                          key={key}
-                          onClick={() => setDimensionFilter(key)}
+                          key={type}
+                          onClick={() => setProductTypeFilter(type)}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                            dimensionFilter === key
-                              ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50'
-                              : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                            productTypeFilter === type
+                              ? getProductTypeColor(type)
+                              : BUTTON_FILTER_INACTIVE
                           }`}
                         >
-                          {label}
+                          {type}
                         </button>
                       ))}
                     </div>
                   </div>
+
+                  {(productTypeFilter === 'all' || productTypeFilter === '2d' || twoDProducts.includes(productTypeFilter)) && (
+                    <div>
+                      <label className={`block text-sm font-medium ${MUTED_TEXT} mb-3`}>
+                        Product Size
+                      </label>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(dimensionOptions).map(([key, label]) => (
+                          <button
+                            key={key}
+                            onClick={() => setDimensionFilter(key)}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                              dimensionFilter === key
+                                ? BUTTON_FILTER_ACTIVE
+                                : BUTTON_FILTER_INACTIVE
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {designs.length > 0 && (
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className={`${STATS_CARD} rounded-xl p-4 shadow-sm`}>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">{designs.length}</div>
+                  <div className={`text-sm ${MUTED_TEXT_LIGHT}`}>Total Designs</div>
+                </div>
+                <div className={`${STATS_CARD} rounded-xl p-4 shadow-sm`}>
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {new Set(designs.map(d => d.productType)).size}
+                  </div>
+                  <div className={`text-sm ${MUTED_TEXT_LIGHT}`}>Product Types</div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {filteredDesigns.length === 0 ? (
+            <div className={`${SOFT_PANEL} backdrop-blur-sm p-12 text-center`}>
+              <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 dark:from-blue-900/10 dark:to-blue-800/10 mb-6">
+                <div className={`text-4xl ${MUTED_TEXT}`}>🔍</div>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+                {designs.length === 0 ? 'No Designs Yet' : 'No Designs Found'}
+              </h3>
+              <p className={`${MUTED_TEXT} mb-6 max-w-md mx-auto`}>
+                {designs.length === 0 
+                  ? 'Create your first custom design' 
+                  : 'Try changing your filters'}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <a
+                  href="/dashboard/customize"
+                  className={`${BUTTON_PRIMARY} px-8 py-3 font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl`}
+                >
+                  Create New Design
+                </a>
+                {designs.length > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className={`px-8 py-3 ${BUTTON_FILTER_INACTIVE} font-medium rounded-lg transition-all duration-200`}
+                  >
+                    Clear Filters
+                  </button>
                 )}
               </div>
             </div>
-          )}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredDesigns.map((design) => (
+                <div
+                  key={design._id}
+                  className={`${CARD_BACKGROUND} ${CARD_BORDER} backdrop-blur-sm rounded-2xl overflow-hidden ${CARD_HOVER}`}
+                >
+                  <div 
+                    className={`h-56 relative overflow-hidden ${IMAGE_BACKGROUND} cursor-pointer group`}
+                    onClick={() => setSelectedDesign(design)}
+                  >
+                    <div className="w-full h-full relative">
+                      <img
+                        src={getThumbnailUrl(design)}
+                        alt={design.name}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        onError={(e) => {
+                          console.error('❌ Image failed:', design.name);
+                          const target = e.target as HTMLImageElement;
+                          target.style.opacity = '0.5';
+                        }}
+                        onLoad={() => {
+                          console.log('✅ Image loaded:', design.name);
+                        }}
+                      />
+                      
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
+                        <div className="bg-black/70 backdrop-blur-sm rounded-lg p-3 mb-2">
+                          <div className="text-white text-sm font-medium flex items-center gap-2">
+                            <FiEye className="w-4 h-4" />
+                            View 3D Preview
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className={`absolute top-3 left-3 px-3 py-1 rounded-full border text-xs font-semibold backdrop-blur-sm ${getProductTypeColor(design.productType)}`}>
+                        {design.productType}
+                      </div>
+                      
+                      <div className="absolute top-3 right-3">
+                        {threeDProducts.includes(design.productType) ? (
+                          <div className="flex items-center gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-2 py-1 rounded-lg">
+                            <MdOutline3dRotation className="text-blue-600 dark:text-blue-400 text-xs" />
+                            <span className="text-xs text-gray-700 dark:text-gray-300">3D</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-2 py-1 rounded-lg">
+                            <MdOutlineImage className="text-green-600 dark:text-green-400 text-xs" />
+                            <span className="text-xs text-gray-700 dark:text-gray-300">2D</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="absolute bottom-3 right-3 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-2 py-1 rounded-lg">
+                        <div className="text-xs text-gray-700 dark:text-gray-300 font-medium">
+                          {getTimeOfDay(design.createdAt)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-          {designs.length > 0 && (
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700">
-                <div className="text-2xl font-bold text-white">{designs.length}</div>
-                <div className="text-sm text-gray-400">Total Designs</div>
-              </div>
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700">
-                <div className="text-2xl font-bold text-white">
-                  {new Set(designs.map(d => d.productType)).size}
+                  <div className="p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-bold text-gray-900 dark:text-white truncate text-lg mb-1">
+                          {design.name}
+                        </h3>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div 
+                            className="w-4 h-4 rounded-full border border-gray-300 dark:border-gray-600 shadow-sm"
+                            style={{ backgroundColor: design.color }}
+                            title={design.color}
+                          />
+                          <span className={`text-sm ${MUTED_TEXT} capitalize`}>{design.color}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                          <span>{formatDate(design.createdAt)}</span>
+                          <span>•</span>
+                          <span>{getTimeOfDay(design.createdAt)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg px-2 py-1">
+                        <FiEye className="text-gray-600 dark:text-gray-400 text-sm" />
+                        <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">{design.viewCount}</span>
+                      </div>
+                    </div>
+
+                    <div className={`flex items-center gap-3 mb-5 p-3 ${STORE_INFO_BG} rounded-xl border border-gray-200 dark:border-gray-600/50`}>
+                      <div className="relative">
+                        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center overflow-hidden border border-gray-300 dark:border-gray-500">
+                          {design.store.logoFileId ? (
+                            <img
+                              src={`${import.meta.env.VITE_API_URL}/print-store/logo/${design.store.logoFileId}`}
+                              alt={design.store.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs">🏪</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
+                          {design.store.name}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleUseDesign(design)}
+                        className={`${BUTTON_PRIMARY} flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg active:scale-[0.98] group/order`}
+                      >
+                        <FiShoppingCart className="text-lg group-hover/order:scale-110 transition-transform" />
+                        Order Now
+                      </button>
+                      <button
+                        onClick={() => handleDownload(design)}
+                        disabled={downloadingId === design._id}
+                        className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 border border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500/50 disabled:opacity-50"
+                        title="Download as PNG"
+                      >
+                        {downloadingId === design._id ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500"></div>
+                        ) : (
+                          <FiDownload />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleDuplicateDesign(design)}
+                        className="p-3 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-all duration-200 border border-gray-300 dark:border-gray-600 hover:border-green-400 dark:hover:border-green-500/50"
+                        title="Duplicate Design"
+                      >
+                        <FiCopy />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDesignToDelete(design._id);
+                          setShowDeleteDialog(true);
+                        }}
+                        className="p-3 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200 border border-gray-300 dark:border-gray-600 hover:border-red-400 dark:hover:border-red-500/50"
+                        title="Delete"
+                      >
+                        <FiTrash2 />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-400">Product Types</div>
-              </div>
+              ))}
             </div>
           )}
         </div>
 
-        {filteredDesigns.length === 0 ? (
-          <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-12 text-center">
-            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 mb-6">
-              <div className="text-4xl text-gray-400">🔍</div>
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-3">
-              {designs.length === 0 ? 'No Designs Yet' : 'No Designs Found'}
-            </h3>
-            <p className="text-gray-400 mb-6 max-w-md mx-auto">
-              {designs.length === 0 
-                ? 'Create your first custom design' 
-                : 'Try changing your filters'}
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="/dashboard/customize"
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                Create New Design
-              </a>
-              {designs.length > 0 && (
-                <button
-                  onClick={clearFilters}
-                  className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl transition-all duration-200 border border-gray-600"
-                >
-                  Clear Filters
-                </button>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredDesigns.map((design) => (
-              <div
-                key={design._id}
-                className="group bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm rounded-2xl border border-gray-700 overflow-hidden hover:border-gray-600 transition-all duration-300 hover:shadow-2xl"
-              >
-                <div 
-                  className="h-56 relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 cursor-pointer group"
-                  onClick={() => setSelectedDesign(design)}
-                >
-                  <div className="w-full h-full relative">
-                    <img
-                      src={getThumbnailUrl(design)}
-                      alt={design.name}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      onError={(e) => {
-                        console.error('❌ Image failed:', design.name);
-                        const target = e.target as HTMLImageElement;
-                        target.style.opacity = '0.5';
-                      }}
-                      onLoad={() => {
-                        console.log('✅ Image loaded:', design.name);
-                      }}
-                    />
-                    
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
-                      <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 mb-2">
-                        <div className="text-white text-sm font-semibold flex items-center gap-2">
-                          <FiEye className="w-4 h-4" />
-                          View Design
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className={`absolute top-3 left-3 px-3 py-1 rounded-full border text-xs font-semibold backdrop-blur-sm ${getProductTypeColor(design.productType)}`}>
-                      {design.productType}
-                    </div>
-                    
-                    <div className="absolute top-3 right-3">
-                      {threeDProducts.includes(design.productType) ? (
-                        <div className="flex items-center gap-1 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
-                          <MdOutline3dRotation className="text-blue-400 text-xs" />
-                          <span className="text-xs text-gray-300">3D</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
-                          <MdOutlineImage className="text-green-400 text-xs" />
-                          <span className="text-xs text-gray-300">2D</span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="absolute bottom-3 right-3 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
-                      <div className="text-xs text-gray-300 font-medium">
-                        {getTimeOfDay(design.createdAt)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-white truncate text-lg mb-1">
-                        {design.name}
-                      </h3>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div 
-                          className="w-4 h-4 rounded-full border border-gray-600 shadow-sm"
-                          style={{ backgroundColor: design.color }}
-                          title={design.color}
-                        />
-                        <span className="text-sm text-gray-400 capitalize">{design.color}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span>{formatDate(design.createdAt)}</span>
-                        <span>•</span>
-                        <span>{getTimeOfDay(design.createdAt)}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 bg-gray-700/50 rounded-lg px-2 py-1">
-                      <FiEye className="text-gray-400 text-sm" />
-                      <span className="text-xs text-gray-300 font-medium">{design.viewCount}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 mb-5 p-3 bg-gray-700/30 rounded-xl border border-gray-600/50">
-                    <div className="relative">
-                      <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden border border-gray-500">
-                        {design.store.logoFileId ? (
-                          <img
-                            src={`${import.meta.env.VITE_API_URL}/print-store/logo/${design.store.logoFileId}`}
-                            alt={design.store.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xs">🏪</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-200 truncate">
-                        {design.store.name}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleUseDesign(design)}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl text-sm font-semibold transition-all duration-200 hover:shadow-lg active:scale-[0.98] group/order"
-                    >
-                      <FiShoppingCart className="text-lg group-hover/order:scale-110 transition-transform" />
-                      Order Now
-                    </button>
-                    <button
-                      onClick={() => handleDownload(design)}
-                      disabled={downloadingId === design._id}
-                      className="p-3 hover:bg-blue-600/20 rounded-xl text-gray-400 hover:text-blue-400 transition-all duration-200 border border-gray-600 hover:border-blue-500/50 disabled:opacity-50"
-                      title="Download as PNG"
-                    >
-                      {downloadingId === design._id ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-500"></div>
-                      ) : (
-                        <FiDownload />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setDesignToDelete(design._id);
-                        setShowDeleteDialog(true);
-                      }}
-                      className="p-3 hover:bg-red-600/20 rounded-xl text-gray-400 hover:text-red-400 transition-all duration-200 border border-gray-600 hover:border-red-500/50"
-                      title="Delete"
-                    >
-                      <FiTrash2 />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <ConfirmDialog
-        isOpen={showDeleteDialog}
-        onClose={() => {
-          setShowDeleteDialog(false);
-          setDesignToDelete(null);
-        }}
-        onConfirm={() => designToDelete && handleDelete(designToDelete)}
-        title="Delete Design"
-        message="Are you sure you want to delete this design? All customization data will be permanently removed."
-        confirmText="Delete"
-        confirmColor="red"
-      />
-
-      {selectedDesign && (
-        <PreviewModal
-          design={selectedDesign}
-          onClose={() => setSelectedDesign(null)}
+        <ConfirmDialog
+          isOpen={showDeleteDialog}
+          onClose={() => {
+            setShowDeleteDialog(false);
+            setDesignToDelete(null);
+          }}
+          onConfirm={() => designToDelete && handleDelete(designToDelete)}
+          title="Delete Design"
+          message="Are you sure you want to delete this design? All customization data will be permanently removed."
+          confirmText="Delete"
+          confirmColor="red"
         />
-      )}
+
+        {selectedDesign && (
+          <PreviewModal
+            design={selectedDesign}
+            onClose={() => setSelectedDesign(null)}
+          />
+        )}
+        
+        {/* Add custom slider styles */}
+        <style>{`
+          .slider-thumb::-webkit-slider-thumb {
+            appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            border: 2px solid #1e40af;
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+          }
+          .slider-thumb::-moz-range-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor = pointer;
+            border: 2px solid #1e40af;
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+          }
+        `}</style>
+      </div>
     </DashboardLayout>
   );
 };

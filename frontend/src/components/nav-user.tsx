@@ -23,6 +23,13 @@ import { useNavigate } from "react-router-dom"
 import { useAuth } from "@/context/AuthContext"
 import ConfirmDialog from "@/pages/Dashboard/shared_components/ConfirmDialog"
 
+// Theme Variables for consistent dark/light mode
+const PANEL_SURFACE = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+const SOFT_PANEL = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+const BUTTON_PRIMARY = "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700";
+const BUTTON_SECONDARY = "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-500";
+const MODAL_OVERLAY = "bg-black/50 dark:bg-black/70";
+
 export function NavUser({
   user,
   isDarkMode = false,
@@ -183,6 +190,7 @@ export function NavUser({
         cancelText="Stay"
         onConfirm={handleLogout}
         onClose={() => setShowLogoutConfirm(false)}
+        isDarkMode={isDarkMode}
       />
     </>
   )
