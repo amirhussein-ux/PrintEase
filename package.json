@@ -2,5 +2,8 @@
   "dependencies": {
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1"
   }
 }
