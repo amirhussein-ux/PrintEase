@@ -1,7 +1,7 @@
 import React, { useState, useEffect, Suspense, useRef } from "react";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
-import { getMyDesigns, deleteDesign, type SavedDesign } from "@/lib/savedDesigns";
+import { getMyDesigns, deleteDesign, getThumbnailUrl, type SavedDesign } from "@/lib/savedDesigns";
 import { FiTrash2, FiEdit, FiDownload, FiEye, FiShoppingCart, FiShare2, FiCopy, FiFilter, FiX } from "react-icons/fi";
 import { MdOutlineAddShoppingCart, MdOutline3dRotation, MdOutlineImage, MdOutlineRotateRight } from "react-icons/md";
 import { TbColorSwatch, TbPhotoEdit } from "react-icons/tb";
@@ -411,44 +411,92 @@ const SavedDesigns: React.FC = () => {
     filterDesigns();
   }, [designs, productTypeFilter, dimensionFilter]);
 
-  const fetchDesigns = async () => {
-    try {
-      setLoading(true);
-      const data = await getMyDesigns();
-      console.log("📦 Fetched designs:", data.map(d => ({
-        name: d.name,
-        productType: d.productType,
-        thumbnail: d.thumbnail?.substring(0, 100),
-        hasCustomization: !!d.customization,
-        originalImage: d.customization?.originalImage?.substring(0, 100)
-      })));
-      setDesigns(data);
-      setFilteredDesigns(data);
+const fetchDesigns = async () => {
+  try {
+    setLoading(true);
+    const data = await getMyDesigns();
+    
+    console.log("📦 Fetched designs:", data.map(d => ({
+      name: d.name,
+      productType: d.productType,
+      hasThumbnailUrl: !!d.thumbnailUrl,
+      thumbnailUrl: d.thumbnailUrl?.substring(0, 50),
+      hasOriginalImage: !!d.customization?.originalImage
+    })));
+    
+    // Process designs to ensure they have valid image URLs
+    const processedDesigns = data.map(design => {
+      const processed = { ...design };
       
-      // Store designs in localStorage for persistence
-      localStorage.setItem('savedDesignsCache', JSON.stringify({
-        data: data,
-        timestamp: new Date().toISOString()
-      }));
-    } catch (error) {
-      console.error("Error fetching designs:", error);
-      
-      // Try to load from cache if API fails
-      const cache = localStorage.getItem('savedDesignsCache');
-      if (cache) {
-        const { data, timestamp } = JSON.parse(cache);
-        if (new Date().getTime() - new Date(timestamp).getTime() < 5 * 60 * 1000) { // 5 minute cache
-          setDesigns(data);
-          setFilteredDesigns(data);
-          toast.info("Showing cached designs");
-        }
-      } else {
-        toast.error("Failed to load saved designs");
+      // If thumbnailUrl is not set, try to get it
+      if (!processed.thumbnailUrl) {
+        processed.thumbnailUrl = getThumbnailUrl(design);
       }
-    } finally {
-      setLoading(false);
+      
+      // Ensure customization has originalImage
+      if (!processed.customization?.originalImage && processed.thumbnailUrl) {
+        if (!processed.customization) processed.customization = {};
+        processed.customization.originalImage = processed.thumbnailUrl;
+      }
+      
+      return processed;
+    });
+    
+    setDesigns(processedDesigns);
+    setFilteredDesigns(processedDesigns);
+    
+    // Store in cache with timestamp
+    localStorage.setItem('savedDesignsCache', JSON.stringify({
+      data: processedDesigns,
+      timestamp: new Date().toISOString()
+    }));
+    
+  } catch (error) {
+    console.error("Error fetching designs:", error);
+    
+    // Try to load from cache
+    const cache = localStorage.getItem('savedDesignsCache');
+    if (cache) {
+      try {
+        const { data, timestamp } = JSON.parse(cache);
+        const cacheAge = new Date().getTime() - new Date(timestamp).getTime();
+        
+        if (cacheAge < 10 * 60 * 1000) { // 10 minute cache
+          // Process cached designs to ensure URLs
+          const processedCachedDesigns = data.map((design: SavedDesign) => {
+            const processed = { ...design };
+            
+            if (!processed.thumbnailUrl) {
+              processed.thumbnailUrl = getThumbnailUrl(design);
+            }
+            
+            if (!processed.customization?.originalImage && processed.thumbnailUrl) {
+              if (!processed.customization) processed.customization = {};
+              processed.customization.originalImage = processed.thumbnailUrl;
+            }
+            
+            return processed;
+          });
+          
+          setDesigns(processedCachedDesigns);
+          setFilteredDesigns(processedCachedDesigns);
+          toast.info("Showing cached designs");
+        } else {
+          localStorage.removeItem('savedDesignsCache');
+          toast.error("Failed to load designs. Please refresh.");
+        }
+      } catch (parseError) {
+        console.error("Error parsing cache:", parseError);
+        localStorage.removeItem('savedDesignsCache');
+        toast.error("Failed to load designs.");
+      }
+    } else {
+      toast.error("Failed to load saved designs");
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const filterDesigns = () => {
     let filtered = [...designs];
@@ -836,15 +884,36 @@ const SavedDesigns: React.FC = () => {
                     <div className="w-full h-full relative">
                       {/* THUMBNAIL IMAGE - This shows the exact front view captured from customize page */}
                       <img
-                        src={design.thumbnail}
+                        src={getThumbnailUrl(design) || design.customization?.originalImage || design.thumbnail as string}
                         alt={design.name}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         onError={(e) => {
-                          console.error('❌ Thumbnail failed to load:', design.thumbnail?.substring(0, 100));
+                          console.error('❌ Thumbnail failed to load for:', design.name);
                           const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
                           
-                          // Show minimal fallback - NO EMOJIS
+                          // Try fallback sources in order
+                          const fallbackSources = [
+                            design.customization?.originalImage,
+                            design.thumbnail as string,
+                            `${import.meta.env.VITE_API_URL}/saved-designs/${design._id}/image`
+                          ];
+                          
+                          // Find current source index
+                          const currentSrc = target.src;
+                          const currentIndex = fallbackSources.findIndex(src => src === currentSrc);
+                          
+                          if (currentIndex < fallbackSources.length - 1) {
+                            // Try next fallback
+                            const nextSrc = fallbackSources[currentIndex + 1];
+                            if (nextSrc && nextSrc !== currentSrc) {
+                              target.src = nextSrc;
+                              console.log('🔄 Trying fallback source:', nextSrc.substring(0, 50));
+                              return;
+                            }
+                          }
+                          
+                          // All sources failed, show fallback UI
+                          target.style.display = 'none';
                           const parent = target.parentElement;
                           if (parent) {
                             const existingFallback = parent.querySelector('.thumbnail-fallback');
@@ -854,8 +923,8 @@ const SavedDesigns: React.FC = () => {
                               fallback.innerHTML = `
                                 <div class="text-center">
                                   <div class="text-sm text-gray-300 font-medium mb-1">${design.productType}</div>
-                                  <div class="text-xs text-gray-500">Preview unavailable</div>
-                                  <div class="mt-2 text-xs text-gray-400">${design.name}</div>
+                                  <div class="text-xs text-gray-500 mb-2">${design.name}</div>
+                                  <div class="text-xs text-gray-400">Design preview</div>
                                 </div>
                               `;
                               parent.appendChild(fallback);
