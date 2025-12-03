@@ -28,8 +28,12 @@ import { HiOutlineClock } from 'react-icons/hi';
 import { FaSpinner, FaBoxOpen, FaCheckCircle } from 'react-icons/fa';
 import { IoStorefrontOutline } from "react-icons/io5";
 
+type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
+  isDarkMode?: boolean
+  onToggleTheme?: () => void
+}
 
-function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
+function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppSidebarProps) {
   const { state, setOpen } = useSidebar()
   const handleHeaderClick = () => {
     if (state === 'collapsed') {
@@ -179,14 +183,61 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
     completed: <FaCheckCircle className="size-4" title="Completed" />,
   }
 
+  const theme = {
+    sidebarWrapper: isDarkMode
+      ? "[&_[data-sidebar=sidebar]]:bg-gray-900 [&_[data-sidebar=sidebar]]:text-white [&_[data-sidebar=sidebar]]:border-r [&_[data-sidebar=sidebar]]:border-slate-800"
+      : "[&_[data-sidebar=sidebar]]:bg-white [&_[data-sidebar=sidebar]]:text-gray-900 [&_[data-sidebar=sidebar]]:border-r [&_[data-sidebar=sidebar]]:border-gray-200 [&_[data-sidebar=sidebar]]:shadow-sm",
+    headerText: isDarkMode ? "text-white/90" : "text-gray-700",
+    headerHoverBg: isDarkMode ? "hover:bg-white/10" : "hover:bg-gray-100",
+    headerHoverText: isDarkMode ? "hover:text-white" : "hover:text-gray-900",
+    headerMuted: isDarkMode ? "text-white/70" : "text-gray-500",
+    navText: isDarkMode ? "text-white/80" : "text-gray-700",
+    navHoverBg: isDarkMode ? "hover:bg-white/10" : "hover:bg-gray-100",
+    navHoverText: isDarkMode ? "hover:text-white" : "hover:text-gray-900",
+    navActiveBg: isDarkMode ? "bg-white/10" : "bg-gray-200",
+    navActiveText: isDarkMode ? "text-white" : "text-gray-900",
+    navIcon: isDarkMode ? "text-white/90" : "text-gray-700",
+    navToggleBtn: isDarkMode ? "text-white/80" : "text-gray-500",
+    navSubText: isDarkMode ? "text-white/70" : "text-gray-600",
+    navSubHoverBg: isDarkMode ? "hover:bg-white/10" : "hover:bg-gray-100",
+    navSubActiveBg: isDarkMode ? "bg-white/10" : "bg-gray-100",
+    navSubActiveText: isDarkMode ? "text-white font-medium" : "text-gray-900 font-medium",
+  }
+
+  const primaryNavContainer = `flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150`;
+  const primaryNavWrapper = `${primaryNavContainer} ${theme.navHoverBg} ${theme.navHoverText} ${theme.navText}`;
+  const navLinkBase = `flex items-center gap-2 flex-1 min-w-0 group-data-[state=collapsed]:justify-center`;
+  const navIconWrapper = `flex items-center justify-center size-6 rounded-md flex-shrink-0 ${theme.navIcon}`;
+  const navToggleButton = `p-1 rounded-md cursor-pointer ${theme.navToggleBtn}`;
+  const getPrimaryNavLinkClass = (isActive: boolean) =>
+    `${navLinkBase} ${isActive ? `${theme.navActiveText} font-semibold` : theme.navText}`;
+  const getFlatNavClass = (isActive: boolean) =>
+    `flex items-center gap-2 flex-1 min-w-0 w-full px-3 py-2 rounded-md transition-all duration-150 group-data-[state=collapsed]:justify-center ${theme.navHoverBg} ${theme.navHoverText} ${
+      isActive ? `${theme.navActiveBg} ${theme.navActiveText} font-semibold` : theme.navText
+    }`;
+  const getSubNavClass = (isActive: boolean) =>
+    `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 ${theme.navSubHoverBg} ${
+      isActive ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
+    }`;
+  const getStatusButtonClass = (active: boolean) =>
+    `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 ${theme.navSubHoverBg} ${
+      active ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
+    }`;
+  const sidebarFooterClasses = isDarkMode
+    ? "[&_button[data-slot=sidebar-menu-button]]:hover:bg-white/10 [&_button[data-slot=sidebar-menu-button]]:hover:text-white"
+    : "[&_button[data-slot=sidebar-menu-button]]:hover:bg-gray-100 [&_button[data-slot=sidebar-menu-button]]:hover:text-gray-900"
+
   return (
       <Sidebar
         collapsible="icon"
-        className="select-none [&_[data-sidebar=sidebar]]:bg-slate-900 [&_[data-sidebar=sidebar]]:text-white [&_[data-sidebar=sidebar]]:border-r [&_[data-sidebar=sidebar]]:border-slate-800"
+        className={`select-none ${theme.sidebarWrapper}`}
         {...props}
       >
           <SidebarHeader>
-              <div className="flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/5 hover:text-white text-white/90" onClick={handleHeaderClick}>
+              <div
+                className={`flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 ${theme.headerHoverBg} ${theme.headerHoverText} ${theme.headerText}`}
+                onClick={handleHeaderClick}
+              >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <Avatar className="size-8">
                     {store?.logoFileId ? (
@@ -203,7 +254,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
                   <div className="truncate group-data-[state=collapsed]:hidden">
                     <div className="text-sm font-semibold truncate">{store?.name || user?.store || (isCustomer ? 'Shop' : 'Your Shop')}</div>
-                    <div className="text-xs text-white/70 truncate">
+                    <div className={`text-xs truncate ${theme.headerMuted}`}>
                       {
                         (() => {
                           const a = store?.address
@@ -228,8 +279,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <div className="flex-shrink-0 group-data-[state=collapsed]:hidden">
                   <button
                     aria-expanded={shopOpen}
-                    
-                    className="p-1 rounded-md text-white/80 cursor-pointer"
+                    className={`p-1 rounded-md cursor-pointer ${theme.navToggleBtn}`}
                     title="Toggle Shop Info"
                   >
                     <IoIosArrowForward className={`size-4 transition-transform duration-200 ${shopOpen ? 'rotate-90' : ''}`} />
@@ -242,8 +292,8 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <NavLink
                     to="/owner/create-shop"
                     className={({ isActive }) =>
-                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
-                        isActive ? "bg-white/10 text-white font-medium" : "text-white/70"
+                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 ${theme.navSubHoverBg} ${
+                        isActive ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
                       }`
                     }
                   >
@@ -257,8 +307,8 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <NavLink
                     to="/customer/select-shop"
                     className={({ isActive }) =>
-                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
-                        isActive ? 'bg-white/10 text-white font-medium' : 'text-white/70'
+                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 ${theme.navSubHoverBg} ${
+                        isActive ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
                       }`
                     }
                   >
@@ -274,18 +324,17 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <nav className="space-y-1">
               {!isCustomer && visibleStoreLinks.map((link) => {
                 const Icon = link.icon
-                return (
-                  <div key={link.title} className="">
-                              {link.title === "Inventory" ? (
+
+                if (link.title === "Inventory") {
+                  return (
+                    <div key={link.title}>
                       <Collapsible open={inventoryOpen} onOpenChange={setInventoryOpen}>
-                        <div className="flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/10 hover:text-white text-white/80">
+                        <div className={primaryNavWrapper}>
                           <NavLink
                             to={link.to}
-                            className={({ isActive }) =>
-                              `flex items-center gap-2 flex-1 min-w-0 group-data-[state=collapsed]:justify-center ${isActive ? "bg-transparent text-white font-semibold" : "text-white/80"}`
-                            }
+                            className={({ isActive }) => `${getPrimaryNavLinkClass(isActive)} bg-transparent`}
                           >
-                            <span className="flex items-center justify-center size-6 rounded-md text-white/90 flex-shrink-0">
+                            <span className={navIconWrapper}>
                               <Icon className="size-4" />
                             </span>
                             <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">{link.title}</span>
@@ -295,7 +344,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <CollapsibleTrigger asChild>
                               <button
                                 aria-expanded={inventoryOpen}
-                                className="p-1 rounded-md text-white/80 cursor-pointer"
+                                className={navToggleButton}
                                 title="Toggle Inventory"
                               >
                                 <IoIosArrowForward className={`size-4 transition-transform duration-200 ${inventoryOpen ? 'rotate-90' : ''}`} />
@@ -306,39 +355,18 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
                         <CollapsibleContent>
                           <div className="ml-6 mt-1 space-y-1 group-data-[state=collapsed]:hidden">
-                            <NavLink
-                              to="/dashboard/inventory/analytics"
-                              className={({ isActive }) =>
-                                `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
-                                  isActive ? "bg-white/10 text-white font-medium" : "text-white/70"
-                                }`
-                              }
-                            >
+                            <NavLink to="/dashboard/inventory/analytics" className={({ isActive }) => getSubNavClass(isActive)}>
                               <span className="size-4"><GoGraph /></span>
                               <span className="truncate group-data-[state=collapsed]:hidden">Analytics</span>
                             </NavLink>
 
-                            <NavLink
-                              to="/dashboard/inventory/products"
-                              className={({ isActive }) =>
-                                `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
-                                  isActive ? "bg-white/10 text-white font-medium" : "text-white/70"
-                                }`
-                              }
-                            >
+                            <NavLink to="/dashboard/inventory/products" className={({ isActive }) => getSubNavClass(isActive)}>
                               <span className="size-4"><AiOutlineProduct /></span>
                               <span className="truncate group-data-[state=collapsed]:hidden">Products</span>
                             </NavLink>
 
                             {!isInventoryAndSupplies && (
-                              <NavLink
-                                to="/dashboard/inventory/employees"
-                                className={({ isActive }) =>
-                                  `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
-                                    isActive ? "bg-white/10 text-white font-medium" : "text-white/70"
-                                  }`
-                                }
-                              >
+                              <NavLink to="/dashboard/inventory/employees" className={({ isActive }) => getSubNavClass(isActive)}>
                                 <span className="size-4"><LuUsers /></span>
                                 <span className="truncate group-data-[state=collapsed]:hidden">Employees</span>
                               </NavLink>
@@ -346,16 +374,20 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           </div>
                         </CollapsibleContent>
                       </Collapsible>
-                    ) : link.title === "Order Management" ? (
+                    </div>
+                  )
+                }
+
+                if (link.title === "Order Management") {
+                  return (
+                    <div key={link.title}>
                       <Collapsible open={ordersOpen} onOpenChange={setOrdersOpen}>
-                        <div className="flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/10 hover:text-white text-white/80">
+                        <div className={primaryNavWrapper}>
                           <NavLink
                             to={link.to}
-                            className={({ isActive }) =>
-                              `flex items-center gap-2 flex-1 min-w-0 group-data-[state=collapsed]:justify-center ${isActive ? "bg-transparent text-white font-semibold" : "text-white/80"}`
-                            }
+                            className={({ isActive }) => `${getPrimaryNavLinkClass(isActive)} bg-transparent`}
                           >
-                            <span className="flex items-center justify-center size-6 rounded-md text-white/90 flex-shrink-0">
+                            <span className={navIconWrapper}>
                               <Icon className="size-4" />
                             </span>
                             <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">{link.title}</span>
@@ -365,7 +397,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <CollapsibleTrigger asChild>
                               <button
                                 aria-expanded={ordersOpen}
-                                className="p-1 rounded-md text-white/80 cursor-pointer"
+                                className={navToggleButton}
                                 title="Toggle Orders"
                               >
                                 <IoIosArrowForward className={`size-4 transition-transform duration-200 ${ordersOpen ? 'rotate-90' : ''}`} />
@@ -379,11 +411,9 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <button
                               type="button"
                               onClick={() => navigate('/dashboard/orders?status=pending')}
-                              className={`flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
+                              className={getStatusButtonClass(
                                 location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'pending'
-                                  ? "bg-white/10 text-white font-medium"
-                                  : "text-white/70"
-                              }`}
+                              )}
                             >
                               <span className="size-4">{statusIcon.notStarted}</span>
                               <span className="truncate group-data-[state=collapsed]:hidden">Not yet Started</span>
@@ -392,11 +422,9 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <button
                               type="button"
                               onClick={() => navigate('/dashboard/orders?status=processing')}
-                              className={`flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
+                              className={getStatusButtonClass(
                                 location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'processing'
-                                  ? "bg-white/10 text-white font-medium"
-                                  : "text-white/70"
-                              }`}
+                              )}
                             >
                               <span className="size-4">{statusIcon.inProgress}</span>
                               <span className="truncate group-data-[state=collapsed]:hidden">In progress</span>
@@ -405,11 +433,9 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <button
                               type="button"
                               onClick={() => navigate('/dashboard/orders?status=ready')}
-                              className={`flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
+                              className={getStatusButtonClass(
                                 location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'ready'
-                                  ? "bg-white/10 text-white font-medium"
-                                  : "text-white/70"
-                              }`}
+                              )}
                             >
                               <span className="size-4">{statusIcon.readyForPickup}</span>
                               <span className="truncate group-data-[state=collapsed]:hidden">Ready for Pick-up</span>
@@ -418,11 +444,9 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <button
                               type="button"
                               onClick={() => navigate('/dashboard/orders?status=completed')}
-                              className={`flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
+                              className={getStatusButtonClass(
                                 location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'completed'
-                                  ? "bg-white/10 text-white font-medium"
-                                  : "text-white/70"
-                              }`}
+                              )}
                             >
                               <span className="size-4">{statusIcon.completed}</span>
                               <span className="truncate group-data-[state=collapsed]:hidden">Completed</span>
@@ -430,16 +454,20 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           </div>
                         </CollapsibleContent>
                       </Collapsible>
-                    ) : link.title === "Service Management" ? (
+                    </div>
+                  )
+                }
+
+                if (link.title === "Service Management") {
+                  return (
+                    <div key={link.title}>
                       <Collapsible open={servicesOpen} onOpenChange={setServicesOpen}>
-                        <div className="flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/10 hover:text-white text-white/80">
+                        <div className={primaryNavWrapper}>
                           <NavLink
                             to={link.to}
-                            className={({ isActive }) =>
-                              `flex items-center gap-2 flex-1 min-w-0 group-data-[state=collapsed]:justify-center ${isActive ? "bg-transparent text-white font-semibold" : "text-white/80"}`
-                            }
+                            className={({ isActive }) => `${getPrimaryNavLinkClass(isActive)} bg-transparent`}
                           >
-                            <span className="flex items-center justify-center size-6 rounded-md text-white/90 flex-shrink-0">
+                            <span className={navIconWrapper}>
                               <Icon className="size-4" />
                             </span>
                             <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">{link.title}</span>
@@ -449,7 +477,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <CollapsibleTrigger asChild>
                               <button
                                 aria-expanded={servicesOpen}
-                                className="p-1 rounded-md text-white/80 cursor-pointer"
+                                className={navToggleButton}
                                 title="Toggle Services"
                               >
                                 <IoIosArrowForward className={`size-4 transition-transform duration-200 ${servicesOpen ? 'rotate-90' : ''}`} />
@@ -466,7 +494,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 setServicesOpen(true)
                                 navigate('/dashboard/services/add')
                               }}
-                              className="flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 text-white/70"
+                              className={getStatusButtonClass(false)}
                             >
                               <span className="size-4"><IoMdAdd /></span>
                               <span className="truncate group-data-[state=collapsed]:hidden">Add Service</span>
@@ -478,7 +506,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 setServicesOpen(true)
                                 navigate('/dashboard/services/deleted')
                               }}
-                              className="flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 text-white/70"
+                              className={getStatusButtonClass(false)}
                             >
                               <span className="size-4"><GoTrash /></span>
                               <span className="truncate group-data-[state=collapsed]:hidden">Deleted Services</span>
@@ -486,49 +514,39 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           </div>
                         </CollapsibleContent>
                       </Collapsible>
-                    ) : (
-                      <NavLink
-                        to={link.to}
-                        className={({ isActive }) =>
-                          `flex items-center gap-2 flex-1 min-w-0 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/10 hover:text-white group-data-[state=collapsed]:justify-center ${
-                            isActive ? "bg-white/10 text-white font-semibold" : "text-white/80"
-                          }`
-                        }
-                      >
-                        <span className="flex items-center justify-center size-6 rounded-md text-white/90 flex-shrink-0">
-                          <Icon className="size-4" />
-                        </span>
-                        <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">{link.title}</span>
-                      </NavLink>
-                    )}
-                  </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <NavLink
+                    key={link.title}
+                    to={link.to}
+                    className={({ isActive }) => getFlatNavClass(isActive)}
+                  >
+                    <span className={navIconWrapper}>
+                      <Icon className="size-4" />
+                    </span>
+                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">{link.title}</span>
+                  </NavLink>
                 )
               })}
               {isCustomer && (
                 <div className="space-y-1">
-                  <NavLink
-                    to="/dashboard/customer"
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/10 hover:text-white group-data-[state=collapsed]:justify-center ${
-                        isActive ? 'bg-white/10 text-white font-semibold' : 'text-white/80'
-                      }`
-                    }
-                  >
-                    <span className="flex items-center justify-center size-6 rounded-md text-white/90 flex-shrink-0">
+                  <NavLink to="/dashboard/customer" className={({ isActive }) => getFlatNavClass(isActive)}>
+                    <span className={navIconWrapper}>
                       <MdOutlineDashboard className="size-4" />
                     </span>
                     <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Order Page</span>
                   </NavLink>
 
                   <Collapsible open={customerOrdersOpen} onOpenChange={setCustomerOrdersOpen}>
-                    <div className="flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/10 hover:text-white text-white/80">
+                    <div className={primaryNavWrapper}>
                       <NavLink
                         to="/dashboard/my-orders"
-                        className={({ isActive }) =>
-                          `flex items-center gap-2 flex-1 min-w-0 group-data-[state=collapsed]:justify-center ${isActive ? 'bg-transparent text-white font-semibold' : 'text-white/80'}`
-                        }
+                        className={({ isActive }) => `${getPrimaryNavLinkClass(isActive)} bg-transparent`}
                       >
-                        <span className="flex items-center justify-center size-6 rounded-md text-white/90 flex-shrink-0">
+                        <span className={navIconWrapper}>
                           <HiOutlineClock className="size-4" />
                         </span>
                         <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Track Orders</span>
@@ -537,7 +555,7 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <CollapsibleTrigger asChild>
                           <button
                             aria-expanded={customerOrdersOpen}
-                            className="p-1 rounded-md text-white/80 cursor-pointer"
+                            className={navToggleButton}
                             title="Toggle Track Orders"
                           >
                             <IoIosArrowForward className={`size-4 transition-transform duration-200 ${customerOrdersOpen ? 'rotate-90' : ''}`} />
@@ -550,11 +568,9 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <button
                           type="button"
                           onClick={() => navigate('/dashboard/my-orders?status=pending')}
-                          className={`flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
+                          className={getStatusButtonClass(
                             location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'pending'
-                              ? 'bg-white/10 text-white font-medium'
-                              : 'text-white/70'
-                          }`}
+                          )}
                         >
                           <span className="size-4">{statusIcon.notStarted}</span>
                           <span className="truncate group-data-[state=collapsed]:hidden">Pending</span>
@@ -562,11 +578,9 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <button
                           type="button"
                           onClick={() => navigate('/dashboard/my-orders?status=processing')}
-                          className={`flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
+                          className={getStatusButtonClass(
                             location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'processing'
-                              ? 'bg-white/10 text-white font-medium'
-                              : 'text-white/70'
-                          }`}
+                          )}
                         >
                           <span className="size-4">{statusIcon.inProgress}</span>
                           <span className="truncate group-data-[state=collapsed]:hidden">Processing</span>
@@ -574,11 +588,9 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <button
                           type="button"
                           onClick={() => navigate('/dashboard/my-orders?status=ready')}
-                          className={`flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
+                          className={getStatusButtonClass(
                             location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'ready'
-                              ? 'bg-white/10 text-white font-medium'
-                              : 'text-white/70'
-                          }`}
+                          )}
                         >
                           <span className="size-4">{statusIcon.readyForPickup}</span>
                           <span className="truncate group-data-[state=collapsed]:hidden">Ready for Pick-up</span>
@@ -586,11 +598,9 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <button
                           type="button"
                           onClick={() => navigate('/dashboard/my-orders?status=completed')}
-                          className={`flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 hover:bg-white/5 ${
+                          className={getStatusButtonClass(
                             location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'completed'
-                              ? 'bg-white/10 text-white font-medium'
-                              : 'text-white/70'
-                          }`}
+                          )}
                         >
                           <span className="size-4">{statusIcon.completed}</span>
                           <span className="truncate group-data-[state=collapsed]:hidden">Completed</span>
@@ -599,29 +609,15 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     </CollapsibleContent>
                   </Collapsible>
 
-                  <NavLink
-                    to="/dashboard/customize"
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/10 hover:text-white group-data-[state=collapsed]:justify-center ${
-                        isActive ? 'bg-white/10 text-white font-semibold' : 'text-white/80'
-                      }`
-                    }
-                  >
-                    <span className="flex items-center justify-center size-6 rounded-md text-white/90 flex-shrink-0">
+                  <NavLink to="/dashboard/customize" className={({ isActive }) => getFlatNavClass(isActive)}>
+                    <span className={navIconWrapper}>
                       <MdOutlineEdit className="size-4" />
                     </span>
                     <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Customize</span>
                   </NavLink>
 
-                  <NavLink
-                    to="/dashboard/chat-customer"
-                    className={({ isActive }) =>
-                      `flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/10 hover:text-white group-data-[state=collapsed]:justify-center ${
-                        isActive ? 'bg-white/10 text-white font-semibold' : 'text-white/80'
-                      }`
-                    }
-                  >
-                    <span className="flex items-center justify-center size-6 rounded-md text-white/90 flex-shrink-0">
+                  <NavLink to="/dashboard/chat-customer" className={({ isActive }) => getFlatNavClass(isActive)}>
+                    <span className={navIconWrapper}>
                       <BsChatDots className="size-4" />
                     </span>
                     <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Chat with Store</span>
@@ -632,14 +628,14 @@ function AppSidebarContent({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </div>
         </SidebarContent>
 
-        <SidebarFooter>
-          <NavUser user={navUser} />
+        <SidebarFooter className={sidebarFooterClasses}>
+          <NavUser user={navUser} isDarkMode={isDarkMode} onToggleTheme={onToggleTheme} />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
   )
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  return <AppSidebarContent {...props} />
+export function AppSidebar({ isDarkMode = false, onToggleTheme, ...props }: AppSidebarProps) {
+  return <AppSidebarContent isDarkMode={isDarkMode} onToggleTheme={onToggleTheme} {...props} />
 }

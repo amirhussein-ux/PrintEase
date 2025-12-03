@@ -4,11 +4,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Root background to avoid white bars during overscroll bounce */
-html, body, #root {
-  background-color: #0f172a; /* matches dashboard gradient start */
-}
-
 /* Reduce scroll chaining to the viewport to limit bounce revealing page background */
 html {
   overscroll-behavior-y: contain;
@@ -206,4 +201,14 @@ input.no-spinner[type="number"] {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Ensure the mobile sheet version of the sidebar respects dashboard dark mode */
+[data-sidebar=sidebar][data-mobile="true"] {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+.dark [data-sidebar=sidebar][data-mobile="true"] {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
 }

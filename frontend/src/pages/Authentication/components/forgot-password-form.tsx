@@ -44,7 +44,7 @@ export function ForgotPasswordForm({ className, ...props }: React.ComponentProps
 
   return (
     <form
-      className={`flex flex-col gap-6 bg-white p-8 rounded-xl w-full max-w-md mx-auto mt-8 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 ${className || ""}`}
+      className={`flex flex-col gap-6 bg-white p-8 rounded-xl w-full max-w-md mx-auto mt-8${className || ""}`}
       onSubmit={handleSendCode}
       {...props}
     >
@@ -192,10 +192,10 @@ export function ForgotPasswordForm({ className, ...props }: React.ComponentProps
 
       {/* Additional Info */}
       {step === 1 && (
-        <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+        <div className="bg-blue-50 rounded-xl p-4">
           <div className="flex items-start gap-3">
             <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-            <p className="text-blue-700 text-xs">
+            <p className="text-gray-800 text-xs">
               <strong>Note:</strong> Check your spam folder if you don't receive the code within a few minutes.
             </p>
           </div>

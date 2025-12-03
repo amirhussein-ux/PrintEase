@@ -83,7 +83,7 @@ const LoginForm: React.FC = () => {
   return (
     <form
       onSubmit={handleSubmit}
-      className="flex flex-col gap-6 bg-white p-8 rounded-xl w-full max-w-md mx-auto mt-20 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300"
+      className="flex flex-col gap-6 bg-white p-8 rounded-xl w-full max-w-md mx-auto mt-20 "
     >
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-2xl font-bold text-gray-900">Login to your account</h1>

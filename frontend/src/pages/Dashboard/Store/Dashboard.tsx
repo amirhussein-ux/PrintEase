@@ -828,8 +828,8 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 font-crimson p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 font-crimson px-0 sm:px-0 pb-6">
+      <div className="w-full space-y-8 px-4 sm:px-6 pt-6">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>

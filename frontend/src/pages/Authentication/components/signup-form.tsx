@@ -70,7 +70,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
 
   return (
     <form
-      className={`flex flex-col gap-6 bg-white p-8 rounded-xl w-full max-w-md mx-auto mt-8 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 ${className || ""}`}
+      className={`flex flex-col gap-6 bg-white p-8 rounded-xl w-full max-w-md mx-auto mt-8 ${className || ""}`}
       onSubmit={handleSubmit}
       {...props}
     >
@@ -91,7 +91,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
             onClick={() => setRole("owner")}
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-s-3xl transition-all duration-200 ${
               role === "owner"
-                ? "bg-white text-gray-900 shadow hover:scale-105"
+                ? "bg-white text-gray-900"
                 : "text-white hover:text-white hover:bg-blue-800"
             }`}
           >
@@ -103,7 +103,7 @@ export function SignupForm({ className, ...props }: React.ComponentProps<"form">
             onClick={() => setRole("customer")}
             className={`flex-1 px-4 py-2 text-sm font-medium rounded-e-3xl transition-all duration-200 ${
               role === "customer"
-                ? "bg-white text-gray-900 shadow hover:scale-105"
+                ? "bg-white text-gray-900"
                 : "text-white hover:text-white hover:bg-blue-800"
             }`}
           >

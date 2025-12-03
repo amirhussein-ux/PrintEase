@@ -16,8 +16,7 @@ import {
 } from "@/components/ui/sidebar"
 
 import { FaRegUser } from "react-icons/fa";
-import { FaRegBell } from "react-icons/fa";
-import { MdOutlineLogout } from "react-icons/md";
+import { MdOutlineLogout, MdDarkMode, MdLightMode } from "react-icons/md";
 
 import { useEffect, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom"
@@ -26,6 +25,8 @@ import ConfirmDialog from "@/pages/Dashboard/shared_components/ConfirmDialog"
 
 export function NavUser({
   user,
+  isDarkMode = false,
+  onToggleTheme,
 }: {
   user: {
     name: string
@@ -33,6 +34,8 @@ export function NavUser({
     role?: string
     avatar: string
   }
+  isDarkMode?: boolean
+  onToggleTheme?: () => void
 }) {
   const [collapsibleOpen, setCollapsibleOpen] = useState(false)
   const rootRef = useRef<HTMLLIElement | null>(null)
@@ -66,6 +69,25 @@ export function NavUser({
     navigate("/login");
   }
 
+  const navUserHoverClasses = isDarkMode
+    ? "hover:bg-white/10 hover:text-white active:bg-white/10 active:text-white active:border-white/20"
+    : "hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 active:border-gray-300"
+  const navUserThemeClasses = isDarkMode
+    ? "bg-gray-900 text-white border border-gray-700 focus-visible:ring-white/70 focus-visible:ring-offset-gray-900 transition-colors"
+    : "bg-white text-gray-900 border border-gray-200 focus-visible:ring-blue-500 focus-visible:ring-offset-white transition-colors"
+  const navUserOpenStateClasses = isDarkMode
+    ? "data-[state=open]:bg-white/10 data-[state=open]:text-white data-[state=open]:border-white/20 data-[state=open]:hover:bg-white/10 data-[state=open]:hover:text-white data-[state=open]:font-semibold"
+    : "data-[state=open]:bg-gray-200 data-[state=open]:text-gray-900 data-[state=open]:border-gray-300 data-[state=open]:hover:bg-gray-200 data-[state=open]:hover:text-gray-900 data-[state=open]:font-semibold"
+  const dropdownContainerClasses = isDarkMode
+    ? "bg-gray-900 text-white border border-white/10 shadow-2xl"
+    : "bg-white text-gray-900 border border-gray-200 shadow-xl"
+  const dropdownDividerClasses = isDarkMode ? "border-t border-white/10" : "border-t border-gray-100"
+  const dropdownButtonClasses = isDarkMode
+    ? "w-full flex items-center gap-2 px-3 py-2 text-sm text-white/90 hover:bg-white/10"
+    : "w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-800 hover:bg-gray-100"
+  const themeToggleLabel = isDarkMode ? "Switch to light mode" : "Switch to dark mode"
+  const ThemeToggleIcon = isDarkMode ? MdLightMode : MdDarkMode
+
   return (
     <>
       <SidebarMenu>
@@ -75,7 +97,7 @@ export function NavUser({
               <SidebarMenuButton
                 size="lg"
                 onClick={handleNavUserClick}
-                className={`group-data-[state=collapsed]:justify-center ${collapsibleOpen ? "bg-sidebar-accent text-sidebar-accent-foreground" : ""}`}
+                className={`group-data-[state=collapsed]:justify-center ${navUserThemeClasses} ${navUserHoverClasses} ${navUserOpenStateClasses}`}
               >
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={user.avatar} alt={user.name} />
@@ -90,7 +112,7 @@ export function NavUser({
             </CollapsibleTrigger>
 
             <CollapsibleContent>
-              <div className="absolute bottom-full mb-2 right-0 w-full rounded-lg bg-white text-gray-900 dark:bg-slate-800 dark:text-white shadow-lg z-50 overflow-hidden">
+              <div className={`absolute bottom-full mb-2 right-0 w-full rounded-lg z-50 overflow-hidden ${dropdownContainerClasses}`}>
                 <div className="px-2 py-2 text-sm">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left">
                     <Avatar className="h-8 w-8 rounded-lg">
@@ -103,18 +125,40 @@ export function NavUser({
                     </div>
                   </div>
                 </div>
-                <div className="border-t border-t-gray-100 dark:border-t-slate-700">
-                  <button onClick={() => { setCollapsibleOpen(false); navigate('/profile') }} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700">
+                <div className={dropdownDividerClasses}>
+                  <button
+                    onClick={() => {
+                      setCollapsibleOpen(false)
+                      navigate('/profile')
+                    }}
+                    className={dropdownButtonClasses}
+                    type="button"
+                  >
                     <FaRegUser />
                     <span>Account</span>
                   </button>
-                  <button className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700">
-                    <FaRegBell />
-                    <span>Notifications</span>
+                </div>
+                <div className={dropdownDividerClasses}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCollapsibleOpen(false)
+                      onToggleTheme?.()
+                    }}
+                    className={`${dropdownButtonClasses} justify-between`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <ThemeToggleIcon />
+                      <span>{themeToggleLabel}</span>
+                    </span>
                   </button>
                 </div>
-                <div className="border-t border-t-gray-100 dark:border-t-slate-700">
-                  <button onClick={() => setShowLogoutConfirm(true)} className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-slate-700">
+                <div className={dropdownDividerClasses}>
+                  <button
+                    onClick={() => setShowLogoutConfirm(true)}
+                    className={dropdownButtonClasses}
+                    type="button"
+                  >
                     <MdOutlineLogout />
                     <span>Log out</span>
                   </button>

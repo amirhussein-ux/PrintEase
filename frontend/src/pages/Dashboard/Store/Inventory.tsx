@@ -740,8 +740,8 @@ const Inventory: React.FC = () => {
 
     return (
         <DashboardLayout role="owner">
-            <div className="transition-all duration-300 font-crimson p-6 bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
-                <div className="w-full max-w-7xl mx-auto space-y-6">
+            <div className="transition-all duration-300 font-crimson px-0 sm:px-0 pb-6 bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
+                <div className="w-full space-y-6 px-4 sm:px-6 pt-6">
                     {/* Header Section */}
                     <div className="text-center space-y-2">
                         <h1 className="text-3xl font-bold text-gray-800">Inventory Management</h1>

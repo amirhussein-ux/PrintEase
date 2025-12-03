@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import DashboardLayout from "./DashboardLayout";
 import { AiOutlineSend, AiOutlinePaperClip, AiOutlineUser, AiOutlineMessage, AiOutlineTeam, AiOutlineShop, AiOutlineDownload, AiOutlineClose, AiOutlineReload, AiOutlineArrowLeft } from "react-icons/ai";
 import { FaMagnifyingGlass } from "react-icons/fa6";
@@ -6,6 +7,7 @@ import { BsCheck2All, BsCheck2 } from "react-icons/bs";
 import { useSocket } from "../../../context/SocketContext";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../lib/api";
+import { useSidebar } from "../../../components/ui/sidebar";
 
 // Shared types
 interface BaseMessage {
@@ -72,10 +74,11 @@ interface StaffChatSummary {
   participantDetails?: StaffChatSummaryParticipant[];
 }
 
-interface ImageModalState {
+interface FilePreviewState {
   isOpen: boolean;
-  imageUrl: string;
-  fileName: string;
+  url: string;
+  name: string;
+  type?: string;
 }
 
 interface UnifiedChatProps {
@@ -109,6 +112,16 @@ const normalizeId = (value: unknown): string => {
   return String(value);
 };
 
+const PANEL_SURFACE = "rounded-2xl border border-gray-200/80 bg-white text-gray-900 shadow-lg dark:border-white/10 dark:bg-gray-800/70 dark:text-white";
+const SOFT_PANEL = "rounded-2xl border border-gray-200 /70 bg-white text-gray-900 shadow-sm dark:border-white/10 dark:bg-gray-900/40 dark:text-white";
+const INPUT_SURFACE = "rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400";
+const MUTED_TEXT = "text-gray-600 dark:text-gray-300";
+const isImageFile = (fileName?: string, fileType?: string) => {
+  if (fileType?.startsWith('image/')) return true;
+  if (!fileName) return false;
+  return /(\.png|\.jpe?g|\.gif|\.bmp|\.webp|\.svg)$/i.test(fileName);
+};
+
 // Owner Chat sub-component
 const OwnerChat: React.FC = () => {
   const { socket, isConnected } = useSocket();
@@ -123,7 +136,7 @@ const OwnerChat: React.FC = () => {
   const [newMessage, setNewMessage] = React.useState("");
   const [loadingMessages, setLoadingMessages] = React.useState(false);
   const [loadingParticipants, setLoadingParticipants] = React.useState(true);
-  const [imageModal, setImageModal] = React.useState<ImageModalState>({ isOpen: false, imageUrl: "", fileName: "" });
+  const [previewModal, setPreviewModal] = React.useState<FilePreviewState>({ isOpen: false, url: "", name: "" });
   const [isMobileChatView, setIsMobileChatView] = React.useState(false);
   const [chatMode, setChatMode] = React.useState<'customers' | 'staff'>('customers');
   const [storeMemberDirectory, setStoreMemberDirectory] = React.useState<Record<string, string>>({});
@@ -618,28 +631,69 @@ const OwnerChat: React.FC = () => {
     e.target.value = "";
   };
 
-  const handleImageClick = (imageUrl: string, fileName: string) => setImageModal({ isOpen: true, imageUrl, fileName });
-  const handleDownload = (imageUrl: string, fileName: string) => { const link = document.createElement('a'); link.href = imageUrl; link.download = fileName; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
-  const handleCloseModal = () => setImageModal({ isOpen: false, imageUrl: "", fileName: "" });
+  const previewMime = React.useMemo(() => {
+    if (previewModal.type) return previewModal.type;
+    if (previewModal.url.startsWith('data:')) {
+      const header = previewModal.url.slice(5).split(';')[0];
+      return header || undefined;
+    }
+    return undefined;
+  }, [previewModal]);
+
+  const previewIsPdf = React.useMemo(() => {
+    if (!previewModal.url) return false;
+    if (previewMime?.includes('pdf')) return true;
+    return previewModal.url.toLowerCase().endsWith('.pdf');
+  }, [previewMime, previewModal.url]);
+
+  const openPreview = (url?: string, name?: string, type?: string) => {
+    if (!url) return;
+    setPreviewModal({ isOpen: true, url, name: name || 'Attachment', type });
+  };
+
+  const closePreview = () => setPreviewModal({ isOpen: false, url: "", name: "", type: undefined });
+
+  const downloadPreview = () => {
+    if (!previewModal.url) return;
+    const link = document.createElement('a');
+    link.href = previewModal.url;
+    link.download = previewModal.name || 'attachment';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const renderStatus = (m: BaseMessage) => m.senderId === currentUserId ? (m.isRead ? <BsCheck2All className="text-blue-400 ml-1" size={14} /> : <BsCheck2 className="text-gray-400 ml-1" size={14} />) : null;
 
   const renderFileMessage = (m: BaseMessage) => {
-    const isImage = m.fileType?.startsWith('image/');
-    if (isImage && m.fileUrl) {
+    const imageAttachment = isImageFile(m.fileName, m.fileType) && m.fileUrl;
+    if (imageAttachment) {
       return (
-        <div className="cursor-pointer transform transition-transform hover:scale-105" onClick={() => handleImageClick(m.fileUrl!, m.fileName!)}>
-          <img src={m.fileUrl} alt={m.fileName} className="max-w-xs max-h-48 rounded-lg object-cover border-2 border-white/20 shadow-lg" />
-          <p className="text-xs text-gray-300 mt-1 text-center">{m.fileName}</p>
+        <div className="space-y-2">
+          <div
+            className="relative overflow-hidden rounded-2xl border border-white/20 shadow-lg cursor-pointer group"
+            onClick={() => openPreview(m.fileUrl!, m.fileName || 'Image', m.fileType)}
+          >
+            <img src={m.fileUrl} alt={m.fileName} className="w-full h-auto max-h-64 object-cover" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center text-white text-sm font-medium opacity-0 group-hover:opacity-100">
+              Click to enlarge
+            </div>
+          </div>
+          {m.fileName && <p className="text-xs text-white/80 text-center truncate">{m.fileName}</p>}
         </div>
       );
     }
+    const clickable = Boolean(m.fileUrl);
     return (
-      <div className="flex items-center gap-2 p-3 bg-white/10 rounded-lg border border-white/20">
-        <AiOutlinePaperClip className="flex-shrink-0 text-blue-400 text-lg" />
-        <div>
-          <span className="text-sm text-white block">{m.fileName}</span>
-          <span className="text-xs text-gray-400">File</span>
+      <div
+        role={clickable ? 'button' : undefined}
+        onClick={clickable ? () => openPreview(m.fileUrl!, m.fileName || 'Attachment', m.fileType) : undefined}
+        className={`flex items-center gap-3 p-3 rounded-lg border border-gray-200/80 bg-white/80 text-gray-900 shadow-sm dark:border-white/20 dark:bg-white/10 dark:text-white ${clickable ? 'cursor-pointer hover:bg-white/90 dark:hover:bg-white/5' : 'opacity-60 cursor-not-allowed'}`}
+      >
+        <AiOutlinePaperClip className="flex-shrink-0 text-blue-600 dark:text-blue-300 text-lg" />
+        <div className="text-sm">
+          <div className="font-semibold truncate max-w-[12rem]">{m.fileName || 'Attachment'}</div>
+          <div className={`text-xs ${MUTED_TEXT}`}>{m.fileType || 'Tap to preview'}</div>
         </div>
       </div>
     );
@@ -653,54 +707,61 @@ const OwnerChat: React.FC = () => {
     );
   });
 
+    const { state: sidebarState, isMobile } = useSidebar();
+    const sidebarOffset = React.useMemo(() => {
+      if (isMobile) return "0px";
+      return sidebarState === "collapsed" ? "var(--sidebar-width-icon)" : "var(--sidebar-width)";
+    }, [sidebarState, isMobile]);
+
     return (
 
-      <div className="fixed max-w-full top-16 right-0 bottom-0 left-0 lg:left-62 flex flex-col p-4 md:p-10 box-border overflow-hidden">
-        <div className="bg-gray-800 backdrop-blur-lg rounded-2xl border border-white/10 p-6 mb-6 shadow-2xl cursor-pointer" onClick={() => setChatMode(prev => prev === 'customers' ? 'staff' : 'customers')}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4 ">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center"><AiOutlineTeam className="w-6 h-6 text-white" /></div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">{chatMode === 'customers' ? 'Chat with Customers' : 'Chat with Staff'}</h1>
-                <p className="text-sm text-gray-300">{chatMode === 'customers' ? `${participants.length} conversation${participants.length !== 1 ? 's' : ''}` : 'Internal team chat'} {!isConnected && ' • Connecting...'}</p>
-              </div>
+      <div
+        className="fixed max-w-full top-16 right-0 bottom-0 left-0 flex flex-col p-4 md:p-10 box-border overflow-hidden transition-[left] duration-300 ease-in-out"
+        style={!isMobile ? { left: sidebarOffset } : undefined}
+      >
+        <div
+          className={`${PANEL_SURFACE} backdrop-blur-lg mb-6 cursor-pointer rounded-full border-2 border-gray-300 dark:border-white/10 select-none transition-colors duration-300 hover:border-blue-400 hover:bg-white/90 dark:hover:border-blue-300/40 dark:hover:bg-gray-900/40`}
+          onClick={() => setChatMode(prev => prev === 'customers' ? 'staff' : 'customers')}
+        >
+          <div className="flex items-center justify-between gap-4 flex-wrap p-3">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center"><AiOutlineTeam className="w-6 h-6 text-white" /></div>
+            <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{chatMode === 'customers' ? 'Chat with Customers' : 'Chat with Staff'}</h1>
+            <p className={`text-sm ${MUTED_TEXT}`}>{chatMode === 'customers' ? `${participants.length} conversation${participants.length !== 1 ? 's' : ''}` : 'Internal team chat'} {!isConnected && ' • Connecting...'}</p>
             </div>
-            <div className="text-right"><div className="text-sm text-gray-400">Store Admin</div><div className="text-xs text-gray-500">Always here to help</div></div>
+          </div>
           </div>
         </div>
         <div className="flex gap-6 flex-1 min-h-0">
           <div
-            className={`bg-gray-800 rounded-2xl border border-white/10 shadow-xl overflow-hidden flex flex-col
-              flex-shrink-0
-              w-full md:w-80
-              ${isMobileChatView ? 'hidden md:flex' : 'flex'}
-            `}
+          className={`${SOFT_PANEL} overflow-hidden flex flex-col flex-shrink-0 w-full border-gray-300 dark:border-white/10 md:w-80 ${isMobileChatView ? 'hidden md:flex' : 'flex'}`}
           >
-            <div className="p-4 border-b border-white/10 flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-white font-semibold text-lg flex items-center gap-2">
-                  <AiOutlineUser className="w-5 h-5" />
-                  Chats
-                </h2>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FaMagnifyingGlass className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search"
-                  className="w-full rounded-xl bg-gray-900 border border-gray-700 pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
-                />
-              </div>
+          <div className="p-4 border-b border-gray-200/70 dark:border-white/10 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-lg flex items-center gap-2 text-gray-900 dark:text-white">
+              <AiOutlineUser className="w-5 h-5" />
+              Chats
+            </h2>
             </div>
+            <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FaMagnifyingGlass className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Search"
+              className={`${INPUT_SURFACE} w-full pl-10 pr-4 py-2.5 text-sm`}
+            />
+            </div>
+          </div>
             <div className="overflow-y-auto flex-1 chat-scroll">
               {loadingParticipants ? (
                 <div className="flex flex-col items-center justify-center p-8 text-gray-400"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4" /><p>Loading conversations...</p></div>
               ) : filteredParticipants.length===0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-gray-400 text-center"><AiOutlineMessage className="w-16 h-16 mb-4 opacity-50" /><p className="text-lg font-semibold">No Conversations</p><p className="text-sm mt-2">No conversations yet.</p></div>
+              <div className="flex flex-col items-center justify-center p-8 text-gray-500 dark:text-gray-400 text-center"><AiOutlineMessage className="w-16 h-16 mb-4 opacity-50" /><p className="text-lg font-semibold">No Conversations</p><p className="text-sm mt-2">No conversations yet.</p></div>
               ) : filteredParticipants.map(p => {
                 const isActive = selectedParticipant
                   ? (selectedParticipant.chatId && p.chatId
@@ -708,55 +769,57 @@ const OwnerChat: React.FC = () => {
                       : selectedParticipant.id === p.id)
                   : false;
                 return (
-                  <div key={p.chatId || p.id} onClick={() => handleSelectParticipant(p)} className={`p-4 border-b border-white/5 cursor-pointer transition-all ${isActive ? 'bg-blue-600/20 border-l-4 border-l-blue-500' : 'hover:bg-white/5'}`}>
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-semibold text-white truncate">{p.name}</h3>
+                <div key={p.chatId || p.id} onClick={() => handleSelectParticipant(p)} className={`p-4 border-b border-gray-100 dark:border-white/5 cursor-pointer transition-all ${isActive ? 'bg-blue-50 text-blue-900 border-l-4 border-l-blue-500 dark:bg-blue-600/20 dark:text-white' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-gray-900 dark:text-white truncate">{p.name}</h3>
                       {p.unreadCount>0 && <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full min-w-6 text-center">{p.unreadCount}</span>}
                     </div>
-                    {p.lastMessage && <p className="text-sm text-gray-300 truncate mb-1">{p.lastMessage}</p>}
-                    {p.lastMessageTime && <p className="text-xs text-gray-500">{formatDate(p.lastMessageTime)} • {formatTime(p.lastMessageTime)}</p>}
+                {p.lastMessage && <p className={`text-sm truncate mb-1 ${MUTED_TEXT}`}>{p.lastMessage}</p>}
+                {p.lastMessageTime && <p className={`text-xs ${MUTED_TEXT}`}>{formatDate(p.lastMessageTime)} • {formatTime(p.lastMessageTime)}</p>}
                   </div>
                 );
               })}
             </div>
           </div>
           <div
-            className={`flex-1 flex flex-col bg-gray-800 backdrop-blur-lg rounded-2xl border border-white/10 shadow-xl overflow-hidden min-h-0
-              ${isMobileChatView ? 'flex' : 'hidden'} md:flex
-            `}
+          className={`${PANEL_SURFACE} flex-1 flex flex-col backdrop-blur-lg border-gray-300 dark:border-white/10 overflow-hidden min-h-0 ${isMobileChatView ? 'flex' : 'hidden'} md:flex`}
           >
             {selectedParticipant ? (
               <>
-                <div className="p-4 border-b border-white/10 bg-gray-700/20 flex items-center gap-3">
+            <div className="p-4 border-b border-gray-300 dark:border-white/10 bg-gray-100 dark:bg-gray-700/20 flex items-center gap-3">
                   <button
                     type="button"
-                    className="md:hidden mr-2 p-2 rounded-full hover:bg-gray-600 text-white"
+                className="md:hidden mr-2 p-2 rounded-full hover:bg-gray-100 text-gray-700 dark:hover:bg-gray-600 dark:text-white"
                     onClick={() => setIsMobileChatView(false)}
                   >
                     <AiOutlineArrowLeft className="w-5 h-5" />
                   </button>
                   <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center"><AiOutlineUser className="w-5 h-5 text-white" /></div>
-                  <div><h2 className="text-white font-semibold text-lg">{selectedParticipant.name}</h2>{selectedParticipant.email && <p className="text-sm text-gray-300">{selectedParticipant.email}</p>}</div>
+              <div><h2 className="font-semibold text-lg text-gray-900 dark:text-white">{selectedParticipant.name}</h2>{selectedParticipant.email && <p className={`text-sm ${MUTED_TEXT}`}>{selectedParticipant.email}</p>}</div>
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll">
                   {loadingMessages ? (
-                    <div className="flex items-center justify-center h-full text-gray-400"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3" />Loading messages...</div>
+              <div className={`flex items-center justify-center h-full ${MUTED_TEXT}`}><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mr-3" />Loading messages...</div>
                   ) : messages.length===0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-gray-400 text-center"><AiOutlineMessage className="w-16 h-16 mb-4 opacity-50" /><p className="text-lg font-semibold">No messages yet</p><p className="text-sm mt-2">Start the conversation by sending a message</p></div>
+              <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 dark:text-gray-400"><AiOutlineMessage className="w-16 h-16 mb-4 opacity-50" /><p className="text-lg font-semibold">No messages yet</p><p className="text-sm mt-2">Start the conversation by sending a message</p></div>
                   ) : messages.map((m,i) => {
                     const isCustomerChat = selectedParticipant?.kind === 'customer';
                     const isStoreMessage = isCustomerChat ? m.senderId !== selectedParticipant?.id : m.senderId === currentUserId;
                     const bubbleAlign = isStoreMessage ? 'justify-end' : 'justify-start';
-                    const bubbleColor = isStoreMessage ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-700 text-white rounded-bl-none';
+              const bubbleColor = isStoreMessage
+                ? 'bg-blue-600 text-white rounded-br-none shadow-lg shadow-blue-600/30'
+                : 'bg-gray-100 text-gray-900 rounded-bl-none shadow-sm border border-gray-200 dark:bg-gray-700 dark:text-white dark:border-transparent';
                     const metaJustify = isStoreMessage ? 'justify-end' : 'justify-start';
+                  const metaTextColor = isStoreMessage ? 'text-gray-200' : 'text-gray-500 dark:text-gray-300';
+                  const senderTagColor = isStoreMessage ? 'text-gray-200' : 'text-gray-500 dark:text-gray-200';
                     const senderTag = isCustomerChat && isStoreMessage ? resolveStoreSenderName(m.senderId) : null;
                     return (
                       <div key={m._id||`${m.createdAt}-${i}`} className={`flex ${bubbleAlign}`}>
                         <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${bubbleColor}`}>
                           {m.fileName? renderFileMessage(m): <p className="text-sm whitespace-pre-wrap">{m.text}</p>}
-                          <div className={`flex ${metaJustify} gap-1 mt-2 items-center`}>
-                            {senderTag && <span className="text-[11px] text-gray-200 mr-2">Sent by {senderTag}</span>}
-                            <span className="text-xs text-gray-300">{formatTime(m.createdAt)}</span>
+                      <div className={`flex ${metaJustify} gap-1 mt-2 items-center`}>
+                      {senderTag && <span className={`text-[11px] mr-2 ${senderTagColor}`}>Sent by {senderTag}</span>}
+                      <span className={`text-xs ${metaTextColor}`}>{formatTime(m.createdAt)}</span>
                             {renderStatus(m)}
                           </div>
                         </div>
@@ -765,16 +828,65 @@ const OwnerChat: React.FC = () => {
                   })}
                   <div ref={messagesEndRef} />
                 </div>
-                <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="p-4 border-t border-white/10"><div className="flex gap-3"><textarea value={newMessage} onChange={e=>setNewMessage(e.target.value)} onKeyDown={handleKeyDown} rows={1} placeholder="Type your message..." disabled={!isConnected} className="flex-1 rounded-xl bg-gray-700/50 border border-white/20 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none" style={{minHeight:'50px',maxHeight:'120px'}}/><button type="button" onClick={()=>fileInputRef.current?.click()} disabled={!isConnected} className={`px-4 py-3 rounded-xl ${isConnected? 'bg-gray-700 hover:bg-gray-600 text-white':'bg-gray-600 text-gray-400 cursor-not-allowed'}`}><AiOutlinePaperClip className="w-5 h-5" /></button><button type="submit" disabled={!newMessage.trim()||!isConnected} className={`px-6 py-3 rounded-xl ${newMessage.trim()&&isConnected? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white':'bg-gray-600 text-gray-400 cursor-not-allowed'}`}><AiOutlineSend className="w-5 h-5" /></button></div><input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" disabled={!isConnected} /><div className="text-xs text-gray-500 mt-2 text-center">{!isConnected? 'Connecting to server...':'Press Enter to send • Shift+Enter for new line'}</div></form>
+            <form onSubmit={e => { e.preventDefault(); handleSend(); }} className="p-4 border-t border-gray-100 dark:border-white/10">
+              <div className="flex gap-3">
+              <textarea
+                value={newMessage}
+                onChange={e=>setNewMessage(e.target.value)}
+                onKeyDown={handleKeyDown}
+                rows={1}
+                placeholder="Type your message..."
+                disabled={!isConnected}
+                className={`${INPUT_SURFACE} flex-1 resize-none p-4`}
+                style={{minHeight:'50px',maxHeight:'120px'}}
+              />
+              <button type="button" onClick={()=>fileInputRef.current?.click()} disabled={!isConnected} className={`px-4 py-3 rounded-xl border ${isConnected? 'border-gray-200 text-gray-700 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-gray-700 dark:text-white' : 'border-gray-200 text-gray-400 bg-gray-100 cursor-not-allowed dark:border-white/10 dark:bg-gray-800 dark:text-gray-500'}`}><AiOutlinePaperClip className="w-5 h-5" /></button>
+              <button type="submit" disabled={!newMessage.trim()||!isConnected} className={`px-6 py-3 rounded-xl text-white transition ${newMessage.trim()&&isConnected? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500' : 'bg-gray-400 text-gray-200 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400'}`}><AiOutlineSend className="w-5 h-5" /></button>
+              </div>
+              <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" disabled={!isConnected} />
+              <div className={`text-xs mt-2 text-center ${MUTED_TEXT}`}>{!isConnected? 'Connecting to server...' : 'Press Enter to send • Shift+Enter for new line'}</div>
+            </form>
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400 p-8 text-center"><AiOutlineUser className="w-24 h-24 mb-6 opacity-50" /><h3 className="text-xl font-semibold mb-2">Select a Conversation</h3><p className="text-sm">Choose a conversation from the sidebar to start chatting</p></div>
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 dark:text-gray-400 p-8 text-center"><AiOutlineUser className="w-24 h-24 mb-6 opacity-50" /><h3 className="text-xl font-semibold mb-2">Select a Conversation</h3><p className="text-sm">Choose a conversation from the sidebar to start chatting</p></div>
             )}
           </div>
         </div>
-        {imageModal.isOpen && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-gray-800 rounded-2xl max-w-4xl max-h-[90vh] overflow-hidden border border-white/20"><div className="flex justify-between items-center p-4 border-b border-white/10 bg-gray-900"><h3 className="text-white font-semibold text-lg">{imageModal.fileName}</h3><div className="flex gap-2"><button onClick={()=>handleDownload(imageModal.imageUrl,imageModal.fileName)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"><AiOutlineDownload className="w-4 h-4" />Download</button><button onClick={handleCloseModal} className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-lg"><AiOutlineClose className="w-5 h-5" /></button></div></div><div className="p-6 max-h-[70vh] overflow-auto flex items-center justify-center"><img src={imageModal.imageUrl} alt={imageModal.fileName} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" /></div></div></div>
-      )}
+        {previewModal.isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[120] p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-gray-200 dark:border-white/10 shadow-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-gray-200 dark:border-white/10">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{previewModal.name || 'Attachment preview'}</h3>
+                <p className={`text-sm ${MUTED_TEXT}`}>{previewMime || 'Attachment'}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={downloadPreview} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                  <AiOutlineDownload className="w-4 h-4" />Download
+                </button>
+                <button onClick={closePreview} className="bg-gray-200 text-gray-800 hover:bg-gray-300 px-3 py-2 rounded-lg dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">
+                  <AiOutlineClose className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 bg-gray-50 dark:bg-gray-950 min-h-[40vh] max-h-[70vh] overflow-auto flex items-center justify-center">
+              {previewMime?.startsWith('image/') ? (
+                <img src={previewModal.url} alt={previewModal.name} className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl" />
+              ) : previewIsPdf ? (
+                <iframe title="attachment-preview" src={previewModal.url} className="w-full h-[70vh] rounded-xl border border-gray-200 dark:border-white/10 bg-white" />
+              ) : previewModal.url ? (
+                <div className="text-center space-y-4">
+                  <p className={`text-sm ${MUTED_TEXT}`}>Preview not available for this file type.</p>
+                  <button onClick={downloadPreview} className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500">Download file</button>
+                </div>
+              ) : (
+                <div className={`text-sm ${MUTED_TEXT}`}>No preview available.</div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
+        )}
       </div>
   );
 };
@@ -795,7 +907,7 @@ const CustomerChat: React.FC = () => {
   const [connectionError, setConnectionError] = React.useState<string | null>(null);
   const [hasCheckedChat, setHasCheckedChat] = React.useState(false);
   const [storeMemberIds, setStoreMemberIds] = React.useState<string[]>([]);
-  const [imageModal, setImageModal] = React.useState<ImageModalState>({ isOpen: false, imageUrl: "", fileName: "" });
+  const [customerPreview, setCustomerPreview] = React.useState<FilePreviewState>({ isOpen: false, url: "", name: "" });
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const pendingMessagesRef = React.useRef<Set<string>>(new Set());
@@ -995,11 +1107,68 @@ const CustomerChat: React.FC = () => {
     reader.readAsDataURL(file);
     e.target.value="";
   };
-  const openImage = (imageUrl: string, fileName: string) => setImageModal({ isOpen: true, imageUrl, fileName });
-  const downloadImage = (imageUrl: string, fileName: string) => { const link = document.createElement('a'); link.href=imageUrl; link.download=fileName; document.body.appendChild(link); link.click(); document.body.removeChild(link); };
-  const closeModal = () => setImageModal({ isOpen:false, imageUrl:"", fileName:"" });
+  const customerPreviewMime = React.useMemo(() => {
+    if (customerPreview.type) return customerPreview.type;
+    if (customerPreview.url.startsWith('data:')) return customerPreview.url.slice(5).split(';')[0] || undefined;
+    return undefined;
+  }, [customerPreview]);
+
+  const customerPreviewIsPdf = React.useMemo(() => {
+    if (!customerPreview.url) return false;
+    if (customerPreviewMime?.includes('pdf')) return true;
+    return customerPreview.url.toLowerCase().endsWith('.pdf');
+  }, [customerPreviewMime, customerPreview.url]);
+
+  const openCustomerPreview = (url?: string, name?: string, type?: string) => {
+    if (!url) return;
+    setCustomerPreview({ isOpen: true, url, name: name || 'Attachment', type });
+  };
+
+  const downloadCustomerPreview = () => {
+    if (!customerPreview.url) return;
+    const link = document.createElement('a');
+    link.href = customerPreview.url;
+    link.download = customerPreview.name || 'attachment';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const closeCustomerPreview = () => setCustomerPreview({ isOpen: false, url: "", name: "", type: undefined });
   const renderStatus = (m: BaseMessage) => m.senderId===customerId ? (m.isRead ? <BsCheck2All className="text-blue-400 ml-1" size={14} /> : <BsCheck2 className="text-gray-400 ml-1" size={14} />) : null;
-  const renderFile = (m: BaseMessage) => { const isImage = m.fileType?.startsWith('image/'); if (isImage && m.fileUrl) return <div className="cursor-pointer transform transition-transform hover:scale-105" onClick={()=>openImage(m.fileUrl!,m.fileName!)}><img src={m.fileUrl} alt={m.fileName} className="max-w-xs max-h-48 rounded-lg object-cover border-2 border-white/20 shadow-lg"/><p className="text-xs text-gray-300 mt-1 text-center">{m.fileName}</p></div>; return <div className="flex items-center gap-2 p-3 bg-white/10 rounded-lg border border-white/20"><AiOutlinePaperClip className="flex-shrink-0 text-blue-400 text-lg" /><div><span className="text-sm text-white block">{m.fileName}</span><span className="text-xs text-gray-400">File</span></div></div>; };
+  const renderFile = (m: BaseMessage) => {
+    const imageAttachment = isImageFile(m.fileName, m.fileType) && m.fileUrl;
+    if (imageAttachment) {
+      return (
+        <div className="space-y-2">
+          <div
+            className="relative overflow-hidden rounded-2xl border border-white/20 shadow-lg cursor-pointer group"
+            onClick={() => openCustomerPreview(m.fileUrl!, m.fileName || 'Image', m.fileType)}
+          >
+            <img src={m.fileUrl} alt={m.fileName} className="w-full h-auto max-h-64 object-cover" />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center text-white text-sm font-medium opacity-0 group-hover:opacity-100">
+              Tap to view
+            </div>
+          </div>
+          {m.fileName && <p className="text-xs text-gray-300 text-center truncate">{m.fileName}</p>}
+        </div>
+      );
+    }
+    const clickable = Boolean(m.fileUrl);
+    return (
+      <div
+        role={clickable ? 'button' : undefined}
+        onClick={clickable ? () => openCustomerPreview(m.fileUrl!, m.fileName || 'Attachment', m.fileType) : undefined}
+        className={`flex items-center gap-3 p-3 rounded-lg border border-white/20 bg-white/10 text-white ${clickable ? 'cursor-pointer hover:bg-white/20' : 'opacity-60 cursor-not-allowed'}`}
+      >
+        <AiOutlinePaperClip className="flex-shrink-0 text-blue-300 text-lg" />
+        <div className="text-sm">
+          <div className="font-semibold truncate max-w-[12rem]">{m.fileName || 'Attachment'}</div>
+          <div className="text-xs text-gray-300">{m.fileType || 'Tap to preview'}</div>
+        </div>
+      </div>
+    );
+  };
 
   const renderChatContent = () => {
     if (connectionError) return <div className="flex-1 flex flex-col items-center justify-center text-red-400 p-8"><AiOutlineReload className="w-16 h-16 mb-4 opacity-50"/><p className="text-lg font-semibold">Connection Error</p><p className="text-sm mt-2 text-center max-w-md">{connectionError}</p></div>;
@@ -1020,8 +1189,40 @@ const CustomerChat: React.FC = () => {
         <div className="flex-1 bg-gray-800/50 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-inner min-h-[400px] max-h-[60vh] overflow-y-auto chat-scroll">{renderChatContent()}<div ref={messagesEndRef} /></div>
         <form onSubmit={e=>{e.preventDefault(); handleSend();}} className="mt-6"><div className="flex gap-3"><textarea className="flex-1 rounded-xl bg-gray-700/50 border border-white/20 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none" placeholder={isChatReady && isConnected? 'Type your message...':'Setting up chat...'} value={newMessage} rows={1} onChange={e=>{ setNewMessage(e.target.value); handleTyping(); }} onKeyDown={handleKeyDown} disabled={!customerId || !isChatReady || !!connectionError || !socket || !isConnected} style={{minHeight:'50px',maxHeight:'120px'}}/><button type="button" onClick={()=>fileInputRef.current?.click()} disabled={!customerId || !isChatReady || !!connectionError || !socket || !isConnected} className={`px-4 py-3 rounded-xl ${customerId && isChatReady && !connectionError && socket && isConnected? 'bg-gray-700 hover:bg-gray-600 text-white':'bg-gray-600 text-gray-400 cursor-not-allowed'}`}><AiOutlinePaperClip className="w-5 h-5" /></button><button type="submit" disabled={!customerId || !isChatReady || !newMessage.trim() || !!connectionError || !socket || !isConnected} className={`px-4 py-3 rounded-xl ${customerId && isChatReady && newMessage.trim() && !connectionError && socket && isConnected? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white':'bg-gray-600 text-gray-400 cursor-not-allowed'}`}><AiOutlineSend className="w-5 h-5" /></button></div><input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" disabled={!customerId || !isChatReady || !!connectionError || !socket || !isConnected} /><div className="text-xs text-gray-500 mt-2 text-center">{connectionError? 'Fix connection issues to send messages': !isConnected? 'Connecting to server...':'Press Enter to send • Shift+Enter for new line'}</div></form>
       </div>
-      {imageModal.isOpen && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div className="bg-gray-800 rounded-2xl max-w-4xl max-h-[90vh] overflow-hidden border border-white/20"><div className="flex justify-between items-center p-4 border-b border-white/10 bg-gray-900"><h3 className="text-white font-semibold text-lg">{imageModal.fileName}</h3><div className="flex gap-2"><button onClick={()=>downloadImage(imageModal.imageUrl,imageModal.fileName)} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"><AiOutlineDownload className="w-4 h-4" />Download</button><button onClick={closeModal} className="bg-gray-600 hover:bg-gray-500 text-white p-2 rounded-lg"><AiOutlineClose className="w-5 h-5" /></button></div></div><div className="p-6 max-h-[70vh] overflow-auto flex items-center justify-center"><img src={imageModal.imageUrl} alt={imageModal.fileName} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" /></div></div></div>
+      {customerPreview.isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[120] p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-gray-200 dark:border-white/10 shadow-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 border-b border-gray-200 dark:border-white/10">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{customerPreview.name || 'Attachment preview'}</h3>
+                <p className={`text-sm ${MUTED_TEXT}`}>{customerPreviewMime || 'Attachment'}</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={downloadCustomerPreview} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                  <AiOutlineDownload className="w-4 h-4" />Download
+                </button>
+                <button onClick={closeCustomerPreview} className="bg-gray-200 text-gray-800 hover:bg-gray-300 px-3 py-2 rounded-lg dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600">
+                  <AiOutlineClose className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 bg-gray-50 dark:bg-gray-950 min-h-[40vh] max-h-[70vh] overflow-auto flex items-center justify-center">
+              {customerPreviewMime?.startsWith('image/') ? (
+                <img src={customerPreview.url} alt={customerPreview.name} className="max-w-full max-h-[70vh] object-contain rounded-xl shadow-2xl" />
+              ) : customerPreviewIsPdf ? (
+                <iframe title="attachment-preview" src={customerPreview.url} className="w-full h-[70vh] rounded-xl border border-gray-200 dark:border-white/10 bg-white" />
+              ) : customerPreview.url ? (
+                <div className="text-center space-y-4">
+                  <p className={`text-sm ${MUTED_TEXT}`}>Preview not available for this file type.</p>
+                  <button onClick={downloadCustomerPreview} className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500">Download file</button>
+                </div>
+              ) : (
+                <div className={`text-sm ${MUTED_TEXT}`}>No preview available.</div>
+              )}
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -3,6 +3,9 @@ import DashboardLayout from '../shared_components/DashboardLayout';
 import api from '../../../lib/api';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { CiClock1 } from 'react-icons/ci';
+import { BiNotepad } from 'react-icons/bi';
+import { IoIosAttach } from 'react-icons/io';
 
 type OrderStatus = 'pending' | 'processing' | 'ready' | 'completed' | 'cancelled';
 
@@ -67,6 +70,10 @@ const DATE_FILTERS = [
 	{ label: 'Past Year', value: 'year' },
 ];
 
+const PANEL_SURFACE = 'rounded-2xl border border-gray-200/80 dark:border-gray-600 bg-white/90 dark:bg-gray-800/50 backdrop-blur-sm shadow-sm dark:shadow-none';
+const INPUT_SURFACE = 'rounded-xl border border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-gray-800/80 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 backdrop-blur-sm';
+const MUTED_TEXT = 'text-gray-600 dark:text-gray-300';
+
 function money(v: number, currency: string = 'PHP') {
 	try {
 		return new Intl.NumberFormat(undefined, { style: 'currency', currency, maximumFractionDigits: 2 }).format(v);
@@ -79,17 +86,17 @@ function money(v: number, currency: string = 'PHP') {
 function statusBadgeClasses(status: OrderStatus) {
 	switch (status) {
 		case 'pending':
-			return 'border-gray-400 text-gray-200 bg-gray-400/10';
+			return 'border-gray-300 text-gray-700 bg-gray-100 dark:border-gray-500 dark:text-gray-200 dark:bg-gray-400/10';
 		case 'processing':
-			return 'border-amber-400 text-amber-200 bg-amber-400/10';
+			return 'border-amber-300 text-amber-700 bg-amber-50 dark:border-amber-400 dark:text-amber-200 dark:bg-amber-400/10';
 		case 'ready':
-			return 'border-indigo-400 text-indigo-200 bg-indigo-400/10';
+			return 'border-indigo-300 text-indigo-700 bg-indigo-50 dark:border-indigo-400 dark:text-indigo-200 dark:bg-indigo-400/10';
 		case 'completed':
-			return 'border-green-400 text-green-200 bg-green-400/10';
+			return 'border-green-300 text-green-700 bg-green-50 dark:border-green-400 dark:text-green-200 dark:bg-green-400/10';
 		case 'cancelled':
-			return 'border-red-400 text-red-200 bg-red-400/10';
+			return 'border-red-300 text-red-700 bg-red-50 dark:border-red-400 dark:text-red-200 dark:bg-red-400/10';
 		default:
-			return 'border-white/20 text-white/80';
+			return 'border-gray-300 text-gray-700 bg-gray-100 dark:border-white/20 dark:text-white/80 dark:bg-white/5';
 	}
 }
 
@@ -367,18 +374,18 @@ export default function OrderManagement() {
 	}
 
 	const pageHeader = (
-		<div className="mb-8 mt-10">
-				<h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">Order Management</h1>
-			<p className="text-gray-300 text-lg mt-2">Track and update customer orders.</p>
+		<div className="mb-8">
+			<h1 className="text-3xl md:text-4xl font-bold">Order Management</h1>
+			<p className={`text-lg mt-2 ${MUTED_TEXT}`}>Track and update customer orders.</p>
 		</div>
 	);
 
 	if (!hasStoreAccess) {
 		return (
 			<DashboardLayout role="owner">
-				<div className="max-w-5xl mx-auto text-center text-gray-200">
+				<div className="max-w-5xl mx-auto text-center text-gray-900 dark:text-gray-100 px-4 sm:px-6 lg:px-8 pt-8 pb-10">
 					{pageHeader}
-					<div className="rounded-xl border border-red-500/40 bg-red-500/10 p-8">
+					<div className="rounded-xl border border-red-200 bg-red-50 p-8 text-red-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
 						You do not have permission to manage orders.
 					</div>
 				</div>
@@ -387,21 +394,23 @@ export default function OrderManagement() {
 				{dpPreviewOrder && (() => {
 					const ord = dpPreviewOrder;
 					return (
-						<div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
+						<div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
 							// close modal on backdrop click
 							try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
 							setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
 						}}>
-							<div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-auto max-w-[95vw] max-h-[90vh] overflow-auto min-w-[28rem] sm:min-w-[36rem]" onClick={(e) => e.stopPropagation()}>
-								<button className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 text-sm font-bold rounded-lg text-white" onClick={() => {
+							<div className="relative bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-6 w-auto max-w-[95vw] max-h-[90vh] overflow-auto min-w-[28rem] sm:min-w-[36rem]" onClick={(e) => e.stopPropagation()}>
+								<button className="absolute top-4 right-4 bg-gray-200 text-gray-700 hover:bg-gray-300 px-3 py-1.5 text-sm font-bold rounded-lg dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600" onClick={() => {
 									try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
 									setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
 								}}>✕</button>
-								<h3 className="text-xl font-bold text-white mb-2">Down Payment Receipt</h3>
-								<div className="text-sm text-gray-400 mb-4">Order <span className="font-mono text-blue-300">{shortId(ord._id)}</span></div>
+								<h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Down Payment Receipt</h3>
+								<div className={`text-sm mb-4 ${MUTED_TEXT}`}>
+									Order <span className="font-mono text-blue-600 dark:text-blue-300">{shortId(ord._id)}</span>
+								</div>
 								<div className="mb-4">
 									{dpLoading ? (
-										<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">
+										<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
 											<div className="flex flex-col items-center gap-3">
 												<div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
 												<div className="text-sm">Loading receipt preview…</div>
@@ -410,25 +419,27 @@ export default function OrderManagement() {
 									) : dpPreviewUrl && dpPreviewMime && dpPreviewMime.startsWith('image/') ? (
 										<canvas
 											ref={(el) => { dpCanvasRef.current = el; }}
-											className="mx-auto rounded-lg border border-gray-700 block"
+											className="mx-auto rounded-lg border border-gray-200 dark:border-gray-700 block"
 											style={{ maxHeight: '80vh', maxWidth: '90vw' }}
 										/>
 									) : dpPreviewUrl && dpPreviewMime === 'application/pdf' ? (
 										<div className="w-full max-h-[80vh] overflow-auto">
-											<iframe title="receipt" src={dpPreviewUrl || ''} className="w-full h-full rounded-lg border border-gray-700" style={{ minHeight: '60vh' }} />
+											<iframe title="receipt" src={dpPreviewUrl || ''} className="w-full h-full rounded-lg border border-gray-200 dark:border-gray-700" style={{ minHeight: '60vh' }} />
 										</div>
 									) : dpPreviewUrl ? (
-										<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">
-											<a href={dpPreviewUrl} target="_blank" rel="noreferrer" className="text-blue-300 underline">Open receipt in new tab</a>
+										<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+											<a href={dpPreviewUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline dark:text-blue-300">Open receipt in new tab</a>
 										</div>
 									) : (
-										<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">No preview available.</div>
+										<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300">No preview available.</div>
 									)}
 								</div>
 
 
 								<div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 mt-4">
-									<div className="text-sm text-gray-300">Reference: <span className="font-medium text-white">{ord.downPaymentReference || '—'}</span></div>
+									<div className={`text-sm ${MUTED_TEXT}`}>
+										Reference: <span className="font-medium text-gray-900 dark:text-white">{ord.downPaymentReference || '—'}</span>
+									</div>
 									<div className="flex items-center gap-3">
 										<button onClick={() => {
 											// download the file (prefer canvas data for images)
@@ -458,7 +469,7 @@ export default function OrderManagement() {
 										<button onClick={() => {
 											try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
 										setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
-									}} className="px-4 py-2 rounded-xl border border-gray-600 text-gray-300">Close</button>
+									}} className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50">Close</button>
 									</div>
 								</div>
 							</div>
@@ -472,15 +483,15 @@ export default function OrderManagement() {
 	if (!storeId && !loading) {
 		return (
 			<DashboardLayout role="owner">
-				<div className="max-w-5xl mx-auto">
+				<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 text-gray-900 dark:text-gray-100">
 					{pageHeader}
 
-					<div className="rounded-2xl border border-gray-600 bg-gray-800/50 backdrop-blur-sm p-8 text-center transition-all duration-300 ease-out hover:scale-[1.02]">
+					<div className={`${PANEL_SURFACE} p-8 text-center transition-all duration-300 ease-out hover:scale-[1.02]`}>
 						<div className="flex flex-col items-center gap-4">
 							<div className="text-6xl">🏪</div>
 							<div>
-								<div className="text-xl font-semibold text-white mb-2">No Print Store</div>
-								<div className="text-gray-300">Create your store to start receiving orders.</div>
+								<div className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No Print Store</div>
+								<div className={MUTED_TEXT}>Create your store to start receiving orders.</div>
 							</div>
 							<button
 								onClick={() => navigate('/owner/create-shop')}
@@ -497,11 +508,11 @@ export default function OrderManagement() {
 
 	return (
 		<DashboardLayout role="owner">
-			<div className="max-w-full pb-10">
+			<div className="max-w-full px-4 sm:px-6 lg:px-8 pt-8 pb-12 text-gray-900 dark:text-gray-100">
 				{pageHeader}
 
 				{/* Filter header with integrated search and filter */}
-				<div className="mb-8 rounded-2xl border border-gray-600 bg-gray-800/50 backdrop-blur-sm p-4 relative z-20">
+				<div className={`${PANEL_SURFACE} mb-8 p-4 relative z-20`}>
 					<div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
 						{/* Combined Status Tabs, Search and Filter */}
 						<div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full">
@@ -519,14 +530,14 @@ export default function OrderManagement() {
 											className={`flex-1 sm:flex-none min-w-[9rem] inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-300 ease-out transform hover:scale-105 ${
 												active
 													? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25'
-													: 'bg-transparent text-gray-200 border border-gray-600 hover:bg-gray-700/50'
+													: 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700/50'
 											}`}
 										>
 											<span>{label}</span>
 											<span className={`text-xs px-2 py-1 rounded-full border ${
 												active
-													? 'border-white/30 bg-white/20 text-white'
-													: 'border-gray-500 bg-gray-700/50 text-gray-200'
+													? 'border-white/60 bg-white/30 text-white'
+													: 'border-gray-300 bg-gray-100 text-gray-700 dark:border-gray-500 dark:bg-gray-700/50 dark:text-gray-200'
 											}`}>
 												{counts[value] ?? 0}
 											</span>
@@ -550,12 +561,12 @@ export default function OrderManagement() {
 											placeholder="Search orders..."
 											value={searchQuery}
 											onChange={(e) => setSearchQuery(e.target.value)}
-												className="w-full rounded-xl bg-gray-800/80 border border-gray-600 pl-11 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 backdrop-blur-sm"
+											className={`w-full pl-11 pr-4 py-3 ${INPUT_SURFACE}`}
 										/>
 										{searchQuery && (
 											<button
 												onClick={() => setSearchQuery('')}
-												className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-white transition-colors duration-200"
+												className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-900 transition-colors duration-200 dark:hover:text-white"
 											>
 												<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 													<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -569,9 +580,9 @@ export default function OrderManagement() {
 								<div className="relative z-30">
 									<button
 										onClick={() => setShowDateFilter(!showDateFilter)}
-										className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gray-700/80 text-white rounded-xl border border-gray-600 hover:bg-gray-600/80 hover:border-gray-500 transition-all duration-300 ease-out backdrop-blur-sm hover:scale-105 active:scale-95 min-w-[120px]"
+										className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-300 ease-out backdrop-blur-sm hover:scale-105 active:scale-95 min-w-[120px] dark:bg-gray-700/80 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600/80 dark:hover:border-gray-500"
 									>
-										<svg className="h-4 w-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<svg className="h-4 w-4 text-gray-500 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
 										</svg>
 										<span className="text-sm font-medium">Filter</span>
@@ -582,7 +593,7 @@ export default function OrderManagement() {
 
 									{/* Dropdown Menu */}
 										{showDateFilter && (
-											<div className="absolute top-full right-0 mt-2 w-48 bg-gray-800 border border-gray-600 rounded-xl shadow-2xl backdrop-blur-sm z-40">
+											<div className="absolute top-full right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-2xl backdrop-blur-sm z-40 dark:bg-gray-800 dark:border-gray-600">
 											<div className="p-2 space-y-1">
 												{DATE_FILTERS.map((filter) => (
 													<button
@@ -594,7 +605,7 @@ export default function OrderManagement() {
 														className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
 															dateFilter === filter.value
 																? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
-																: 'text-gray-200 hover:bg-gray-700/50'
+																: 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/50'
 														}`}
 													>
 														{filter.label}
@@ -609,13 +620,13 @@ export default function OrderManagement() {
 					</div>
 
 					{/* Results Count */}
-					<div className="mt-4 text-sm text-gray-400">
+					<div className={`mt-4 text-sm ${MUTED_TEXT}`}>
 						Showing {filtered.length} of {orders.filter(o => o.status === activeTab).length} orders
 						{searchQuery && (
-							<span> for "<span className="text-white">{searchQuery}</span>"</span>
+							<span> for "<span className="text-gray-900 dark:text-white">{searchQuery}</span>"</span>
 						)}
 						{dateFilter !== 'all' && (
-							<span> from <span className="text-white">{DATE_FILTERS.find(f => f.value === dateFilter)?.label}</span></span>
+							<span> from <span className="text-gray-900 dark:text-white">{DATE_FILTERS.find(f => f.value === dateFilter)?.label}</span></span>
 						)}
 					</div>
 				</div>
@@ -627,25 +638,25 @@ export default function OrderManagement() {
 						className={`grid grid-cols-1 gap-4 mb-4 transition-opacity duration-300 ${contentReady ? 'opacity-0' : 'opacity-100'}`}
 					>
 						{Array.from({ length: 6 }).map((_, i) => (
-							<div key={i} className="rounded-2xl border border-gray-600 bg-gray-800/50 p-6 animate-pulse backdrop-blur-sm">
+							<div key={i} className={`${PANEL_SURFACE} p-6 animate-pulse`}>
 								<div className="flex flex-col sm:flex-row sm:items-start gap-4">
 									{/* Left skeleton section */}
 									<div className="flex-1 min-w-0 space-y-3">
 										<div className="flex items-center gap-2">
-											<div className="h-5 w-20 rounded bg-gray-700" />
-											<div className="h-6 w-24 rounded-full bg-gray-700" />
+											<div className="h-5 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+											<div className="h-6 w-24 rounded-full bg-gray-200 dark:bg-gray-700" />
 										</div>
-										<div className="h-4 w-32 rounded bg-gray-700" />
-										<div className="h-3 w-24 rounded bg-gray-700" />
-										<div className="h-4 w-40 rounded bg-gray-700" />
-										<div className="h-3 w-36 rounded bg-gray-700" />
+										<div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
+										<div className="h-3 w-24 rounded bg-gray-200 dark:bg-gray-700" />
+										<div className="h-4 w-40 rounded bg-gray-200 dark:bg-gray-700" />
+										<div className="h-3 w-36 rounded bg-gray-200 dark:bg-gray-700" />
 									</div>
 
 									{/* Right skeleton actions */}
 									<div className="sm:text-right w-40 shrink-0 space-y-2">
-										<div className="h-6 w-20 rounded bg-gray-700 ml-auto" />
-										<div className="h-4 w-16 rounded bg-gray-700 ml-auto" />
-										<div className="h-9 w-28 rounded-lg bg-gray-700 ml-auto" />
+										<div className="h-6 w-20 rounded bg-gray-200 dark:bg-gray-700 ml-auto" />
+										<div className="h-4 w-16 rounded bg-gray-200 dark:bg-gray-700 ml-auto" />
+										<div className="h-9 w-28 rounded-lg bg-gray-200 dark:bg-gray-700 ml-auto" />
 									</div>
 								</div>
 							</div>
@@ -653,7 +664,7 @@ export default function OrderManagement() {
 					</div>
 				)}
 				{error && (
-					<div className="mb-6 rounded-2xl border border-red-500/40 bg-red-500/10 text-red-200 px-6 py-4 text-sm backdrop-blur-sm transition-all duration-300 ease-out hover:scale-[1.02]">
+					<div className="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-800 px-6 py-4 text-sm backdrop-blur-sm transition-all duration-300 ease-out hover:scale-[1.02] dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
 						{error}
 					</div>
 				)}
@@ -661,14 +672,14 @@ export default function OrderManagement() {
 				{/* Orders list */}
 				<div className={`grid grid-cols-1 gap-6 transition-opacity duration-300 ${contentReady ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
 					{!loading && filtered.length === 0 && (
-						<div className="rounded-2xl border border-gray-600 bg-gray-800/50 p-12 text-center text-gray-300 backdrop-blur-sm transition-all duration-300 ease-out hover:scale-[1.02]">
+						<div className={`${PANEL_SURFACE} p-12 text-center text-gray-700 dark:text-gray-300 transition-all duration-300 ease-out hover:scale-[1.02]`}>
 							<div className="text-6xl mb-4">
 								{searchQuery || dateFilter !== 'all' ? '🔍' : '📦'}
 							</div>
-							<h3 className="text-xl font-semibold mb-2">
+							<h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
 								{searchQuery || dateFilter !== 'all' ? 'No matching orders' : 'No orders in this status'}
 							</h3>
-							<p className="text-gray-400">
+							<p className={MUTED_TEXT}>
 								{searchQuery || dateFilter !== 'all' 
 									? 'Try adjusting your search or filter criteria'
 									: 'Orders will appear here as customers place them.'
@@ -680,7 +691,7 @@ export default function OrderManagement() {
 										setSearchQuery('');
 										setDateFilter('all');
 									}}
-									className="mt-4 px-4 py-2 text-sm text-blue-300 hover:text-blue-200 transition-colors duration-200"
+									className="mt-4 px-4 py-2 text-sm text-blue-600 hover:text-blue-500 transition-colors duration-200 dark:text-blue-300 dark:hover:text-blue-200"
 								>
 									Clear filters
 								</button>
@@ -695,14 +706,14 @@ export default function OrderManagement() {
 						return (
 							<div 
 								key={o._id} 
-								className="rounded-2xl border border-gray-600 bg-gray-800/50 backdrop-blur-sm p-6 transition-all duration-300 ease-out hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group"
+								className={`${PANEL_SURFACE} p-6 transition-all duration-300 ease-out hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group`}
 							>
 								<div className="flex flex-col sm:flex-row sm:items-start gap-4">
 									{/* Left: main info */}
 									<div className="flex-1 min-w-0 space-y-4">
 										{/* Header */}
 										<div className="flex items-center gap-3">
-											<div className="text-white font-bold text-lg group-hover:text-blue-200 transition-colors duration-300">
+											<div className="text-gray-900 dark:text-white font-bold text-lg group-hover:text-blue-600 dark:group-hover:text-blue-200 transition-colors duration-300">
 												{shortId(o._id)}
 											</div>
 											<span className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-300 ease-out transform group-hover:scale-110 ${statusBadgeClasses(o.status)}`}>
@@ -712,12 +723,13 @@ export default function OrderManagement() {
 
 										{/* Date and Time */}
 										<div className="space-y-2">
-											<div className="text-xs text-gray-400 font-mono tabular-nums">
+											<div className={`text-xs font-mono tabular-nums ${MUTED_TEXT}`}>
 												{formatDateUTC(o.createdAt)}
 											</div>
 											{getTimeRemaining(o) && (
-												<div className="text-sm text-blue-300 font-medium bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-2 transition-all duration-300 group-hover:bg-blue-500/20">
-													⏱️ {getTimeRemaining(o)}
+												<div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-200 font-medium bg-blue-100 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/30 rounded-lg px-3 py-2 transition-all duration-300 group-hover:bg-blue-200 dark:group-hover:bg-blue-500/20">
+													<CiClock1 className="text-base" aria-hidden />
+													<span>{getTimeRemaining(o)}</span>
 												</div>
 											)}
 										</div>
@@ -725,32 +737,36 @@ export default function OrderManagement() {
 										{/* Service Details */}
 										<div className="space-y-3">
 											<div>
-												<div className="text-white font-semibold text-lg group-hover:text-blue-100 transition-colors duration-300">
+												<div className="text-gray-900 dark:text-white font-semibold text-lg group-hover:text-blue-600 dark:group-hover:text-blue-100 transition-colors duration-300">
 													{first?.serviceName || 'Service'}
 												</div>
-												<div className="text-sm text-gray-300 mt-1">
-													Quantity: <span className="text-white font-medium">{first?.quantity}</span>
+												<div className={`text-sm mt-1 ${MUTED_TEXT}`}>
+													Quantity: <span className="text-gray-900 dark:text-white font-medium">{first?.quantity}</span>
 													{first?.unit && <span className="ml-2">· {first.unit}</span>}
 												</div>
 											</div>
 
 											{first && (
-												<div className="text-sm text-gray-200 bg-gray-700/30 border border-gray-600 rounded-lg px-3 py-2 transition-all duration-300 group-hover:bg-gray-700/50">
+												<div className="text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 transition-all duration-300 group-hover:bg-gray-200 dark:group-hover:bg-gray-700/50">
 													{itemSummary(first)}
 												</div>
 											)}
 
 											{o.notes && (
-												<div className="text-sm text-gray-200 bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-2 transition-all duration-300 group-hover:bg-yellow-500/20">
-													<span className="text-yellow-300 font-medium">📝 Notes:</span> {o.notes}
+												<div className="flex gap-3 items-center text-sm text-yellow-900 dark:text-yellow-200 bg-yellow-50 border border-yellow-200 dark:bg-yellow-500/10 dark:border-yellow-500/30 rounded-lg px-3 py-2 transition-all duration-300 group-hover:bg-yellow-100 dark:group-hover:bg-yellow-500/20">
+													<BiNotepad className="text-2xl text-yellow-600 dark:text-yellow-300 flex-shrink-0" aria-hidden />
+													<div className="flex flex-wrap items-center gap-1">
+														<span className="font-semibold text-yellow-800 dark:text-yellow-200">Notes:</span>
+														<span className="text-yellow-900 dark:text-yellow-100">{o.notes}</span>
+													</div>
 												</div>
 											)}
 										</div>
 
 										{/* Files Section */}
 										{o.files?.length > 0 && (
-											<div className="border-t border-gray-600 pt-4">
-												<div className="text-xs text-gray-400 font-medium mb-2">Files ({o.files.length}):</div>
+											<div className="border-t border-gray-200 dark:border-gray-600 pt-4">
+												<div className={`text-xs font-medium mb-2 ${MUTED_TEXT}`}>Files ({o.files.length}):</div>
 												<div className="space-y-2">
 													{o.files.slice(0, 3).map((f) => (
 														<a
@@ -778,16 +794,16 @@ export default function OrderManagement() {
 																	alert(e2?.response?.data?.message || e2?.message || 'Download failed');
 																}
 															}}
-															className="flex items-center gap-2 text-sm text-blue-300 hover:text-blue-200 transition-all duration-300 ease-out transform hover:translate-x-1 group/file"
+															className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-500 transition-all duration-300 ease-out transform hover:translate-x-1 group/file dark:text-blue-300 dark:hover:text-blue-200"
 															title={f.filename || 'file'}
 														>
-															<span className="text-xs">📎</span>
+																<IoIosAttach className="text-lg" aria-hidden />
 															<span className="truncate flex-1">{f.filename || String(f.fileId)}</span>
 															<span className="text-xs opacity-0 group-hover/file:opacity-100 transition-opacity duration-300">↓</span>
 														</a>
 													))}
 													{o.files.length > 3 && (
-														<div className="text-xs text-gray-400 text-center">
+														<div className={`text-xs text-center ${MUTED_TEXT}`}>
 															+{o.files.length - 3} more files
 														</div>
 													)}
@@ -799,10 +815,10 @@ export default function OrderManagement() {
 									{/* Right: totals and actions */}
 									<div className="sm:text-right sm:w-48 shrink-0 space-y-4">
 										<div>
-											<div className="text-white font-bold text-2xl group-hover:text-blue-200 transition-colors duration-300">
+											<div className="text-gray-900 dark:text-white font-bold text-2xl group-hover:text-blue-600 dark:group-hover:text-blue-200 transition-colors duration-300">
 												{money(total, currency)}
 											</div>
-											<div className="text-sm text-gray-400">Total Amount</div>
+											<div className={`text-sm ${MUTED_TEXT}`}>Total Amount</div>
 										</div>
 
 										{/* Action Button */}
@@ -876,20 +892,22 @@ export default function OrderManagement() {
 			{dpPreviewOrder && (() => {
 				const ord = dpPreviewOrder;
 				return (
-					<div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
+					<div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
 						try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
 						setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
 					}}>
-						<div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-auto max-w-[95vw] max-h-[90vh] overflow-auto min-w-[28rem] sm:min-w-[36rem]" onClick={(e) => e.stopPropagation()}>
-							<button className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 text-sm font-bold rounded-lg text-white" onClick={() => {
+						<div className="relative bg-white dark:bg-gradient-to-br dark:from-gray-800 dark:to-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-2xl p-6 w-auto max-w-[95vw] max-h-[90vh] overflow-auto min-w-[28rem] sm:min-w-[36rem]" onClick={(e) => e.stopPropagation()}>
+							<button className="absolute top-4 right-4 bg-gray-200 text-gray-700 hover:bg-gray-300 px-3 py-1.5 text-sm font-bold rounded-lg dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600" onClick={() => {
 								try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
 								setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
 							}}>✕</button>
-							<h3 className="text-xl font-bold text-white mb-2">Down Payment Receipt</h3>
-							<div className="text-sm text-gray-400 mb-4">Order <span className="font-mono text-blue-300">{shortId(ord._id)}</span></div>
+							<h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Down Payment Receipt</h3>
+							<div className={`text-sm mb-4 ${MUTED_TEXT}`}>
+								Order <span className="font-mono text-blue-600 dark:text-blue-300">{shortId(ord._id)}</span>
+							</div>
 							<div className="mb-4">
 								{dpLoading ? (
-									<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">
+									<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
 										<div className="flex flex-col items-center gap-3">
 											<div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto" />
 											<div className="text-sm">Loading receipt preview…</div>
@@ -898,23 +916,25 @@ export default function OrderManagement() {
 								) : dpPreviewUrl && dpPreviewMime && dpPreviewMime.startsWith('image/') ? (
 									<canvas
 										ref={(el) => { dpCanvasRef.current = el; }}
-										className="mx-auto rounded-lg border border-gray-700 block"
+										className="mx-auto rounded-lg border border-gray-200 dark:border-gray-700 block"
 										style={{ maxHeight: '80vh', maxWidth: '90vw' }}
 									/>
 								) : dpPreviewUrl && dpPreviewMime === 'application/pdf' ? (
 									<div className="w-full max-h-[80vh] overflow-auto">
-										<iframe title="receipt" src={dpPreviewUrl || ''} className="w-full h-full rounded-lg border border-gray-700" style={{ minHeight: '60vh' }} />
+										<iframe title="receipt" src={dpPreviewUrl || ''} className="w-full h-full rounded-lg border border-gray-200 dark:border-gray-700" style={{ minHeight: '60vh' }} />
 									</div>
 								) : dpPreviewUrl ? (
-									<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">
-										<a href={dpPreviewUrl} target="_blank" rel="noreferrer" className="text-blue-300 underline">Open receipt in new tab</a>
+									<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+										<a href={dpPreviewUrl} target="_blank" rel="noreferrer" className="text-blue-600 underline dark:text-blue-300">Open receipt in new tab</a>
 									</div>
 								) : (
-									<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-gray-300">No preview available.</div>
+									<div className="w-full h-[40vh] flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 text-gray-700 dark:bg-gray-900 dark:text-gray-300">No preview available.</div>
 								)}
 							</div>
 							<div className="flex flex-col sm:flex-row items-center sm:justify-between gap-3 mt-4">
-								<div className="text-sm text-gray-300">Reference Number: <span className="font-medium text-white">{ord.downPaymentReference || '—'}</span></div>
+								<div className={`text-sm ${MUTED_TEXT}`}>
+									Reference Number: <span className="font-medium text-gray-900 dark:text-white">{ord.downPaymentReference || '—'}</span>
+								</div>
 								<div className="flex items-center gap-3">
 									<button onClick={() => {
 										if (!dpPreviewUrl) return;
@@ -941,13 +961,13 @@ export default function OrderManagement() {
 									<button onClick={() => {
 										try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
 										setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
-									}} className="px-4 py-2 rounded-xl border border-gray-600 text-gray-300">Close</button>
+									}} className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50">Close</button>
 								</div>
 							</div>
 						</div>
 					</div>
 				);
-			})()}
+				})()}
 		</DashboardLayout>
 	);
 }
