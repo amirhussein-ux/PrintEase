@@ -31,6 +31,7 @@ const PrintStore = require("./models/printStoreModel");
 const Employee = require("./models/employeeModel");
 const { findOrMigrateCustomerChat } = require("./utils/customerChatHelper");
 const auditLogRoutes = require('./routes/auditLogs');
+const AuditLog = require('./models/AuditLog'); // Ensure AuditLog is imported at the top
 
 const PORT = process.env.PORT || 8000;
 
@@ -43,8 +44,24 @@ connectDB()
 app.use(express.json());
 
 // --- CORS ---
+// Define the specific allowed origin(s) for HTTP requests and Socket.IO
+const allowedOrigins = [
+  "http://localhost:5173", // Keep for local development
+  "https://printease-icevercel.app", // <--- ADDED LIVE VERCEL FRONTEND DOMAIN
+];
+
 const corsOptions = {
-  origin: "http://localhost:5173",
+  // Use a function to check if the origin is allowed (handles graceful errors)
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg =
+        "The CORS policy for this site does not allow access from the specified Origin.";
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
@@ -72,7 +89,6 @@ app.use("/api/analytics", analyticsRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
 
 // --- Test Audit Logs Route ---
-const AuditLog = require('./models/AuditLog'); // Add this import at the top with other imports
 app.get("/test-audit", async (req, res) => {
   try {
     const logs = await AuditLog.find().sort({timestamp: -1}).limit(10);
@@ -88,9 +104,10 @@ app.get("/test-audit", async (req, res) => {
 const server = http.createServer(app);
 
 // --- Socket.IO ---
+// Updated Socket.IO CORS to use the same allowedOrigins array
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: allowedOrigins, // <--- CORRECTED SOCKET.IO CORS
     methods: ["GET", "POST"],
     credentials: true,
   },
