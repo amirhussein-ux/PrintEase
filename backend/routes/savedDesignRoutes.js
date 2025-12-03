@@ -1,4 +1,3 @@
-// backend/routes/savedDesignRoutes.js - COMPLETE FIXED VERSION
 const express = require('express');
 const multer = require('multer');
 const { protect } = require('../middleware/authMiddleware');
@@ -56,8 +55,8 @@ router.delete('/:id', deleteDesign);
 // Download design image
 router.get('/:id/image', downloadDesignImage);
 
-// Get thumbnail image
-router.get('/:userId/thumbnail/:fileId', getThumbnail);
+// FIXED: Add public thumbnail route (no authentication required for thumbnails)
+router.get('/:userId/thumbnail/:thumbnailId', getThumbnail);
 
 // Convert design to order
 router.post('/:id/convert-to-order', convertToOrder);

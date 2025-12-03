@@ -1,26 +1,10 @@
-// backend/controllers/savedDesignController.js - COMPLETE FIXED VERSION
 const mongoose = require('mongoose');
 const SavedDesign = require('../models/savedDesignModel');
 
-// Save a design - FIXED VERSION
+// Save a design - SIMPLIFIED AND FIXED
 exports.saveDesign = async (req, res) => {
   try {
-    console.log("🔍 Received save design request:", {
-      body: req.body,
-      files: req.files ? {
-        designFile: req.files.designFile ? {
-          originalname: req.files.designFile[0].originalname,
-          size: req.files.designFile[0].size,
-          mimetype: req.files.designFile[0].mimetype
-        } : 'No design file',
-        thumbnail: req.files.thumbnail ? {
-          originalname: req.files.thumbnail[0].originalname,
-          size: req.files.thumbnail[0].size,
-          mimetype: req.files.thumbnail[0].mimetype
-        } : 'No thumbnail file'
-      } : 'No files',
-      fields: Object.keys(req.body)
-    });
+    console.log("🔍 Received save design request");
 
     // Get user
     const user = req.user;
@@ -41,11 +25,6 @@ exports.saveDesign = async (req, res) => {
     try {
       if (req.body.customization) {
         customization = JSON.parse(req.body.customization);
-        console.log("✅ Parsed customization:", {
-          position: customization.position,
-          scale: customization.scale,
-          hasOriginalImage: !!customization.originalImage
-        });
       }
       
       if (req.body.tags) {
@@ -61,11 +40,6 @@ exports.saveDesign = async (req, res) => {
 
     // Validate required fields
     if (!productType || !color || !storeId) {
-      console.error('Missing required fields:', {
-        productType: !!productType,
-        color: !!color,
-        storeId: !!storeId
-      });
       return res.status(400).json({ 
         message: 'productType, color, and storeId are required' 
       });
@@ -73,7 +47,6 @@ exports.saveDesign = async (req, res) => {
 
     // Check for design file upload
     if (!req.files || !req.files.designFile || req.files.designFile.length === 0) {
-      console.error('No design file uploaded');
       return res.status(400).json({ 
         message: 'Design image is required' 
       });
@@ -85,7 +58,6 @@ exports.saveDesign = async (req, res) => {
     // Handle database connection
     const db = mongoose.connection.db;
     if (!db) {
-      console.error('Database connection not established');
       return res.status(500).json({ 
         message: 'Database connection error' 
       });
@@ -122,13 +94,11 @@ exports.saveDesign = async (req, res) => {
         });
       });
 
-      // Handle thumbnail
-      let thumbnailData = customization.originalImage;
-      let thumbnailFileId = null;
+      // Handle thumbnail - SIMPLE VERSION
+      let thumbnailData = null;
       
       if (thumbnailFile) {
         // Upload thumbnail file to GridFS
-        console.log("✅ Using uploaded thumbnail file");
         const thumbnailStream = bucket.openUploadStream(
           `thumbnail_${Date.now()}_${user._id}.png`,
           { 
@@ -143,19 +113,16 @@ exports.saveDesign = async (req, res) => {
         
         thumbnailStream.end(thumbnailFile.buffer);
         
-        thumbnailFileId = await new Promise((resolve, reject) => {
+        thumbnailData = await new Promise((resolve, reject) => {
           thumbnailStream.on('finish', () => {
             console.log("✅ Thumbnail uploaded to GridFS:", thumbnailStream.id);
             resolve(thumbnailStream.id);
           });
           thumbnailStream.on('error', reject);
         });
-        
-        // Use file URL for thumbnail
-        thumbnailData = `${req.protocol}://${req.get('host')}/api/saved-designs/${user._id}/thumbnail/${thumbnailFileId}`;
       } else if (customization.originalImage && customization.originalImage.startsWith('data:image/')) {
-        // Use base64 image from customization
-        console.log("✅ Using originalImage from customization as thumbnail");
+        // Store as data URL directly
+        console.log("✅ Using originalImage from customization as thumbnail (data URL)");
         thumbnailData = customization.originalImage;
       }
 
@@ -172,29 +139,34 @@ exports.saveDesign = async (req, res) => {
           mimeType: designFile.mimetype,
           size: designFile.size
         },
-        customization: {
-          ...customization,
-          // Ensure originalImage is preserved
-          originalImage: customization.originalImage || thumbnailData
-        },
+        customization: customization,
         thumbnail: thumbnailData,
         tags: tags || []
       });
 
       // Populate store info
       const populatedDesign = await SavedDesign.findById(savedDesign._id)
-        .populate('store', 'name logoFileId');
+        .populate('store', 'name logoFileId')
+        .lean();
+
+      // Generate URLs
+      const designWithUrls = {
+        ...populatedDesign,
+        thumbnailUrl: thumbnailData ? 
+          (typeof thumbnailData === 'string' && thumbnailData.startsWith('data:image/') ? 
+            thumbnailData : 
+            `${req.protocol}://${req.get('host')}/api/saved-designs/${user._id}/thumbnail/${thumbnailData}`) : 
+          null,
+        designUrl: `${req.protocol}://${req.get('host')}/api/saved-designs/${savedDesign._id}/image`
+      };
 
       console.log("✅ Design saved successfully:", {
         id: savedDesign._id,
         name: savedDesign.name,
-        productType: savedDesign.productType,
-        hasThumbnail: !!savedDesign.thumbnail,
-        hasCustomization: !!savedDesign.customization,
-        hasOriginalImage: !!savedDesign.customization?.originalImage
+        productType: savedDesign.productType
       });
 
-      res.status(201).json(populatedDesign);
+      res.status(201).json(designWithUrls);
       
     } catch (dbError) {
       console.error('Database error:', dbError);
@@ -212,7 +184,7 @@ exports.saveDesign = async (req, res) => {
   }
 };
 
-// Get user's saved designs
+// Get user's saved designs - SIMPLIFIED
 exports.getMyDesigns = async (req, res) => {
   try {
     const user = req.user;
@@ -225,43 +197,63 @@ exports.getMyDesigns = async (req, res) => {
       isActive: true 
     })
     .populate('store', 'name logoFileId')
-    .sort({ createdAt: -1 });
+    .sort({ createdAt: -1 })
+    .lean();
 
-    // Process designs for frontend
-    const designsWithProcessedThumbnails = designs.map(design => {
-      const designObj = design.toObject();
+    // Process designs with proper URLs
+    const designsWithUrls = designs.map(design => {
+      const designObj = { ...design };
       
-      // Ensure customization has originalImage
-      if (designObj.customization && !designObj.customization.originalImage && designObj.thumbnail) {
-        designObj.customization.originalImage = designObj.thumbnail;
+      // Generate thumbnail URL
+      if (designObj.thumbnail) {
+        if (typeof designObj.thumbnail === 'string' && designObj.thumbnail.startsWith('data:image/')) {
+          designObj.thumbnailUrl = designObj.thumbnail;
+        } else if (mongoose.Types.ObjectId.isValid(designObj.thumbnail)) {
+          designObj.thumbnailUrl = `${req.protocol}://${req.get('host')}/api/saved-designs/${designObj.user}/thumbnail/${designObj.thumbnail}`;
+        }
+      }
+      
+      // Generate design URL
+      if (designObj.designFile?.fileId) {
+        designObj.designUrl = `${req.protocol}://${req.get('host')}/api/saved-designs/${designObj._id}/image`;
       }
       
       return designObj;
     });
 
-    res.json(designsWithProcessedThumbnails);
+    res.json(designsWithUrls);
   } catch (error) {
     console.error('Error fetching designs:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Get thumbnail image
+// Get thumbnail image - SIMPLIFIED
 exports.getThumbnail = async (req, res) => {
   try {
-    const { userId, fileId } = req.params;
+    const { userId, thumbnailId } = req.params;
     
-    // Verify the thumbnail belongs to the user's designs
-    const design = await SavedDesign.findOne({
-      'user': userId,
-      $or: [
-        { 'thumbnail': fileId },
-        { 'designFile.fileId': fileId }
-      ]
-    });
+    console.log("🔍 Fetching thumbnail:", { userId, thumbnailId });
     
-    if (!design) {
-      return res.status(404).json({ message: 'Thumbnail not found' });
+    // Check if it's a data URL
+    if (typeof thumbnailId === 'string' && thumbnailId.startsWith('data:image/')) {
+      // Extract base64 data
+      const base64Data = thumbnailId.split(',')[1];
+      if (!base64Data) {
+        return res.status(400).json({ message: 'Invalid data URL' });
+      }
+      
+      // Convert base64 to buffer
+      const buffer = Buffer.from(base64Data, 'base64');
+      res.set('Content-Type', 'image/png');
+      res.send(buffer);
+      return;
+    }
+    
+    // Check if it's a MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(thumbnailId)) {
+      console.error('❌ Invalid thumbnail ID:', thumbnailId);
+      return res.status(400).json({ message: 'Invalid thumbnail ID' });
     }
 
     const db = mongoose.connection.db;
@@ -277,18 +269,24 @@ exports.getThumbnail = async (req, res) => {
     
     try {
       const stream = bucket.openDownloadStream(
-        new mongoose.Types.ObjectId(fileId)
+        new mongoose.Types.ObjectId(thumbnailId)
       );
       
       stream.pipe(res);
-      stream.on('error', () => {
-        res.status(404).json({ message: 'Thumbnail file not found' });
+      stream.on('error', (error) => {
+        console.error('❌ Stream error:', error);
+        // Return a fallback image
+        const fallbackImage = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+        res.send(fallbackImage);
       });
     } catch (streamError) {
-      res.status(404).json({ message: 'Thumbnail file not found' });
+      console.error('❌ Stream creation error:', streamError);
+      // Return a fallback image
+      const fallbackImage = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+      res.send(fallbackImage);
     }
   } catch (error) {
-    console.error('Error fetching thumbnail:', error);
+    console.error('❌ Error fetching thumbnail:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -303,31 +301,46 @@ exports.getDesignById = async (req, res) => {
       _id: id,
       user: user._id,
       isActive: true
-    }).populate('store', 'name logoFileId');
+    }).populate('store', 'name logoFileId').lean();
 
     if (!design) {
       return res.status(404).json({ message: 'Design not found' });
     }
 
-    // Ensure originalImage exists
-    const designObj = design.toObject();
-    if (designObj.customization && !designObj.customization.originalImage && designObj.thumbnail) {
-      designObj.customization.originalImage = designObj.thumbnail;
+    // Add URL properties
+    const designWithUrls = { ...design };
+    
+    // Generate thumbnail URL
+    if (designWithUrls.thumbnail) {
+      if (typeof designWithUrls.thumbnail === 'string' && designWithUrls.thumbnail.startsWith('data:image/')) {
+        designWithUrls.thumbnailUrl = designWithUrls.thumbnail;
+      } else if (mongoose.Types.ObjectId.isValid(designWithUrls.thumbnail)) {
+        designWithUrls.thumbnailUrl = `${req.protocol}://${req.get('host')}/api/saved-designs/${designWithUrls.user}/thumbnail/${designWithUrls.thumbnail}`;
+      }
+    }
+    
+    // Generate design URL
+    if (designWithUrls.designFile?.fileId) {
+      designWithUrls.designUrl = `${req.protocol}://${req.get('host')}/api/saved-designs/${designWithUrls._id}/image`;
     }
 
     // Increment view count
-    design.viewCount += 1;
-    design.lastViewedAt = new Date();
-    await design.save();
+    SavedDesign.updateOne(
+      { _id: id, user: user._id },
+      { 
+        $inc: { viewCount: 1 },
+        $set: { lastViewedAt: new Date() }
+      }
+    ).catch(err => console.error('Error updating view count:', err));
 
-    res.json(designObj);
+    res.json(designWithUrls);
   } catch (error) {
     console.error('Error fetching design:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Update design (name, tags, etc.)
+// Update design
 exports.updateDesign = async (req, res) => {
   try {
     const { id } = req.params;
@@ -350,16 +363,28 @@ exports.updateDesign = async (req, res) => {
     await design.save();
     
     const populatedDesign = await SavedDesign.findById(design._id)
-      .populate('store', 'name logoFileId');
+      .populate('store', 'name logoFileId')
+      .lean();
+    
+    // Add URL properties
+    const designWithUrls = {
+      ...populatedDesign,
+      thumbnailUrl: design.thumbnail ? 
+        (typeof design.thumbnail === 'string' && design.thumbnail.startsWith('data:image/') ? 
+          design.thumbnail : 
+          `${req.protocol}://${req.get('host')}/api/saved-designs/${design.user}/thumbnail/${design.thumbnail}`) : 
+        null,
+      designUrl: `${req.protocol}://${req.get('host')}/api/saved-designs/${design._id}/image`
+    };
       
-    res.json(populatedDesign);
+    res.json(designWithUrls);
   } catch (error) {
     console.error('Error updating design:', error);
     res.status(500).json({ message: error.message });
   }
 };
 
-// Delete (soft delete) design
+// Delete design
 exports.deleteDesign = async (req, res) => {
   try {
     const { id } = req.params;
@@ -432,7 +457,6 @@ exports.convertToOrder = async (req, res) => {
     const { serviceId, quantity, notes } = req.body;
     const user = req.user;
 
-    // Get the saved design
     const design = await SavedDesign.findOne({
       _id: id,
       user: user._id,
