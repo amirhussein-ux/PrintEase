@@ -51,6 +51,7 @@ app.use(express.json());
 const allowedOrigins = [
   "http://localhost:5173",
   "https://printease-ice.vercel.app", // ✔ CORRECT VERCEL DOMAIN
+  "https://printease-xi.vercel.app",
 ];
 
 const corsOptions = {
