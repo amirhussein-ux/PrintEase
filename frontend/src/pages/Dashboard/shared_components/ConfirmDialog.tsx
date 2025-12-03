@@ -2,7 +2,8 @@ import React, { Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 
 interface ConfirmDialogProps {
-  isOpen?: boolean; // Make it optional
+  open?: boolean;
+  isOpen?: boolean; // backwards compatibility
   title?: string;
   message: string | React.ReactNode;
   confirmText?: string;
@@ -13,7 +14,8 @@ interface ConfirmDialogProps {
 }
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
-  isOpen = false, // CRITICAL: Default value to false
+  open,
+  isOpen = false,
   title = "Are you sure?",
   message,
   confirmText = "Confirm",
@@ -22,10 +24,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onClose,
   confirmColor = "blue",
 }) => {
-  // Double safety check
-  const showDialog = Boolean(isOpen);
-  
-  console.log("🔍 ConfirmDialog render - isOpen:", isOpen, "showDialog:", showDialog);
+  const showDialog = typeof open === "boolean" ? open : Boolean(isOpen);
 
   const colorClasses = {
     blue: "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600",

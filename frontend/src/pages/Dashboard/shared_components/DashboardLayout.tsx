@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 import { useSocket } from "../../../context/SocketContext";
 import { Socket } from "socket.io-client";
 import api from "../../../lib/api";
-import ConfirmDialog from "./ConfirmDialog";
 import DashboardHeader from "./DashboardHeader";
 
 interface DashboardLayoutProps {
@@ -16,11 +15,7 @@ interface DashboardLayoutProps {
 
 const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => {
   const { user, logout } = useAuth();
-  const isOwnerUser = user?.role === "owner";
-  const isOperationsManager = user?.role === "employee" && user.employeeRole === "Operations Manager";
-  const canEditShop = isOwnerUser || isOperationsManager;
   const { socket } = useSocket() as { socket: Socket | null };
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     const stored = window.localStorage.getItem("dashboardDarkMode");
@@ -101,26 +96,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
         </SidebarInset>
       </div>
 
-      {/* Logout Confirmation */}
-      <ConfirmDialog
-        open={showLogoutConfirm}
-        title="Log Out?"
-        message={
-          <span>
-            You're about to log out{user?.role === 'guest' ? ' of your guest session' : ''}. Any unsaved changes may be lost.
-            <br />
-            Continue?
-          </span>
-        }
-        confirmText="Log Out"
-        cancelText="Stay"
-        onConfirm={() => {
-          setShowLogoutConfirm(false);
-          logout();
-          navigate("/login");
-        }}
-        onClose={() => setShowLogoutConfirm(false)}
-      />
 
       {/* Payment Verification Modal - remains exactly the same */}
       {paymentModal.open && paymentModal.orderId && (
