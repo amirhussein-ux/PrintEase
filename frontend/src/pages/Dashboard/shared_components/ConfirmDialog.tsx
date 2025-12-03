@@ -2,26 +2,45 @@ import React, { Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 
 interface ConfirmDialogProps {
-  open: boolean;
+  isOpen?: boolean; // Make it optional
   title?: string;
   message: string | React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   onConfirm: () => void;
   onClose: () => void;
+  confirmColor?: "blue" | "red" | "green";
 }
 
 const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
-  open,
+  isOpen = false, // CRITICAL: Default value to false
   title = "Are you sure?",
   message,
   confirmText = "Confirm",
   cancelText = "Cancel",
   onConfirm,
   onClose,
+  confirmColor = "blue",
 }) => {
+  // Double safety check
+  const showDialog = Boolean(isOpen);
+  
+  console.log("🔍 ConfirmDialog render - isOpen:", isOpen, "showDialog:", showDialog);
+
+  const colorClasses = {
+    blue: "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600",
+    red: "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600",
+    green: "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600",
+  };
+
+  const iconColors = {
+    blue: "text-blue-400",
+    red: "text-red-400",
+    green: "text-green-400",
+  };
+
   return (
-    <Transition.Root show={open} as={Fragment}>
+    <Transition.Root show={showDialog} as={Fragment}>
       <Dialog as="div" className="relative z-50" onClose={onClose}>
         <Transition.Child
           as={Fragment}
@@ -56,8 +75,8 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                   <div className="sm:flex sm:items-start">
                     <div className="mt-3 text-center sm:mt-0 sm:text-left w-full">
                       {/* Icon */}
-                      <div className="mx-auto sm:mx-0 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-slate-700/50 mb-4 ring-2 ring-slate-600/50">
-                        <svg className="h-6 w-6 text-amber-400" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                      <div className={`mx-auto sm:mx-0 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-slate-700/50 mb-4 ring-2 ring-slate-600/50 ${iconColors[confirmColor]}`}>
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
                         </svg>
                       </div>
@@ -81,9 +100,10 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
                     </button>
                     <button
                       type="button"
-                      className="inline-flex justify-center items-center rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto w-full order-1 sm:order-2"
+                      className={`inline-flex justify-center items-center rounded-xl ${colorClasses[confirmColor]} px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-500/25 hover:shadow-blue-500/35 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] sm:w-auto w-full order-1 sm:order-2`}
                       onClick={() => {
                         onConfirm();
+                        onClose();
                       }}
                     >
                       {confirmText}

@@ -4,16 +4,14 @@ import Cropper from 'react-easy-crop';
 
 type PixelCrop = { x: number; y: number; width: number; height: number };
 
-type Props = {
+type CropperModalProps = {
   src: string;
   aspect?: number;
   onCancel: () => void;
   onApply: (file: File) => void;
-  /** Theme for modal content: "light" or "dark" (default). */
   theme?: "light" | "dark";
 };
 
-// Create an HTMLImageElement from a URL
 function createImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -41,20 +39,19 @@ async function getCroppedImg(imageSrc: string, pixelCrop: PixelCrop, rotation = 
 
   const rotRad = getRadianAngle(rotation);
   const { width: bBoxWidth, height: bBoxHeight } = rotateSize(image.width, image.height, rotation);
-  // Rotate on a temp canvas sized to fit the rotated image
+  
   const canvas = document.createElement('canvas');
   canvas.width = bBoxWidth;
   canvas.height = bBoxHeight;
   const ctx = canvas.getContext('2d')!;
 
-  // Center, rotate, then draw
   ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
   ctx.rotate(rotRad);
   ctx.translate(-image.width / 2, -image.height / 2);
   ctx.drawImage(image, 0, 0);
-  // Extract the selected crop area
+  
   const data = ctx.getImageData(pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height);
-  // Draw crop to output canvas
+  
   const outCanvas = document.createElement('canvas');
   outCanvas.width = pixelCrop.width;
   outCanvas.height = pixelCrop.height;
@@ -64,7 +61,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: PixelCrop, rotation = 
   return await new Promise<Blob | null>((resolve) => outCanvas.toBlob(resolve, 'image/png'));
 }
 
-export default function CropperModal({ src, aspect = 1, onCancel, onApply, theme = "dark" }: Props) {
+export default function CropperModal({ src, aspect = 1, onCancel, onApply, theme = "dark" }: CropperModalProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -76,9 +73,9 @@ export default function CropperModal({ src, aspect = 1, onCancel, onApply, theme
 
   const handleApply = useCallback(async () => {
     if (!croppedAreaPixels) return;
-  const blob = await getCroppedImg(src, croppedAreaPixels, rotation);
+    const blob = await getCroppedImg(src, croppedAreaPixels, rotation);
     if (!blob) return;
-    const file = new File([blob], 'logo.png', { type: 'image/png' });
+    const file = new File([blob], 'cropped-image.png', { type: 'image/png' });
     onApply(file);
   }, [croppedAreaPixels, src, onApply, rotation]);
 
@@ -137,6 +134,7 @@ export default function CropperModal({ src, aspect = 1, onCancel, onApply, theme
       </div>
     </div>
   );
+  
   if (typeof document === 'undefined') return null;
   return createPortal(content, document.body);
 }

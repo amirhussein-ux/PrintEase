@@ -27,6 +27,8 @@ import { BsChatDots } from "react-icons/bs";
 import { HiOutlineClock } from 'react-icons/hi';
 import { FaSpinner, FaBoxOpen, FaCheckCircle } from 'react-icons/fa';
 import { IoStorefrontOutline } from "react-icons/io5";
+// ADD THIS IMPORT FOR SAVED DESIGNS ICON
+import { FiSave } from "react-icons/fi";
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   isDarkMode?: boolean
@@ -538,6 +540,21 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
                       <MdOutlineDashboard className="size-4" />
                     </span>
                     <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Order Page</span>
+                  </NavLink>
+
+                  {/* ADD THIS: Saved Designs Link */}
+                  <NavLink
+                    to="/dashboard/saved-designs"
+                    className={({ isActive }) =>
+                      `flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 hover:bg-white/10 hover:text-white group-data-[state=collapsed]:justify-center ${
+                        isActive ? 'bg-white/10 text-white font-semibold' : 'text-white/80'
+                      }`
+                    }
+                  >
+                    <span className="flex items-center justify-center size-6 rounded-md text-white/90 flex-shrink-0">
+                      <FiSave className="size-4" />
+                    </span>
+                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Saved Designs</span>
                   </NavLink>
 
                   <Collapsible open={customerOrdersOpen} onOpenChange={setCustomerOrdersOpen}>

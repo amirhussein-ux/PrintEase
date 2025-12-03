@@ -26,6 +26,9 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const customerChatRoutes = require("./routes/customerChatRoutes");
 const staffChatRoutes = require("./routes/staffChatRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
+// ADD THIS: Import saved design routes
+const savedDesignRoutes = require("./routes/savedDesignRoutes");
+
 const Service = require("./models/serviceModel");
 const PrintStore = require("./models/printStoreModel");
 const Employee = require("./models/employeeModel");
@@ -70,9 +73,11 @@ app.use("/api/customer-chat", customerChatRoutes);
 app.use("/api/staff-chat", staffChatRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
+// ADD THIS: Register saved design routes
+app.use("/api/saved-designs", savedDesignRoutes);
 
 // --- Test Audit Logs Route ---
-const AuditLog = require('./models/AuditLog'); // Add this import at the top with other imports
+const AuditLog = require('./models/AuditLog');
 app.get("/test-audit", async (req, res) => {
   try {
     const logs = await AuditLog.find().sort({timestamp: -1}).limit(10);
