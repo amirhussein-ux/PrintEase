@@ -109,16 +109,9 @@ const savedDesignSchema = new mongoose.Schema({
     }
   },
   
-  // Thumbnail reference - can be fileId, data URL, or null
+  // Thumbnail reference - ONLY ObjectId or null
   thumbnail: { 
-    type: mongoose.Schema.Types.Mixed,
-    default: null
-  },
-  
-  // Track thumbnail type for easier URL generation
-  thumbnailType: {
-    type: String,
-    enum: ['fileId', 'dataUrl', null],
+    type: mongoose.Schema.Types.ObjectId,
     default: null
   },
   
@@ -160,7 +153,9 @@ const savedDesignSchema = new mongoose.Schema({
       // Add virtual fields
       ret.thumbnailUrl = doc.thumbnailUrl;
       ret.designUrl = doc.designUrl;
-      ret.originalImage = doc.originalImage;
+      ret.originalImageUrl = doc.originalImageUrl;
+      ret.is3DProduct = doc.is3DProduct;
+      ret.is2DProduct = doc.is2DProduct;
       delete ret.__v;
       return ret;
     }
@@ -170,7 +165,9 @@ const savedDesignSchema = new mongoose.Schema({
     transform: function(doc, ret) {
       ret.thumbnailUrl = doc.thumbnailUrl;
       ret.designUrl = doc.designUrl;
-      ret.originalImage = doc.originalImage;
+      ret.originalImageUrl = doc.originalImageUrl;
+      ret.is3DProduct = doc.is3DProduct;
+      ret.is2DProduct = doc.is2DProduct;
       delete ret.__v;
       return ret;
     }
@@ -178,82 +175,47 @@ const savedDesignSchema = new mongoose.Schema({
   timestamps: false
 });
 
-// Virtual for thumbnail URL - FIXED: Handle ObjectId properly
+// Virtual for thumbnail URL - CHANGED: Removed /api/ prefix
 savedDesignSchema.virtual('thumbnailUrl').get(function() {
   if (!this.thumbnail) return null;
   
-  // If thumbnail is already a data URL or external URL
-  if (typeof this.thumbnail === 'string') {
-    if (this.thumbnail.startsWith('data:') || this.thumbnail.startsWith('http')) {
-      return this.thumbnail;
-    }
-  }
+  // Convert to string and check if it's a valid ObjectId
+  const thumbnailStr = this.thumbnail.toString();
   
-  // If thumbnail is an ObjectId (GridFS file)
-  let thumbnailId;
-  if (typeof this.thumbnail === 'string' && mongoose.Types.ObjectId.isValid(this.thumbnail)) {
-    thumbnailId = this.thumbnail;
-  } else if (this.thumbnail && this.thumbnail._bsontype === 'ObjectId') {
-    thumbnailId = this.thumbnail.toString();
-  }
-  
-  if (thumbnailId) {
-    return `/api/saved-designs/${this.user}/thumbnail/${thumbnailId}`;
+  if (mongoose.Types.ObjectId.isValid(thumbnailStr)) {
+    // Return path without /api/ since routes already handle it
+    return `/saved-designs/${this.user}/thumbnail/${thumbnailStr}`;
   }
   
   return null;
 });
 
-// Virtual for design URL
+// Virtual for design URL - CHANGED: Removed /api/ prefix
 savedDesignSchema.virtual('designUrl').get(function() {
   if (this.designFile?.fileId) {
-    return `/api/saved-designs/${this._id}/image`;
+    return `/saved-designs/${this._id}/image`;
   }
   return null;
 });
 
-// Virtual for original image (from customization)
-savedDesignSchema.virtual('originalImage').get(function() {
+// Virtual for original image - RENAMED to avoid conflict
+savedDesignSchema.virtual('originalImageUrl').get(function() {
+  // Return stored originalImage or fall back to thumbnail
   return this.customization?.originalImage || this.thumbnailUrl;
 });
 
-// Virtual for is3DProduct
+// FIXED: Correct 3D/2D product logic
 savedDesignSchema.virtual('is3DProduct').get(function() {
-  return ['Mug', 'T-Shirt'].includes(this.productType);
+  return ['Mug'].includes(this.productType); // Only Mug is truly 3D
 });
 
-// Virtual for is2DProduct
 savedDesignSchema.virtual('is2DProduct').get(function() {
-  return ['Mousepad', 'Sticker', 'Phone Case'].includes(this.productType);
+  return ['T-Shirt', 'Mousepad', 'Sticker', 'Phone Case'].includes(this.productType);
 });
 
-// Update timestamps and ensure data consistency - FIXED: Handle thumbnail type
+// Update timestamps
 savedDesignSchema.pre('save', function(next) {
   this.updatedAt = Date.now();
-  
-  // Determine thumbnail type
-  if (this.thumbnail) {
-    if (typeof this.thumbnail === 'string') {
-      if (this.thumbnail.startsWith('data:')) {
-        this.thumbnailType = 'dataUrl';
-      } else if (mongoose.Types.ObjectId.isValid(this.thumbnail)) {
-        this.thumbnailType = 'fileId';
-      }
-    } else if (this.thumbnail && this.thumbnail._bsontype === 'ObjectId') {
-      this.thumbnailType = 'fileId';
-    }
-  }
-  
-  // Ensure originalImage is set in customization
-  if (!this.customization?.originalImage) {
-    if (!this.customization) {
-      this.customization = {};
-    }
-    // Use thumbnail as originalImage if available and it's a data URL
-    if (this.thumbnail && typeof this.thumbnail === 'string' && this.thumbnail.startsWith('data:')) {
-      this.customization.originalImage = this.thumbnail;
-    }
-  }
   
   // Clean up tags
   if (this.tags && Array.isArray(this.tags)) {
@@ -272,8 +234,8 @@ savedDesignSchema.index({ store: 1, isActive: 1, createdAt: -1 });
 savedDesignSchema.index({ productType: 1, isActive: 1 });
 savedDesignSchema.index({ tags: 1 });
 
-// Static method to find designs by user with proper URLs - FIXED
-savedDesignSchema.statics.findByUserWithUrls = async function(userId, options = {}) {
+// Static method to find designs by user with proper URLs
+savedDesignSchema.statics.findByUserWithUrls = async function(userId, options = {}, req = null) {
   const query = {
     user: userId,
     isActive: options.active !== false
@@ -291,40 +253,28 @@ savedDesignSchema.statics.findByUserWithUrls = async function(userId, options = 
     .populate('store', 'name logoFileId')
     .sort({ createdAt: -1 })
     .limit(options.limit || 100)
-    .lean();
+    .lean({ virtuals: true });
   
-  // Add URL properties
-  return designs.map(design => {
-    const designObj = design;
-    
-    // Add thumbnailUrl - FIXED: Handle ObjectId properly
-    if (designObj.thumbnail) {
-      if (typeof designObj.thumbnail === 'string') {
-        if (designObj.thumbnail.startsWith('data:') || designObj.thumbnail.startsWith('http')) {
-          designObj.thumbnailUrl = designObj.thumbnail;
-        } else if (mongoose.Types.ObjectId.isValid(designObj.thumbnail)) {
-          designObj.thumbnailUrl = `/api/saved-designs/${designObj.user}/thumbnail/${designObj.thumbnail}`;
-        }
-      } else if (designObj.thumbnail && designObj.thumbnail._bsontype === 'ObjectId') {
-        designObj.thumbnailUrl = `/api/saved-designs/${designObj.user}/thumbnail/${designObj.thumbnail.toString()}`;
+  // Convert relative URLs to full URLs if request object is provided
+  if (req) {
+    return designs.map(design => {
+      const designObj = design;
+      
+      // Convert thumbnailUrl to full URL
+      if (designObj.thumbnailUrl && !designObj.thumbnailUrl.startsWith('http')) {
+        designObj.thumbnailUrl = `${req.protocol}://${req.get('host')}${designObj.thumbnailUrl}`;
       }
-    }
-    
-    // Add designUrl
-    if (designObj.designFile?.fileId) {
-      designObj.designUrl = `/api/saved-designs/${designObj._id}/image`;
-    }
-    
-    // Ensure customization has originalImage
-    if (!designObj.customization?.originalImage && designObj.thumbnailUrl) {
-      if (!designObj.customization) {
-        designObj.customization = {};
+      
+      // Convert designUrl to full URL
+      if (designObj.designUrl && !designObj.designUrl.startsWith('http')) {
+        designObj.designUrl = `${req.protocol}://${req.get('host')}${designObj.designUrl}`;
       }
-      designObj.customization.originalImage = designObj.thumbnailUrl;
-    }
-    
-    return designObj;
-  });
+      
+      return designObj;
+    });
+  }
+  
+  return designs;
 };
 
 // Static method to increment view count
@@ -343,13 +293,15 @@ savedDesignSchema.statics.incrementViewCount = async function(designId, userId) 
 };
 
 // Instance method to get public data
-savedDesignSchema.methods.getPublicData = function() {
-  return {
+savedDesignSchema.methods.getPublicData = function(req = null) {
+  const data = {
     _id: this._id,
     name: this.name,
     productType: this.productType,
     color: this.color,
     thumbnailUrl: this.thumbnailUrl,
+    designUrl: this.designUrl,
+    originalImageUrl: this.originalImageUrl,
     customization: {
       position: this.customization?.position,
       scale: this.customization?.scale,
@@ -360,6 +312,18 @@ savedDesignSchema.methods.getPublicData = function() {
     createdAt: this.createdAt,
     store: this.store?.name || 'Unknown Store'
   };
+  
+  // Convert to full URLs if request object is provided
+  if (req) {
+    if (data.thumbnailUrl && !data.thumbnailUrl.startsWith('http')) {
+      data.thumbnailUrl = `${req.protocol}://${req.get('host')}${data.thumbnailUrl}`;
+    }
+    if (data.designUrl && !data.designUrl.startsWith('http')) {
+      data.designUrl = `${req.protocol}://${req.get('host')}${data.designUrl}`;
+    }
+  }
+  
+  return data;
 };
 
 module.exports = mongoose.model('SavedDesign', savedDesignSchema);
