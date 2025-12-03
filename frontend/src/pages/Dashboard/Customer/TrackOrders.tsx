@@ -96,19 +96,28 @@ function getTimeRemaining(order: Order): string {
 function statusBadgeClasses(status: OrderStatus) {
   switch (status) {
     case 'pending':
-      return 'border-gray-400 text-gray-200 bg-gray-400/10';
+      return 'border-gray-300 text-gray-700 bg-gray-100 dark:border-gray-500 dark:text-gray-200 dark:bg-gray-500/10';
     case 'processing':
-      return 'border-amber-400 text-amber-200 bg-amber-400/10';
+      return 'border-amber-300 text-amber-700 bg-amber-50 dark:border-amber-400 dark:text-amber-200 dark:bg-amber-400/10';
     case 'ready':
-      return 'border-indigo-400 text-indigo-200 bg-indigo-400/10';
+      return 'border-indigo-300 text-indigo-700 bg-indigo-50 dark:border-indigo-400 dark:text-indigo-200 dark:bg-indigo-400/10';
     case 'completed':
-      return 'border-green-400 text-green-200 bg-green-400/10';
+      return 'border-emerald-300 text-emerald-700 bg-emerald-50 dark:border-green-400 dark:text-green-200 dark:bg-green-400/10';
     case 'cancelled':
-      return 'border-red-400 text-red-200 bg-red-400/10';
+      return 'border-red-300 text-red-700 bg-red-50 dark:border-red-400 dark:text-red-200 dark:bg-red-400/10';
     default:
-      return 'border-white/20 text-white/80';
+      return 'border-gray-200 text-gray-600 bg-gray-50 dark:border-white/20 dark:text-white/80 dark:bg-white/10';
   }
 }
+
+const TRACK_PAGE_WRAPPER = 'min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white';
+const TRACK_FILTER_BAR = 'flex flex-wrap gap-3 rounded-2xl p-3 shadow-lg border border-gray-200 bg-white/90 backdrop-blur w-full dark:border-slate-700 dark:bg-slate-900/60';
+const TRACK_CARD = 'rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl dark:border-slate-700 dark:bg-slate-900/70 dark:text-white';
+const TRACK_SUBCARD = 'rounded-xl border border-gray-200 bg-gray-50 text-gray-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200';
+const TRACK_PILL_MUTED = 'text-xs px-2 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-600 dark:border-gray-500 dark:bg-gray-800/60 dark:text-gray-300';
+const TRACK_INPUT_BUTTON = 'px-4 py-2.5 rounded-xl text-sm font-medium border transition-all duration-200';
+const TRACK_QR_SECTION = 'p-6 rounded-xl border border-indigo-100 bg-indigo-50 text-gray-800 shadow-inner dark:border-indigo-500/40 dark:bg-slate-950/80 dark:text-white';
+const TRACK_QR_MESSAGE = 'flex items-center gap-3 text-sm text-indigo-700 dark:text-indigo-100';
 
 export default function TrackOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -310,6 +319,7 @@ export default function TrackOrders() {
 
   return (
     <DashboardLayout role="customer">
+      <div className={TRACK_PAGE_WRAPPER}>
       {/* Toast */}
       {toast && (
         <div className={`fixed top-20 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform transition-all duration-300
@@ -327,15 +337,15 @@ export default function TrackOrders() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="mb-8 text-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-white tracking-wide">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-wide dark:text-white">
             Order Status
           </h1>
-          <p className="text-gray-400 mt-2 text-sm md:text-base">Monitor your printing orders and their progress in real-time</p>
+          <p className="text-gray-600 mt-2 text-sm md:text-base dark:text-slate-300">Monitor your printing orders and their progress in real-time</p>
         </div>
 
         {/* Filters */}
         <div className="mb-8">
-          <div className="inline-flex flex-wrap gap-3 bg-gray-900/60 backdrop-blur-sm border border-gray-700 rounded-2xl p-3 shadow-lg">
+          <div className={TRACK_FILTER_BAR}>
             {FILTERS.map(({ label, value }) => {
               const active = activeFilter === value;
               return (
@@ -351,14 +361,14 @@ export default function TrackOrders() {
                   className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${
                     active
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-500/25'
-                      : 'bg-gray-800/50 text-gray-200 border-gray-600 hover:bg-gray-700/50 hover:border-gray-500 hover:shadow-md'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-md dark:bg-gray-800/50 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700/60 dark:hover:border-gray-500'
                   }`}
                 >
                   <span>{label}</span>
                   <span className={`text-xs px-2 py-1 rounded-full border ${
                     active
-                      ? 'border-white/40 bg-white/20 text-white'
-                      : 'border-gray-500 bg-gray-700/50 text-gray-300'
+                      ? 'border-blue-200 bg-blue-50 text-blue-700 dark:border-white/40 dark:bg-white/20 dark:text-white'
+                      : TRACK_PILL_MUTED
                   }`}>
                     {counts[value] ?? 0}
                   </span>
@@ -370,15 +380,15 @@ export default function TrackOrders() {
 
         {/* Status */}
         {loading && (
-          <div className="flex justify-center mb-6">
-            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 text-center max-w-md w-full">
+          <div className="mb-6">
+            <div className={`${TRACK_CARD} text-center w-full`}>
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
-              <div className="text-gray-300 text-sm">Loading your orders...</div>
+              <div className="text-gray-600 text-sm dark:text-gray-300">Loading your orders...</div>
             </div>
           </div>
         )}
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-500/40 bg-red-500/10 backdrop-blur-sm p-4 text-red-200 text-sm flex items-center gap-3">
+          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700 text-sm flex items-center gap-3 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
             <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
             </svg>
@@ -389,12 +399,12 @@ export default function TrackOrders() {
         {/* Orders Grid */}
         <div className="grid grid-cols-1 gap-6">
           {!loading && filtered.length === 0 && (
-            <div className="rounded-2xl border border-gray-700 bg-gradient-to-br from-gray-800 to-gray-900/50 p-12 text-center">
-              <svg className="w-16 h-16 text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={`${TRACK_CARD} p-12 text-center`}>
+              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
-              <h3 className="text-lg font-semibold text-gray-300 mb-2">No orders found</h3>
-              <p className="text-gray-500 text-sm">No orders match your current filter selection.</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2 dark:text-gray-200">No orders found</h3>
+              <p className="text-gray-600 text-sm dark:text-gray-400">No orders match your current filter selection.</p>
             </div>
           )}
           
@@ -403,14 +413,14 @@ export default function TrackOrders() {
             const total = o.subtotal ?? first?.totalPrice ?? 0;
             const currency = o.currency || first?.currency || 'PHP';
             return (
-              <div key={o._id} className="rounded-2xl border border-gray-700 bg-gradient-to-br from-gray-800 to-gray-900/50 p-6 shadow-xl hover:shadow-2xl transition-all duration-300">
+              <div key={o._id} className={`${TRACK_CARD} p-6 shadow-xl hover:shadow-2xl transition-all duration-300`}>
                 <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                   {/* Left Content */}
                   <div className="flex-1 min-w-0 space-y-4">
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="text-white font-bold text-lg tracking-wide">{shortId(o._id)}</div>
+                        <div className="text-gray-900 font-bold text-lg tracking-wide dark:text-white">{shortId(o._id)}</div>
                         <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${statusBadgeClasses(o.status)}`}>
                           {o.status === 'pending' && 'Not yet Started'}
                           {o.status === 'processing' && 'In Progress'}
@@ -419,14 +429,14 @@ export default function TrackOrders() {
                           {o.status === 'cancelled' && 'Cancelled'}
                         </span>
                       </div>
-                      <div className="text-xs text-gray-400 font-mono tabular-nums bg-gray-900/50 px-3 py-1.5 rounded-lg border border-gray-700">
+                      <div className="text-xs text-gray-500 font-mono tabular-nums bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 dark:text-gray-400 dark:bg-gray-900/50 dark:border-gray-700">
                         {formatDateUTC(o.createdAt)}
                       </div>
                     </div>
 
                     {/* Time Estimate */}
                     {getTimeRemaining(o) && (
-                      <div className="flex items-center gap-2 text-sm text-blue-300 font-medium bg-blue-500/10 border border-blue-500/20 px-3 py-2 rounded-lg">
+                      <div className="flex items-center gap-2 text-sm text-blue-700 font-medium bg-blue-50 border border-blue-100 px-3 py-2 rounded-lg dark:text-blue-300 dark:bg-blue-500/10 dark:border-blue-500/20">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -436,30 +446,30 @@ export default function TrackOrders() {
 
                     {/* Order Details */}
                     <div className="space-y-3">
-                      <div className="bg-gray-900/30 rounded-xl p-4 border border-gray-700">
+                      <div className={`${TRACK_SUBCARD} p-4`}>
                         <div className="flex items-center gap-3 mb-2">
-                          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                          <h4 className="text-white font-semibold text-sm">{first?.serviceName || 'Print Service'}</h4>
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <h4 className="text-gray-900 font-semibold text-sm dark:text-white">{first?.serviceName || 'Print Service'}</h4>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-300">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-500">Quantity:</span>
+                            <span className="text-gray-500 dark:text-gray-400">Quantity:</span>
                             <span className="font-medium">{first?.quantity} {first?.unit ? `· ${first.unit}` : ''}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-500">Options:</span>
+                            <span className="text-gray-500 dark:text-gray-400">Options:</span>
                             <span className="font-medium truncate">{itemSummary(first)}</span>
                           </div>
                         </div>
                         {o.notes && (
-                          <div className="mt-3 p-3 bg-gray-800/50 rounded-lg border border-gray-700">
-                            <div className="flex items-start gap-2 text-xs">
-                              <svg className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="mt-3 p-3 rounded-lg border border-gray-200 bg-white/70 dark:border-gray-700 dark:bg-gray-800/40">
+                            <div className="flex items-start gap-2 text-xs text-gray-600 dark:text-gray-300">
+                              <svg className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                               </svg>
                               <div>
-                                <span className="text-gray-400 font-medium">Notes:</span>
-                                <span className="text-gray-300 ml-1">{o.notes}</span>
+                                <span className="font-medium text-gray-500 dark:text-gray-400">Notes:</span>
+                                <span className="ml-1">{o.notes}</span>
                               </div>
                             </div>
                           </div>
@@ -472,8 +482,8 @@ export default function TrackOrders() {
                   <div className="lg:w-64 space-y-4">
                     {/* Total Price */}
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-white">{money(total, currency)}</div>
-                      <div className="text-xs text-gray-400 font-medium">Total Amount</div>
+                      <div className="text-2xl font-bold text-gray-900 dark:text-white">{money(total, currency)}</div>
+                      <div className="text-xs text-gray-500 font-medium dark:text-gray-400">Total Amount</div>
                     </div>
 
                     {/* Action Buttons */}
@@ -484,7 +494,7 @@ export default function TrackOrders() {
                           onClick={() => cancelOrder(o._id)}
                           className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200 ${
                             updatingId === o._id 
-                              ? 'bg-gray-600 border-gray-600 text-gray-400 cursor-not-allowed' 
+                              ? 'bg-gray-200 border-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:border-gray-600 dark:text-gray-400' 
                               : 'bg-red-600 border-red-600 text-white hover:bg-red-500 hover:shadow-lg hover:shadow-red-500/25'
                           }`}
                         >
@@ -509,12 +519,12 @@ export default function TrackOrders() {
 
                     {/* Files Section */}
                     {o.files?.length > 0 && (
-                      <div className="bg-gray-900/30 rounded-xl p-4 border border-gray-700">
+                      <div className={`${TRACK_SUBCARD} p-4`}>
                         <div className="flex items-center gap-2 mb-3">
-                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
-                          <span className="text-xs font-semibold text-gray-300">Files ({o.files.length})</span>
+                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">Files ({o.files.length})</span>
                         </div>
                         <div className="space-y-2 max-h-32 overflow-y-auto">
                           {o.files.slice(0, 3).map((f) => (
@@ -542,7 +552,7 @@ export default function TrackOrders() {
                                   alert(e2?.response?.data?.message || e2?.message || 'Download failed');
                                 }
                               }}
-                              className="flex items-center gap-2 text-xs text-blue-300 hover:text-blue-200 transition-colors group"
+                              className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-500 transition-colors group dark:text-blue-300 dark:hover:text-blue-200"
                               title={f.filename || 'file'}
                             >
                               <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -552,7 +562,7 @@ export default function TrackOrders() {
                             </a>
                           ))}
                           {o.files.length > 3 && (
-                            <div className="text-xs text-gray-400 text-center pt-1 border-t border-gray-700">
+                            <div className="text-xs text-gray-500 text-center pt-1 border-t border-gray-200 dark:text-gray-400 dark:border-gray-700">
                               +{o.files.length - 3} more files
                             </div>
                           )}
@@ -564,10 +574,10 @@ export default function TrackOrders() {
 
                 {/* QR Code Section */}
                 {o.status === 'ready' && o.pickupToken && (
-                  <div className="mt-6 p-6 rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 to-purple-500/10">
+                  <div className={`mt-6 ${TRACK_QR_SECTION}`}>
                     {!openQR[o._id] ? (
                       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 text-sm text-indigo-200">
+                        <div className={TRACK_QR_MESSAGE}>
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                           </svg>
@@ -585,7 +595,7 @@ export default function TrackOrders() {
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-4">
-                        <div className="text-sm text-indigo-200 font-medium">Show this QR code at pickup:</div>
+                        <div className="text-sm text-indigo-700 font-medium dark:text-white/90">Show this QR code at pickup:</div>
                         <div className="bg-white p-3 rounded-xl shadow-lg mx-auto">
                           <QRCode
                             value={`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/orders/pickup/${o.pickupToken}/confirm`}
@@ -635,7 +645,7 @@ export default function TrackOrders() {
                           </button>
                           <button
                             onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: false }))}
-                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-600 bg-transparent text-gray-300 hover:bg-white/10 hover:text-white transition-all duration-200"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-all duration-200 dark:border-gray-600 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white"
                           >
                             Hide
                           </button>
@@ -654,21 +664,30 @@ export default function TrackOrders() {
         const ord = orders.find(o => o._id === cancelTargetId);
         return (
           <div className="fixed inset-0 z-60 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => setShowCancelModal(false)}>
-            <div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+            <div className={`${TRACK_CARD} relative p-6 w-full max-w-sm`} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-red-600/20 flex items-center justify-center">
-                  <svg className="w-6 h-6 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-12 h-12 rounded-full bg-red-50 text-red-600 flex items-center justify-center dark:bg-red-600/20 dark:text-red-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-lg font-bold text-white">Cancel Order</h3>
-                  <p className="text-sm text-gray-300 mt-2">Are you sure you want to cancel this order {ord ? <span className="font-mono text-blue-300">{shortId(ord._id)}</span> : ''}? This action cannot be undone.</p>
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Cancel Order</h3>
+                  <p className="text-sm text-gray-600 mt-2 dark:text-gray-300">Are you sure you want to cancel this order {ord ? <span className="font-mono text-blue-600 dark:text-blue-300">{shortId(ord._id)}</span> : ''}? This action cannot be undone.</p>
                 </div>
               </div>
               <div className="mt-6 flex items-center gap-3">
-                <button onClick={() => { setShowCancelModal(false); setCancelTargetId(null); }} className="flex-1 px-4 py-2 rounded-xl border border-gray-600 text-gray-300 hover:bg-gray-700 transition-all">Keep Order</button>
-                <button onClick={() => void confirmCancel()} disabled={updatingId === cancelTargetId} className={`flex-1 px-4 py-2 rounded-xl text-white font-semibold ${updatingId === cancelTargetId ? 'bg-gray-600 cursor-not-allowed' : 'bg-red-600 hover:bg-red-500'}`}>
+                <button
+                  onClick={() => { setShowCancelModal(false); setCancelTargetId(null); }}
+                  className={`flex-1 ${TRACK_INPUT_BUTTON} bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-slate-700`}
+                >
+                  Keep Order
+                </button>
+                <button
+                  onClick={() => void confirmCancel()}
+                  disabled={updatingId === cancelTargetId}
+                  className={`flex-1 px-4 py-2 rounded-xl text-white font-semibold ${updatingId === cancelTargetId ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-300' : 'bg-red-600 hover:bg-red-500'}`}
+                >
                   {updatingId === cancelTargetId ? 'Cancelling...' : 'Yes, Cancel Order'}
                 </button>
               </div>
@@ -686,18 +705,18 @@ export default function TrackOrders() {
           onClick={() => setEnlargeQrFor(null)}
         >
           <div
-            className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-[92vw] max-w-md"
+            className={`${TRACK_CARD} relative p-6 w-[92vw] max-w-md`}
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 text-sm font-bold rounded-lg text-white cursor-pointer transition-all duration-200 hover:shadow-md"
+              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer transition-all duration-200 hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
               onClick={() => setEnlargeQrFor(null)}
               aria-label="Close"
             >
               ✕
             </button>
             <div className="flex flex-col items-center gap-4">
-              <div className="text-lg font-semibold text-white">Pickup QR Code</div>
+              <div className="text-lg font-semibold text-gray-900 dark:text-white">Pickup QR Code</div>
               <div className="bg-white p-4 rounded-xl shadow-lg">
                 {(() => {
                   const ord = orders.find((x) => x._id === enlargeQrFor);
@@ -757,48 +776,48 @@ export default function TrackOrders() {
         const first = ord.items[0];
         return (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal>
-            <div className="relative bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 shadow-2xl p-6 w-[92vw] max-w-md">
+            <div className={`${TRACK_CARD} relative p-6 w-[92vw] max-w-md`}>
               <button
-                className="absolute top-4 right-4 bg-gray-700 hover:bg-gray-600 px-3 py-1.5 text-sm font-bold rounded-lg text-white cursor-pointer transition-all duration-200 hover:shadow-md"
+                className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer transition-all duration-200 hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
                 onClick={() => setShowReceiptFor(null)}
                 aria-label="Close"
               >
                 ✕
               </button>
-              <h3 className="text-xl font-bold text-white mb-2">Payment Receipt</h3>
-              <p className="text-sm text-gray-400 mb-6">Order <span className="font-mono text-blue-300">{shortId(ord._id)}</span> · {ord.receiptIssuedAt ? new Date(ord.receiptIssuedAt).toLocaleString() : ''}</p>
+              <h3 className="text-xl font-bold text-gray-900 mb-2 dark:text-white">Payment Receipt</h3>
+              <p className="text-sm text-gray-600 mb-6 dark:text-gray-400">Order <span className="font-mono text-blue-600 dark:text-blue-300">{shortId(ord._id)}</span> · {ord.receiptIssuedAt ? new Date(ord.receiptIssuedAt).toLocaleString() : ''}</p>
               
               <div className="space-y-4 text-sm">
-                <div className="flex justify-between items-center py-2 border-b border-gray-700">
-                  <span className="text-gray-300">Service</span>
-                  <span className="font-medium text-white truncate max-w-[55%]">{first?.serviceName || 'Service'}</span>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-300">Service</span>
+                  <span className="font-medium text-gray-900 truncate max-w-[55%] dark:text-white">{first?.serviceName || 'Service'}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-700">
-                  <span className="text-gray-300">Quantity</span>
-                  <span className="font-medium text-white">{first?.quantity}</span>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-300">Quantity</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{first?.quantity}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-700">
-                  <span className="text-gray-300">Subtotal</span>
-                  <span className="font-bold text-green-400">{money(ord.subtotal, ord.currency || 'PHP')}</span>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-300">Subtotal</span>
+                  <span className="font-bold text-emerald-600 dark:text-green-400">{money(ord.subtotal, ord.currency || 'PHP')}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-700">
-                  <span className="text-gray-300">Paid</span>
-                  <span className="font-medium text-white">{money(ord.paymentAmount || ord.subtotal, ord.currency || 'PHP')}</span>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-300">Paid</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{money(ord.paymentAmount || ord.subtotal, ord.currency || 'PHP')}</span>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b border-gray-700">
-                  <span className="text-gray-300">Change</span>
-                  <span className="font-medium text-white">{money(ord.changeGiven || 0, ord.currency || 'PHP')}</span>
+                <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                  <span className="text-gray-600 dark:text-gray-300">Change</span>
+                  <span className="font-medium text-gray-900 dark:text-white">{money(ord.changeGiven || 0, ord.currency || 'PHP')}</span>
                 </div>
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-gray-300">Method</span>
-                  <span className="font-bold text-blue-400 uppercase">{ord.paymentMethod || 'cash'}</span>
+                  <span className="text-gray-600 dark:text-gray-300">Method</span>
+                  <span className="font-bold text-blue-600 uppercase dark:text-blue-400">{ord.paymentMethod || 'cash'}</span>
                 </div>
               </div>
               
               <div className="mt-8 flex justify-end gap-3">
                 <button
                   onClick={() => setShowReceiptFor(null)}
-                  className="px-5 py-2.5 rounded-xl border border-gray-600 bg-transparent text-gray-300 hover:bg-gray-700 hover:text-white transition-all duration-200"
+                  className={`px-5 py-2.5 rounded-xl font-medium ${TRACK_INPUT_BUTTON} bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700`}
                 >
                   Close
                 </button>
@@ -855,6 +874,7 @@ export default function TrackOrders() {
           </div>
         );
       })()}
+      </div>
     </DashboardLayout>
   );
 }

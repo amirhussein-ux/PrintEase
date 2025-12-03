@@ -116,6 +116,14 @@ const PANEL_SURFACE = "rounded-2xl border border-gray-200/80 bg-white text-gray-
 const SOFT_PANEL = "rounded-2xl border border-gray-200 /70 bg-white text-gray-900 shadow-sm dark:border-white/10 dark:bg-gray-900/40 dark:text-white";
 const INPUT_SURFACE = "rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400";
 const MUTED_TEXT = "text-gray-600 dark:text-gray-300";
+const CUSTOMER_CHAT_PAGE = "bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white";
+const CUSTOMER_CHAT_HERO = "rounded-3xl border border-gray-200 bg-white/90 backdrop-blur-sm shadow-2xl dark:border-slate-800 dark:bg-slate-900/70";
+const CUSTOMER_CHAT_STREAM = "rounded-3xl border border-gray-200 bg-white/80 backdrop-blur-lg shadow-inner dark:border-slate-800 dark:bg-slate-950/60";
+const CUSTOMER_CHAT_INPUT_PANEL = "rounded-3xl border border-gray-200 bg-white/90 backdrop-blur-sm shadow-xl dark:border-slate-800 dark:bg-slate-900/80";
+const CUSTOMER_CHAT_TEXTAREA = "flex-1 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-gray-900 placeholder-gray-500 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900/60 dark:text-white dark:placeholder-slate-400";
+const CUSTOMER_CHAT_ICON_BUTTON = "px-4 py-3 rounded-2xl border font-semibold transition-colors";
+const CUSTOMER_CHAT_BUBBLE_SELF = "bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-3xl rounded-br-none shadow-lg";
+const CUSTOMER_CHAT_BUBBLE_STORE = "bg-gray-100 text-gray-900 rounded-3xl rounded-bl-none shadow-sm dark:bg-slate-800 dark:text-white";
 const isImageFile = (fileName?: string, fileType?: string) => {
   if (fileType?.startsWith('image/')) return true;
   if (!fileName) return false;
@@ -1142,7 +1150,7 @@ const CustomerChat: React.FC = () => {
       return (
         <div className="space-y-2">
           <div
-            className="relative overflow-hidden rounded-2xl border border-white/20 shadow-lg cursor-pointer group"
+            className="relative overflow-hidden rounded-2xl border border-gray-200 shadow-lg cursor-pointer group dark:border-white/15"
             onClick={() => openCustomerPreview(m.fileUrl!, m.fileName || 'Image', m.fileType)}
           >
             <img src={m.fileUrl} alt={m.fileName} className="w-full h-auto max-h-64 object-cover" />
@@ -1150,7 +1158,7 @@ const CustomerChat: React.FC = () => {
               Tap to view
             </div>
           </div>
-          {m.fileName && <p className="text-xs text-gray-300 text-center truncate">{m.fileName}</p>}
+          {m.fileName && <p className="text-xs text-gray-600 text-center truncate dark:text-gray-300">{m.fileName}</p>}
         </div>
       );
     }
@@ -1159,35 +1167,190 @@ const CustomerChat: React.FC = () => {
       <div
         role={clickable ? 'button' : undefined}
         onClick={clickable ? () => openCustomerPreview(m.fileUrl!, m.fileName || 'Attachment', m.fileType) : undefined}
-        className={`flex items-center gap-3 p-3 rounded-lg border border-white/20 bg-white/10 text-white ${clickable ? 'cursor-pointer hover:bg-white/20' : 'opacity-60 cursor-not-allowed'}`}
+        className={`flex items-center gap-3 p-3 rounded-2xl border border-gray-200 bg-white text-gray-900 dark:border-white/20 dark:bg-white/10 dark:text-white ${clickable ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-white/20' : 'opacity-60 cursor-not-allowed'}`}
       >
-        <AiOutlinePaperClip className="flex-shrink-0 text-blue-300 text-lg" />
+        <AiOutlinePaperClip className="flex-shrink-0 text-blue-500 text-lg dark:text-blue-300" />
         <div className="text-sm">
           <div className="font-semibold truncate max-w-[12rem]">{m.fileName || 'Attachment'}</div>
-          <div className="text-xs text-gray-300">{m.fileType || 'Tap to preview'}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-300">{m.fileType || 'Tap to preview'}</div>
         </div>
       </div>
     );
   };
 
   const renderChatContent = () => {
-    if (connectionError) return <div className="flex-1 flex flex-col items-center justify-center text-red-400 p-8"><AiOutlineReload className="w-16 h-16 mb-4 opacity-50"/><p className="text-lg font-semibold">Connection Error</p><p className="text-sm mt-2 text-center max-w-md">{connectionError}</p></div>;
-    if (!customerId) return <div className="flex-1 flex flex-col items-center justify-center text-red-400 p-8"><AiOutlineUser className="w-16 h-16 mb-4 opacity-50"/><p className="text-lg font-semibold">Login Required</p><p className="text-sm mt-2 text-gray-400">Please log in to chat</p></div>;
-    if (!storeId) return <div className="flex-1 flex flex-col items-center justify-center text-yellow-300 p-8 text-center"><AiOutlineShop className="w-16 h-16 mb-4 opacity-50"/><p className="text-lg font-semibold">Select a Print Store</p><p className="text-sm mt-2 text-gray-400">Choose a store from the marketplace or order page to start chatting.</p></div>;
-    if (!socket) return <div className="flex-1 flex flex-col items-center justify-center text-yellow-400 p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mb-4"/><p className="text-lg font-semibold">Connecting...</p><p className="text-sm mt-2 text-gray-400">Establishing connection</p></div>;
-    if (!isConnected) return <div className="flex-1 flex flex-col items-center justify-center text-yellow-400 p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mb-4"/><p className="text-lg font-semibold">Connecting to Server</p><p className="text-sm mt-2 text-gray-400">Please wait</p></div>;
-    if (loadingMessages) return <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"/><p className="text-lg font-semibold">Loading Messages</p></div>;
-    if (messages.length===0 && isChatReady) return <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8"><AiOutlineShop className="w-16 h-16 mb-4 opacity-50"/><p className="text-lg font-semibold">Start a Chat</p><p className="text-sm mt-2 text-center max-w-md">Ask about products or customization options!</p><p className="text-xs mt-4 text-gray-500">Type a message below to begin</p></div>;
-    if (messages.length===0 && !isChatReady) return <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mb-4"/><p className="text-lg font-semibold">Setting Up Chat</p></div>;
-    return messages.map((m,i)=>(<div key={m._id||`${m.createdAt}-${i}`} className={`flex mb-4 ${m.senderId===customerId? 'justify-end':'justify-start'}`}><div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${m.senderId===customerId? 'bg-blue-600 text-white rounded-br-none':'bg-gray-700 text-white rounded-bl-none'}`}>{m.fileName? renderFile(m): <p className="text-sm whitespace-pre-wrap">{m.text}</p>}<div className="flex items-center justify-end gap-1 mt-2"><span className="text-xs text-gray-300">{formatTime(m.createdAt)}</span>{renderStatus(m)}</div></div></div>));
+    const baseState = "flex-1 flex flex-col items-center justify-center p-8 text-center";
+    if (connectionError) {
+      return (
+        <div className={`${baseState} text-red-600 dark:text-red-300`}>
+          <AiOutlineReload className="w-16 h-16 mb-4 opacity-50" />
+          <p className="text-lg font-semibold">Connection Error</p>
+          <p className="text-sm mt-2 max-w-md text-gray-600 dark:text-slate-200">{connectionError}</p>
+        </div>
+      );
+    }
+    if (!customerId) {
+      return (
+        <div className={`${baseState} text-red-600 dark:text-red-300`}>
+          <AiOutlineUser className="w-16 h-16 mb-4 opacity-50" />
+          <p className="text-lg font-semibold">Login Required</p>
+          <p className="text-sm mt-2 text-gray-600 dark:text-slate-200">Please log in to chat</p>
+        </div>
+      );
+    }
+    if (!storeId) {
+      return (
+        <div className={`${baseState} text-amber-500 dark:text-amber-300`}>
+          <AiOutlineShop className="w-16 h-16 mb-4 opacity-50" />
+          <p className="text-lg font-semibold">Select a Print Store</p>
+          <p className="text-sm mt-2 text-gray-600 dark:text-slate-200">Choose a store from the marketplace or order page to start chatting.</p>
+        </div>
+      );
+    }
+    if (!socket || !isConnected) {
+      return (
+        <div className={`${baseState} text-amber-500 dark:text-amber-300`}>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-current mb-4" />
+          <p className="text-lg font-semibold">Connecting to Server</p>
+          <p className="text-sm mt-2 text-gray-600 dark:text-slate-200">Please wait</p>
+        </div>
+      );
+    }
+    if (loadingMessages) {
+      return (
+        <div className={`${baseState} text-blue-500 dark:text-blue-300`}>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-current mb-4" />
+          <p className="text-lg font-semibold">Loading Messages</p>
+        </div>
+      );
+    }
+    if (messages.length === 0 && isChatReady) {
+      return (
+        <div className={`${baseState} text-gray-500 dark:text-slate-300`}>
+          <AiOutlineShop className="w-16 h-16 mb-4 opacity-50" />
+          <p className="text-lg font-semibold">Start a Chat</p>
+          <p className="text-sm mt-2 max-w-md">Ask about products or customization options!</p>
+          <p className="text-xs mt-4 text-gray-500 dark:text-slate-400">Type a message below to begin</p>
+        </div>
+      );
+    }
+    if (messages.length === 0 && !isChatReady) {
+      return (
+        <div className={`${baseState} text-blue-500 dark:text-blue-300`}>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-current mb-4" />
+          <p className="text-lg font-semibold">Setting Up Chat</p>
+        </div>
+      );
+    }
+    return messages.map((m, i) => {
+      const isSelf = m.senderId === customerId;
+      const bubbleClass = isSelf ? CUSTOMER_CHAT_BUBBLE_SELF : CUSTOMER_CHAT_BUBBLE_STORE;
+      const timestampClass = isSelf ? 'text-white/80' : 'text-gray-500 dark:text-gray-300';
+      return (
+        <div key={m._id || `${m.createdAt}-${i}`} className={`flex mb-4 ${isSelf ? 'justify-end' : 'justify-start'}`}>
+          <div className={`max-w-xs lg:max-w-md px-4 py-3 ${bubbleClass}`}>
+            {m.fileName ? renderFile(m) : <p className="text-sm whitespace-pre-wrap">{m.text}</p>}
+            <div className={`flex items-center gap-1 mt-2 ${isSelf ? 'justify-end' : 'justify-start'}`}>
+              <span className={`text-xs ${timestampClass}`}>{formatTime(m.createdAt)}</span>
+              {renderStatus(m)}
+            </div>
+          </div>
+        </div>
+      );
+    });
   };
 
+  const canInteract = Boolean(customerId && isChatReady && !connectionError && socket && isConnected);
+  const canSendMessage = canInteract && Boolean(newMessage.trim());
+
   return (
-    <div className="flex flex-col h-full min-h-[80vh] bg-gradient-to-br from-gray-900 to-gray-800">
-      <div className="container mx-auto px-4 py-6 max-w-4xl">
-        <div className="bg-gray-800/80 backdrop-blur-lg rounded-2xl border border-white/10 p-6 mb-6 shadow-2xl"><div className="flex items-center justify-between"><div className="flex items-center gap-4"><div className="relative"><div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center"><AiOutlineShop className="w-6 h-6 text-white" /></div><div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-gray-800 ${isOnline? 'bg-green-500':'bg-gray-500'}`} /></div><div><h1 className="text-2xl font-bold text-white">Store Admin</h1><div className="flex items-center gap-2 mt-1"><div className={`w-2 h-2 rounded-full ${isOnline? 'bg-green-500 animate-pulse':'bg-gray-500'}`} /><span className="text-sm text-gray-300">{isOnline? 'Online':'Offline'} {isTyping && ' • Typing...'}</span></div></div></div><div className="text-right"><div className="text-sm text-gray-400">Customer Support</div><div className="text-xs text-gray-500">Always here to help</div></div></div></div>
-        <div className="flex-1 bg-gray-800/50 backdrop-blur-lg border border-white/10 rounded-2xl p-6 shadow-inner min-h-[400px] max-h-[60vh] overflow-y-auto chat-scroll">{renderChatContent()}<div ref={messagesEndRef} /></div>
-        <form onSubmit={e=>{e.preventDefault(); handleSend();}} className="mt-6"><div className="flex gap-3"><textarea className="flex-1 rounded-xl bg-gray-700/50 border border-white/20 px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none" placeholder={isChatReady && isConnected? 'Type your message...':'Setting up chat...'} value={newMessage} rows={1} onChange={e=>{ setNewMessage(e.target.value); handleTyping(); }} onKeyDown={handleKeyDown} disabled={!customerId || !isChatReady || !!connectionError || !socket || !isConnected} style={{minHeight:'50px',maxHeight:'120px'}}/><button type="button" onClick={()=>fileInputRef.current?.click()} disabled={!customerId || !isChatReady || !!connectionError || !socket || !isConnected} className={`px-4 py-3 rounded-xl ${customerId && isChatReady && !connectionError && socket && isConnected? 'bg-gray-700 hover:bg-gray-600 text-white':'bg-gray-600 text-gray-400 cursor-not-allowed'}`}><AiOutlinePaperClip className="w-5 h-5" /></button><button type="submit" disabled={!customerId || !isChatReady || !newMessage.trim() || !!connectionError || !socket || !isConnected} className={`px-4 py-3 rounded-xl ${customerId && isChatReady && newMessage.trim() && !connectionError && socket && isConnected? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white':'bg-gray-600 text-gray-400 cursor-not-allowed'}`}><AiOutlineSend className="w-5 h-5" /></button></div><input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" disabled={!customerId || !isChatReady || !!connectionError || !socket || !isConnected} /><div className="text-xs text-gray-500 mt-2 text-center">{connectionError? 'Fix connection issues to send messages': !isConnected? 'Connecting to server...':'Press Enter to send • Shift+Enter for new line'}</div></form>
+    <div className={`${CUSTOMER_CHAT_PAGE} py-4 sm:py-6 `}>
+      <div className="w-full max-w-7xl mx-auto px-4 flex flex-col gap-4">
+        <div className={`${CUSTOMER_CHAT_HERO} p-5`}>
+          <div className="flex items-center justify-between gap-6 flex-wrap">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                  <AiOutlineShop className="w-6 h-6 text-white" />
+                </div>
+                <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Store Admin</h1>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className={`${CUSTOMER_CHAT_STREAM} px-5 py-4 min-h-[320px] max-h-[65vh] overflow-y-auto chat-scroll`}>
+          {renderChatContent()}
+          <div ref={messagesEndRef} />
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSend();
+          }}
+          className=""
+        >
+          <div className={`${CUSTOMER_CHAT_INPUT_PANEL} px-4 py-3`}>
+            <div className="flex flex-col gap-3 md:flex-row">
+              <textarea
+                className={`${CUSTOMER_CHAT_TEXTAREA} md:flex-1`}
+                placeholder={isChatReady && isConnected ? 'Type your message...' : 'Setting up chat...'}
+                value={newMessage}
+                rows={1}
+                onChange={(e) => {
+                  setNewMessage(e.target.value);
+                  handleTyping();
+                }}
+                onKeyDown={handleKeyDown}
+                disabled={!canInteract}
+                style={{ minHeight: '50px', maxHeight: '120px' }}
+              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!canInteract}
+                  className={`${CUSTOMER_CHAT_ICON_BUTTON} ${canInteract
+                    ? 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-900/60 dark:text-white'
+                    : 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-500'
+                  }`}
+                >
+                  <AiOutlinePaperClip className="w-5 h-5" />
+                </button>
+                <button
+                  type="submit"
+                  disabled={!canSendMessage}
+                  className={
+                    canSendMessage
+                      ? 'px-6 py-3 rounded-2xl border border-transparent bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold shadow-md hover:from-blue-500 hover:to-purple-500'
+                      : `${CUSTOMER_CHAT_ICON_BUTTON} border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-500`
+                  }
+                >
+                  <AiOutlineSend className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFileSelect}
+              accept="image/*,.pdf,.doc,.docx,.txt"
+              disabled={!canInteract}
+            />
+            <div className="text-xs text-gray-500 mt-3 text-center dark:text-slate-300">
+              {connectionError
+                ? 'Fix connection issues to send messages'
+                : !isConnected
+                  ? 'Connecting to server...'
+                  : 'Press Enter to send • Shift+Enter for new line'}
+            </div>
+          </div>
+        </form>
       </div>
       {customerPreview.isOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[120] p-4">

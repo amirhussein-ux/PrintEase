@@ -50,6 +50,12 @@ const formatMoney = (n: number | undefined | null, code: string = 'PHP') => {
     }
 };
 
+const ORDER_PAGE_WRAPPER = "min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white";
+const ORDER_PANEL = "bg-white/95 border border-gray-200 text-gray-900 shadow-xl dark:bg-slate-800/40 dark:border-slate-600 dark:text-white";
+const ORDER_PANEL_SUBTLE = "bg-white/90 border border-gray-200 text-gray-900 shadow-lg dark:bg-slate-900/50 dark:border-slate-700 dark:text-white";
+const ORDER_INPUT = "bg-white border border-gray-200 text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-800/50 dark:border-slate-600 dark:text-white dark:placeholder:text-slate-400";
+const ORDER_BUTTON_NEUTRAL = "bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 dark:bg-slate-800/40 dark:border-slate-600 dark:text-white dark:hover:bg-slate-700/50";
+
 export default function OrderPage() {
     const { token, continueAsGuest } = useAuth();
     const location = useLocation() as { state: LocationState };
@@ -501,7 +507,7 @@ export default function OrderPage() {
     }, [notif]);
 
     return (
-        <div className="">
+        <div className={ORDER_PAGE_WRAPPER}>
             {/* Fixed Notification with higher z-index */}
             {notif && (
                 <div className={`fixed top-24 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform transition-all duration-300 animate-slide-in-right
@@ -528,10 +534,10 @@ export default function OrderPage() {
             <div className="pt-8 pb-6 relative z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-8">
-                        <h1 className="text-4xl md:text-5xl font-bold text-white tracking-wide mb-3">
+                        <h1 className="text-4xl md:text-5xl font-bold text-gray-900 tracking-wide mb-3 dark:text-white">
                           SELECT A PRODUCT SERVICE
                         </h1>
-                        <p className="text-slate-300 text-lg max-w-2xl mx-auto leading-relaxed">
+                        <p className="text-gray-600 text-lg max-w-2xl mx-auto leading-relaxed dark:text-slate-300">
                             Transform your ideas into stunning prints with our professional services
                         </p>
                     </div>
@@ -550,7 +556,7 @@ export default function OrderPage() {
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     placeholder="Search services by name, description, or unit..."
-                                    className="block w-full h-14 rounded-2xl bg-slate-800/40 backdrop-blur-sm border border-slate-600 text-white placeholder:text-slate-400 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg shadow-lg transition-all duration-200"
+                                    className={`block w-full h-14 rounded-2xl backdrop-blur-sm pl-12 pr-4 focus:outline-none text-lg shadow-lg transition-all duration-200 ${ORDER_INPUT}`}
                                     aria-label="Search services"
                                 />
                             </div>
@@ -559,7 +565,7 @@ export default function OrderPage() {
                                 <div className="relative z-[60]" ref={filterAnchorRef}>
                                     <button
                                         onClick={() => setShowFilters((v) => !v)}
-                                        className="inline-flex items-center justify-center gap-3 px-6 h-14 rounded-2xl bg-slate-800/40 backdrop-blur-sm text-white border border-slate-600 hover:bg-slate-700/40 hover:border-slate-500 transition-all duration-200 shadow-lg hover:shadow-xl"
+                                        className={`inline-flex items-center justify-center gap-3 px-6 h-14 rounded-2xl backdrop-blur-sm transition-all duration-200 shadow-lg hover:shadow-xl ${ORDER_BUTTON_NEUTRAL}`}
                                         aria-haspopup="true"
                                         aria-expanded={showFilters}
                                     >
@@ -595,13 +601,13 @@ export default function OrderPage() {
                     {/* Enhanced Filter Dropdown */}
                     {showFilters && filterPos && createPortal(
                         <div
-                            className="w-80 rounded-2xl border border-slate-600 bg-slate-800/95 backdrop-blur-sm p-6 z-[1000] shadow-2xl animate-fade-in"
+                            className={`w-80 rounded-2xl backdrop-blur-sm p-6 z-[1000] shadow-2xl animate-fade-in ${ORDER_PANEL}`}
                             style={{ position: 'fixed', top: `${filterPos.top}px`, left: `${filterPos.left}px` }}
                         >
                             <div className="flex items-center justify-between mb-5">
-                                <div className="text-lg font-bold text-white">Sort Options</div>
+                                <div className="text-lg font-bold">Sort Options</div>
                                 <button 
-                                    className="p-2 rounded-lg hover:bg-slate-700/50 transition-colors"
+                                    className="p-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-slate-700/50"
                                     onClick={() => setShowFilters(false)}
                                 >
                                     <XMarkIcon className="w-5 h-5" />
@@ -609,14 +615,14 @@ export default function OrderPage() {
                             </div>
                             <div className="space-y-5">
                                 <div>
-                                    <div className="text-sm font-semibold text-slate-300 mb-3">Sort by</div>
+                                    <div className="text-sm font-semibold text-gray-600 mb-3 dark:text-slate-300">Sort by</div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
                                             onClick={() => { setSortKey('name'); setSortDir('asc'); }}
                                             className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 group ${
                                                 sortKey==='name'&&sortDir==='asc' 
-                                                    ? 'border-blue-500 text-blue-200 bg-blue-500/20 shadow-lg shadow-blue-500/25' 
-                                                    : 'border-slate-600 text-slate-200 hover:bg-slate-700/50 hover:border-slate-500'
+                                                    ? 'border-blue-500 text-blue-700 bg-blue-50 shadow-lg shadow-blue-500/25 dark:text-blue-200 dark:bg-blue-500/20' 
+                                                    : 'border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700/50 dark:hover:border-slate-500'
                                             }`}
                                         >
                                             <div className="text-sm font-medium">Name A–Z</div>
@@ -625,8 +631,8 @@ export default function OrderPage() {
                                             onClick={() => { setSortKey('name'); setSortDir('desc'); }}
                                             className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 group ${
                                                 sortKey==='name'&&sortDir==='desc' 
-                                                    ? 'border-blue-500 text-blue-200 bg-blue-500/20 shadow-lg shadow-blue-500/25' 
-                                                    : 'border-slate-600 text-slate-200 hover:bg-slate-700/50 hover:border-slate-500'
+                                                    ? 'border-blue-500 text-blue-700 bg-blue-50 shadow-lg shadow-blue-500/25 dark:text-blue-200 dark:bg-blue-500/20' 
+                                                    : 'border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700/50 dark:hover:border-slate-500'
                                             }`}
                                         >
                                             <div className="text-sm font-medium">Name Z–A</div>
@@ -635,8 +641,8 @@ export default function OrderPage() {
                                             onClick={() => { setSortKey('price'); setSortDir('asc'); }}
                                             className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 group ${
                                                 sortKey==='price'&&sortDir==='asc' 
-                                                    ? 'border-blue-500 text-blue-200 bg-blue-500/20 shadow-lg shadow-blue-500/25' 
-                                                    : 'border-slate-600 text-slate-200 hover:bg-slate-700/50 hover:border-slate-500'
+                                                    ? 'border-blue-500 text-blue-700 bg-blue-50 shadow-lg shadow-blue-500/25 dark:text-blue-200 dark:bg-blue-500/20' 
+                                                    : 'border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700/50 dark:hover:border-slate-500'
                                             }`}
                                         >
                                             <div className="text-sm font-medium">Price Low–High</div>
@@ -645,8 +651,8 @@ export default function OrderPage() {
                                             onClick={() => { setSortKey('price'); setSortDir('desc'); }}
                                             className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 group ${
                                                 sortKey==='price'&&sortDir==='desc' 
-                                                    ? 'border-blue-500 text-blue-200 bg-blue-500/20 shadow-lg shadow-blue-500/25' 
-                                                    : 'border-slate-600 text-slate-200 hover:bg-slate-700/50 hover:border-slate-500'
+                                                    ? 'border-blue-500 text-blue-700 bg-blue-50 shadow-lg shadow-blue-500/25 dark:text-blue-200 dark:bg-blue-500/20' 
+                                                    : 'border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700/50 dark:hover:border-slate-500'
                                             }`}
                                         >
                                             <div className="text-sm font-medium">Price High–Low</div>
@@ -655,7 +661,7 @@ export default function OrderPage() {
                                 </div>
                                 <div className="flex justify-end gap-3 pt-2">
                                     <button
-                                        className="px-5 py-2.5 rounded-lg border border-slate-600 text-slate-200 hover:bg-slate-700/50 transition-colors font-medium"
+                                        className="px-5 py-2.5 rounded-lg font-medium transition-colors border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700/50"
                                         onClick={() => { setSortKey('name'); setSortDir('asc'); }}
                                     >
                                         Reset
@@ -679,14 +685,14 @@ export default function OrderPage() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {!derivedStoreId && (
                         <div className="text-center py-20">
-                            <div className="bg-slate-800/40 backdrop-blur-sm rounded-3xl p-12 border border-slate-600 max-w-2xl mx-auto shadow-2xl">
-                                <div className="w-20 h-20 bg-gradient-to-r from-slate-600 to-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                                    <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className={`${ORDER_PANEL} backdrop-blur-sm rounded-3xl p-12 max-w-2xl mx-auto`}>
+                                <div className="w-20 h-20 bg-gradient-to-r from-blue-100 to-blue-200 rounded-2xl flex items-center justify-center mx-auto mb-6 text-blue-700 dark:from-slate-600 dark:to-slate-700 dark:text-white">
+                                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                     </svg>
                                 </div>
-                                <h3 className="text-2xl font-bold text-white mb-3">No Shop Selected</h3>
-                                <p className="text-slate-300 text-lg mb-8">Please choose a shop to explore our premium printing services</p>
+                                <h3 className="text-2xl font-bold mb-3 dark:text-white">No Shop Selected</h3>
+                                <p className="text-gray-600 text-lg mb-8 dark:text-slate-300">Please choose a shop to explore our premium printing services</p>
                                 <Link 
                                     className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-200 transform hover:scale-105"
                                     to="/customer/select-shop"
@@ -706,19 +712,19 @@ export default function OrderPage() {
                                 <div className="flex items-center justify-center py-24">
                                     <div className="text-center">
                                         <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-5 shadow-lg"></div>
-                                        <div className="text-slate-300 text-lg font-medium">Loading premium services...</div>
+                                        <div className="text-gray-600 text-lg font-medium dark:text-slate-300">Loading premium services...</div>
                                     </div>
                                 </div>
                             )}
                             
                             {error && (
                                 <div className="text-center py-16">
-                                    <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-8 max-w-2xl mx-auto backdrop-blur-sm">
-                                        <svg className="w-14 h-14 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="rounded-2xl p-8 max-w-2xl mx-auto backdrop-blur-sm border border-red-200 bg-red-50 text-red-900 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-200">
+                                        <svg className="w-14 h-14 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
-                                        <div className="text-red-300 text-xl font-bold mb-2">Unable to Load Services</div>
-                                        <div className="text-red-200">{error}</div>
+                                        <div className="text-xl font-bold mb-2">Unable to Load Services</div>
+                                        <div>{error}</div>
                                     </div>
                                 </div>
                             )}
@@ -727,12 +733,12 @@ export default function OrderPage() {
                                 <>
                                     {filtered.length === 0 ? (
                                         <div className="text-center py-20">
-                                            <div className="bg-slate-800/40 backdrop-blur-sm rounded-3xl p-12 border border-slate-600 max-w-2xl mx-auto shadow-2xl">
-                                                <svg className="w-16 h-16 text-slate-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <div className={`${ORDER_PANEL} backdrop-blur-sm rounded-3xl p-12 max-w-2xl mx-auto`}>
+                                                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                 </svg>
-                                                <h3 className="text-2xl font-bold text-white mb-2">No Services Found</h3>
-                                                <p className="text-slate-300">Try adjusting your search or filter criteria</p>
+                                                <h3 className="text-2xl font-bold mb-2 dark:text-white">No Services Found</h3>
+                                                <p className="text-gray-600 dark:text-slate-300">Try adjusting your search or filter criteria</p>
                                             </div>
                                         </div>
                                     ) : (
@@ -768,9 +774,9 @@ export default function OrderPage() {
                                                             setNotes('');
                                                         }}
                                                     >
-                                                        <div className="bg-gradient-to-br from-slate-800 to-slate-900/50 rounded-2xl border border-slate-700 overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 h-full flex flex-col group-hover:border-slate-600">
+                                                        <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 h-full flex flex-col group-hover:border-blue-200 dark:border-slate-700 dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900/50 dark:group-hover:border-slate-600">
                                                             {/* Enhanced Image Section */}
-                                                            <div className="relative aspect-[4/3] bg-slate-700 overflow-hidden">
+                                                            <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden dark:bg-slate-700">
                                                                 {imgSrc ? (
                                                                     <img 
                                                                         src={imgSrc} 
@@ -778,8 +784,8 @@ export default function OrderPage() {
                                                                         className={`w-full h-full object-cover transition-transform duration-500 ${isActive ? 'group-hover:scale-110' : ''}`}
                                                                     />
                                                                 ) : (
-                                                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-700 to-slate-800">
-                                                                        <svg className="w-12 h-12 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400 dark:bg-gradient-to-br dark:from-slate-700 dark:to-slate-800 dark:text-slate-500">
+                                                                        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                                                         </svg>
                                                                     </div>
@@ -808,12 +814,12 @@ export default function OrderPage() {
                                                                 
                                                                 {/* Enhanced Price Overlay */}
                                                                 <div className="absolute bottom-3 right-3">
-                                                                    <div className="bg-black/80 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20 shadow-lg">
-                                                                        <div className="text-lg font-bold text-white">
+                                                                    <div className="rounded-xl px-3 py-2 border shadow-lg bg-white/90 text-gray-900 border-gray-200 dark:bg-black/80 dark:text-white dark:border-white/20">
+                                                                        <div className="text-lg font-bold">
                                                                             {formatMoney(svc.basePrice, svc.currency || 'PHP')}
                                                                         </div>
                                                                         {svc.unit && (
-                                                                            <div className="text-xs text-slate-300 text-center">{svc.unit}</div>
+                                                                            <div className="text-xs text-gray-500 text-center dark:text-slate-300">{svc.unit}</div>
                                                                         )}
                                                                     </div>
                                                                 </div>
@@ -821,16 +827,16 @@ export default function OrderPage() {
 
                                                             {/* Enhanced Content Section */}
                                                             <div className="p-5 flex-1 flex flex-col">
-                                                                <h3 className="text-lg font-bold text-white mb-2 line-clamp-2 group-hover:text-blue-200 transition-colors">{svc.name}</h3>
+                                                                <h3 className="text-lg font-bold mb-2 line-clamp-2 transition-colors text-gray-900 group-hover:text-blue-600 dark:text-white dark:group-hover:text-blue-200">{svc.name}</h3>
                                                                 {svc.description && (
-                                                                    <p className="text-slate-300 text-sm line-clamp-3 mb-4 flex-1">{svc.description}</p>
+                                                                    <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-1 dark:text-slate-300">{svc.description}</p>
                                                                 )}
                                                                 
                                                                 {svc.variants && svc.variants.length > 0 && (
                                                                     <div className="mb-4">
                                                                         <div className="flex flex-wrap gap-1.5">
                                                                             {svc.variants.map((variant, vIdx) => (
-                                                                                <span key={vIdx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-200 text-xs border border-blue-400/30">
+                                                                                <span key={vIdx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/20 dark:text-blue-200 dark:border-blue-400/30">
                                                                                     {variant.label}
                                                                                 </span>
                                                                             ))}
@@ -838,13 +844,13 @@ export default function OrderPage() {
                                                                     </div>
                                                                 )}
                                                                 
-                                                                <div className="mt-auto pt-4 border-t border-slate-700">
+                                                                <div className="mt-auto pt-4 border-t border-gray-100 dark:border-slate-700">
                                                                     <button 
                                                                         disabled={!isActive}
                                                                         className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg ${
                                                                             isActive 
                                                                             ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 hover:shadow-xl transform hover:scale-105' 
-                                                                            : 'bg-slate-700 text-slate-400 cursor-not-allowed border border-slate-600'
+                                                                            : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200 dark:bg-slate-700 dark:text-slate-400 dark:border-slate-600'
                                                                         }`}
                                                                     >
                                                                         {isActive ? 'Customize & Order' : 'Out of Stock'}
@@ -867,25 +873,25 @@ export default function OrderPage() {
             {/* Enhanced Order Modal */}
             {selected && (
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelected(null)} />
-                    <div className="relative z-10 mx-auto max-w-4xl w-[95%] rounded-3xl border border-slate-600 bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-2xl overflow-hidden">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelected(null)} />
+                    <div className={`relative z-10 mx-auto max-w-4xl w-[95%] rounded-3xl overflow-hidden shadow-2xl border ${ORDER_PANEL_SUBTLE} dark:bg-gradient-to-br dark:from-slate-800 dark:to-slate-900`}>
                         {/* Enhanced Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-600 bg-slate-800/50 backdrop-blur-sm">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-white/80 backdrop-blur-sm dark:border-slate-700 dark:bg-slate-800/50">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
-                                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center shadow-lg text-white">
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                     </svg>
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold">Order Details</h2>
-                                    <p className="text-slate-400 text-sm">Customize your {selected.name} order</p>
+                                    <p className="text-gray-500 text-sm dark:text-slate-400">Customize your {selected.name} order</p>
                                 </div>
                             </div>
                             <button 
                                 type="button" 
                                 onClick={() => setSelected(null)}
-                                className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 transition-colors hover:scale-105"
+                                className="p-2 rounded-xl border transition-colors hover:scale-105 bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-slate-700 dark:text-white dark:border-slate-600 dark:hover:bg-slate-600"
                             >
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
@@ -894,8 +900,8 @@ export default function OrderPage() {
                         {/* Enhanced Body */}
                         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
                             {/* Enhanced Product Summary */}
-                            <div className="flex items-start gap-6 p-5 rounded-2xl bg-slate-700/30 border border-slate-600 backdrop-blur-sm">
-                                <div className="w-24 h-24 rounded-xl overflow-hidden border border-slate-600 bg-slate-800 flex items-center justify-center flex-shrink-0 shadow-lg">
+                            <div className={`flex items-start gap-6 p-5 rounded-2xl backdrop-blur-sm ${ORDER_PANEL}`}>
+                                <div className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center flex-shrink-0 shadow-lg dark:border-slate-600 dark:bg-slate-800">
                                     {(() => {
                                         let hasImage = false;
                                         const raw = selected.imageFileId as unknown;
@@ -909,7 +915,7 @@ export default function OrderPage() {
                                         return src ? (
                                             <img src={src} alt={`${selected.name} image`} className="w-full h-full object-cover" />
                                         ) : (
-                                            <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <svg className="w-8 h-8 text-gray-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                             </svg>
                                         );
@@ -918,19 +924,19 @@ export default function OrderPage() {
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-start justify-between gap-4">
                                         <div className="flex-1">
-                                            <h3 className="text-lg font-bold text-white mb-1">{selected.name}</h3>
+                                            <h3 className="text-lg font-bold mb-1 dark:text-white">{selected.name}</h3>
                                             {selected.unit && (
-                                                <div className="text-sm text-slate-300">{selected.unit}</div>
+                                                <div className="text-sm text-gray-500 dark:text-slate-300">{selected.unit}</div>
                                             )}
                                             {selected.description && (
-                                                <p className="text-slate-400 text-sm mt-2">{selected.description}</p>
+                                                <p className="text-gray-600 text-sm mt-2 dark:text-slate-400">{selected.description}</p>
                                             )}
                                         </div>
                                         <div className="text-right">
-                                            <div className="text-2xl font-bold text-emerald-400">
+                                            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                                                 {formatMoney(unitPrice * safeQty, selected.currency || 'PHP')}
                                             </div>
-                                            <div className="text-sm text-slate-300">
+                                            <div className="text-sm text-gray-500 dark:text-slate-300">
                                                 {formatMoney(unitPrice, selected.currency || 'PHP')} × {safeQty}
                                             </div>
                                         </div>
@@ -941,15 +947,15 @@ export default function OrderPage() {
                             {/* Enhanced Variants */}
                             {(selected.variants || []).length > 0 && (
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-white">Customization Options</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Customization Options</h3>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         {(selected.variants || []).map((v) => (
                                             <div key={v.label} className="space-y-2">
-                                                <label className="block text-sm font-medium text-slate-200">{v.label}</label>
+                                                <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">{v.label}</label>
                                                 <select
                                                     value={variantChoices[v.label] ?? 0}
                                                     onChange={(e) => setVariantChoices((prev) => ({ ...prev, [v.label]: Number(e.target.value) }))}
-                                                    className="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white transition-all duration-200 backdrop-blur-sm"
+                                                    className={`w-full rounded-xl px-4 py-3 focus:outline-none transition-all duration-200 backdrop-blur-sm ${ORDER_INPUT}`}
                                                 >
                                                     {v.options.map((o, idx) => (
                                                         <option key={idx} value={idx}>
@@ -965,12 +971,12 @@ export default function OrderPage() {
 
                             {/* Enhanced Quantity */}
                             <div className="space-y-3">
-                                <label className="block text-sm font-medium text-slate-200">Quantity</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">Quantity</label>
                                 <div className="flex items-center gap-4">
-                                    <div className="inline-flex items-stretch rounded-xl border border-slate-600 bg-slate-700 overflow-hidden shadow-lg">
+                                    <div className="inline-flex items-stretch rounded-xl border border-gray-200 bg-white overflow-hidden shadow-lg dark:border-slate-600 dark:bg-slate-700">
                                         <button
                                             type="button"
-                                            className="px-4 py-3 hover:bg-slate-600 disabled:opacity-40 transition-colors"
+                                            className="px-4 py-3 hover:bg-gray-50 disabled:opacity-40 transition-colors dark:hover:bg-slate-600"
                                             onClick={() => setQuantity((q) => Math.max(1, (q || 1) - 1))}
                                             aria-label="Decrease quantity"
                                         >
@@ -997,7 +1003,7 @@ export default function OrderPage() {
                                         />
                                         <button
                                             type="button"
-                                            className="px-4 py-3 hover:bg-slate-600 transition-colors"
+                                            className="px-4 py-3 hover:bg-gray-50 transition-colors dark:hover:bg-slate-600"
                                             onClick={() => setQuantity((q) => Math.min(9999, (q || 1) + 1))}
                                             aria-label="Increase quantity"
                                         >
@@ -1006,15 +1012,15 @@ export default function OrderPage() {
                                             </svg>
                                         </button>
                                     </div>
-                                    <div className="text-lg font-semibold text-slate-200">
-                                        Total: <span className="text-emerald-400">{formatMoney(unitPrice * safeQty, selected?.currency || 'PHP')}</span>
+                                    <div className="text-lg font-semibold text-gray-700 dark:text-slate-200">
+                                        Total: <span className="text-emerald-600 dark:text-emerald-400">{formatMoney(unitPrice * safeQty, selected?.currency || 'PHP')}</span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Enhanced File Upload */}
                             <div className="space-y-3">
-                                <label className="block text-sm font-medium text-slate-200">Upload Files</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">Upload Files</label>
                                 <div
                                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                     onDrop={(e) => {
@@ -1026,14 +1032,14 @@ export default function OrderPage() {
                                             ...fl.map((file) => ({ file, preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined })),
                                         ]);
                                     }}
-                                    className="border-2 border-dashed border-slate-600 bg-slate-700/30 rounded-2xl p-6 text-center hover:bg-slate-700/50 transition-all duration-200 backdrop-blur-sm"
+                                    className="border-2 border-dashed rounded-2xl p-6 text-center transition-all duration-200 backdrop-blur-sm border-gray-300 bg-gray-50 hover:bg-gray-100 dark:border-slate-600 dark:bg-slate-700/30 dark:hover:bg-slate-700/50"
                                 >
-                                    <svg className="w-12 h-12 text-slate-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-12 h-12 text-gray-400 mx-auto mb-3 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                     </svg>
-                                    <p className="text-slate-300 mb-2 font-medium">Drag & drop files here</p>
-                                    <p className="text-slate-400 text-sm mb-4">Supports: SVG, PDF, DOC, JPG, PNG, GIF, WEBP</p>
-                                    <label className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-slate-600 hover:bg-slate-500 border border-slate-500 cursor-pointer text-white font-medium transition-all duration-200 shadow-lg hover:shadow-xl">
+                                    <p className="text-gray-600 mb-2 font-medium dark:text-slate-300">Drag & drop files here</p>
+                                    <p className="text-gray-500 text-sm mb-4 dark:text-slate-400">Supports: SVG, PDF, DOC, JPG, PNG, GIF, WEBP</p>
+                                    <label className="inline-flex items-center gap-2 px-6 py-3 rounded-xl cursor-pointer font-medium transition-all duration-200 shadow-lg hover:shadow-xl bg-blue-600 text-white hover:bg-blue-500 dark:bg-slate-600 dark:hover:bg-slate-500">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                         </svg>
@@ -1057,19 +1063,19 @@ export default function OrderPage() {
                                 {files.length > 0 && (
                                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                                         {files.map((f, idx) => (
-                                            <div key={idx} className="relative rounded-xl border border-slate-600 bg-slate-700 p-3 group backdrop-blur-sm">
+                                            <div key={idx} className="relative rounded-xl border border-gray-200 bg-white p-3 group backdrop-blur-sm shadow-sm dark:border-slate-600 dark:bg-slate-700">
                                                 {f.preview ? (
                                                     <div className="aspect-square rounded-lg overflow-hidden">
                                                         <img src={f.preview} alt={f.file.name} className="w-full h-full object-cover" />
                                                     </div>
                                                 ) : (
-                                                    <div className="aspect-square rounded-lg bg-slate-600 flex items-center justify-center">
-                                                        <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <div className="aspect-square rounded-lg bg-gray-100 flex items-center justify-center dark:bg-slate-600">
+                                                        <svg className="w-8 h-8 text-gray-400 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                         </svg>
                                                     </div>
                                                 )}
-                                                <div className="mt-2 text-xs text-slate-300 truncate" title={f.file.name}>
+                                                <div className="mt-2 text-xs text-gray-600 truncate dark:text-slate-300" title={f.file.name}>
                                                     {f.file.name}
                                                 </div>
                                                 <button
@@ -1094,13 +1100,13 @@ export default function OrderPage() {
 
                             {/* Enhanced Notes */}
                             <div className="space-y-3">
-                                <label className="block text-sm font-medium text-slate-200">Additional Notes</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">Additional Notes</label>
                                 <textarea
                                     value={notes}
                                     onChange={(e) => setNotes(e.target.value)}
                                     rows={3}
                                     placeholder="Add any special instructions or requirements for your order..."
-                                    className="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-white placeholder:text-slate-400 transition-all duration-200 backdrop-blur-sm"
+                                    className={`w-full rounded-xl px-4 py-3 transition-all duration-200 backdrop-blur-sm ${ORDER_INPUT}`}
                                 />
                             </div>
 
@@ -1109,7 +1115,7 @@ export default function OrderPage() {
                                 <button
                                     type="button"
                                     onClick={() => setSelected(null)}
-                                    className="px-6 py-3 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 font-medium"
+                                    className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:shadow-md ${ORDER_BUTTON_NEUTRAL}`}
                                 >
                                     Cancel
                                 </button>
@@ -1143,21 +1149,21 @@ export default function OrderPage() {
             {showCart && (
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowCart(false)} />
-                    <div className="relative z-10 mx-auto max-w-4xl w-[95%] rounded-3xl border border-slate-600 bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-2xl overflow-hidden">
+                    <div className={`relative z-10 mx-auto max-w-4xl w-[95%] rounded-3xl overflow-hidden shadow-2xl ${ORDER_PANEL} bg-white dark:bg-slate-900`}>
                         {/* Enhanced Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-600 bg-slate-800/50 backdrop-blur-sm">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50 dark:border-slate-600 dark:bg-slate-800">
                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
-                                    <ShoppingCartIcon className="w-6 h-6 text-white" />
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center shadow-lg text-white">
+                                    <ShoppingCartIcon className="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <h2 className="text-xl font-bold">Shopping Cart</h2>
-                                    <p className="text-slate-400 text-sm">{cart.length} item{cart.length !== 1 ? 's' : ''} in your cart</p>
+                                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Shopping Cart</h2>
+                                    <p className="text-sm text-gray-500 dark:text-slate-400">{cart.length} item{cart.length !== 1 ? 's' : ''} in your cart</p>
                                 </div>
                             </div>
                             <button 
                                 onClick={() => setShowCart(false)}
-                                className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 transition-colors hover:scale-105"
+                                className="p-2 rounded-xl border border-gray-200 bg-white text-gray-700 transition-colors hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                             >
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
@@ -1165,23 +1171,23 @@ export default function OrderPage() {
 
                         <div className="p-6 max-h-96 overflow-y-auto">
                             {cart.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <div className="w-20 h-20 bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                        <ShoppingCartIcon className="h-10 w-10 text-slate-500" />
+                                <div className="text-center py-12 text-gray-500 dark:text-slate-300">
+                                    <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-gray-100 dark:bg-slate-700">
+                                        <ShoppingCartIcon className="h-10 w-10 text-gray-400 dark:text-slate-400" />
                                     </div>
-                                    <h3 className="text-lg font-semibold text-white mb-2">Your cart is empty</h3>
-                                    <p className="text-slate-400">Add some services to get started</p>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Your cart is empty</h3>
+                                    <p>Add some services to get started</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
                                     {cart.map((item, index) => (
-                                        <div key={index} className="border border-slate-600 rounded-2xl p-5 bg-slate-700/30 backdrop-blur-sm hover:bg-slate-700/50 transition-all duration-200">
+                                        <div key={index} className={`rounded-2xl p-5 transition-all duration-200 hover:shadow-md ${ORDER_PANEL_SUBTLE}`}>
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
                                                     <div className="flex items-start justify-between mb-3">
-                                                        <h3 className="text-lg font-semibold text-white">{item.service.name}</h3>
+                                                        <h3 className="text-lg font-semibold">{item.service.name}</h3>
                                                         <div className="text-right ml-4">
-                                                            <div className="text-lg font-bold text-emerald-400">
+                                                            <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
                                                                 {formatMoney(
                                                                     (item.service.basePrice + item.selectedOptions.reduce((sum, opt) => {
                                                                         const variant = item.service.variants?.find(v => v.label === opt.variantLabel);
@@ -1191,7 +1197,7 @@ export default function OrderPage() {
                                                                     item.service.currency
                                                                 )}
                                                             </div>
-                                                            <div className="text-sm text-slate-300">
+                                                            <div className="text-sm text-gray-500 dark:text-slate-300">
                                                                 {formatMoney(
                                                                     item.service.basePrice + item.selectedOptions.reduce((sum, opt) => {
                                                                         const variant = item.service.variants?.find(v => v.label === opt.variantLabel);
@@ -1208,7 +1214,7 @@ export default function OrderPage() {
                                                         <div className="mb-3">
                                                             <div className="flex flex-wrap gap-2">
                                                                 {item.selectedOptions.map((option, optIndex) => (
-                                                                    <span key={optIndex} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500/20 text-blue-200 text-sm border border-blue-400/30">
+                                                                    <span key={optIndex} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm border bg-blue-50 text-blue-700 border-blue-100 dark:bg-blue-500/20 dark:text-blue-100 dark:border-blue-400/30">
                                                                         {option.variantLabel}: {option.optionName}
                                                                     </span>
                                                                 ))}
@@ -1220,7 +1226,7 @@ export default function OrderPage() {
                                                         <div className="mb-3">
                                                             <div className="flex flex-wrap gap-2">
                                                                 {item.selectedSizes.map((s, i) => (
-                                                                    <span key={i} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-purple-500/20 text-purple-200 text-sm border border-purple-400/30">
+                                                                    <span key={i} className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm border bg-purple-50 text-purple-700 border-purple-100 dark:bg-purple-500/20 dark:text-purple-100 dark:border-purple-400/30">
                                                                         Size: {s.sizeName}
                                                                     </span>
                                                                 ))}
@@ -1228,37 +1234,37 @@ export default function OrderPage() {
                                                         </div>
                                                     )}
 
-                                                    <div className="flex items-center gap-6 text-sm text-slate-300">
+                                                    <div className="flex items-center gap-6 text-sm text-gray-600 dark:text-slate-300">
                                                         <span>Quantity: {item.quantity}</span>
                                                         <span>Unit: {item.service.unit}</span>
                                                         <span>Files: {item.files.length}</span>
                                                         {item.notes && (
-                                                            <span className="text-slate-400">Notes: {item.notes}</span>
+                                                            <span className="text-gray-500 dark:text-slate-400">Notes: {item.notes}</span>
                                                         )}
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Enhanced Quantity Controls */}
-                                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-600">
+                                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-slate-700">
                                                 <div className="flex items-center gap-2">
                                                     <button 
                                                         onClick={() => updateCartItemQuantity(index, item.quantity - 1)}
-                                                        className="w-8 h-8 rounded-lg bg-slate-600 hover:bg-slate-500 flex items-center justify-center transition-colors"
+                                                        className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 flex items-center justify-center transition-colors dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                                                     >
                                                         -
                                                     </button>
                                                     <span className="w-12 text-center font-medium">{item.quantity}</span>
                                                     <button 
                                                         onClick={() => updateCartItemQuantity(index, item.quantity + 1)}
-                                                        className="w-8 h-8 rounded-lg bg-slate-600 hover:bg-slate-500 flex items-center justify-center transition-colors"
+                                                        className="w-8 h-8 rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 flex items-center justify-center transition-colors dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                                                     >
                                                         +
                                                     </button>
                                                 </div>
                                                 <button 
                                                     onClick={() => removeFromCart(index)}
-                                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 border border-red-500/30 transition-all duration-200"
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-red-600 border border-red-200/80 bg-red-50 hover:bg-red-100 transition-all duration-200 dark:text-red-200 dark:border-red-500/40 dark:bg-red-500/10 dark:hover:bg-red-500/20"
                                                 >
                                                     <TrashIcon className="w-4 h-4" />
                                                     Remove
@@ -1271,16 +1277,16 @@ export default function OrderPage() {
                         </div>
 
                         {cart.length > 0 && (
-                            <div className="px-6 py-4 border-t border-slate-600 bg-slate-800/50 backdrop-blur-sm">
+                            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 dark:border-slate-700 dark:bg-slate-800">
                                 <div className="flex items-center justify-between mb-4">
-                                    <div className="text-2xl font-bold text-white">
+                                    <div className="text-2xl font-bold text-gray-900 dark:text-white">
                                         Total: {formatMoney(cartTotal)}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={clearCart}
-                                        className="flex-1 px-6 py-3 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 font-medium"
+                                        className={`flex-1 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${ORDER_BUTTON_NEUTRAL}`}
                                     >
                                         Clear Cart
                                     </button>
@@ -1323,29 +1329,29 @@ export default function OrderPage() {
             {showDownPaymentModal && (
                 <div className="fixed inset-0 z-[999998] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowDownPaymentModal(false)} />
-                    <div className="relative z-10 max-w-lg w-full rounded-3xl border border-slate-600 bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-2xl overflow-hidden">
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-600 bg-slate-800/50 backdrop-blur-sm">
-                            <div className="text-lg font-bold">Down Payment Required</div>
-                            <button type="button" onClick={() => setShowDownPaymentModal(false)} className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 transition-colors">
+                    <div className={`relative z-10 max-w-lg w-full rounded-3xl overflow-hidden shadow-2xl ${ORDER_PANEL} bg-white dark:bg-slate-900`}>
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50/90 dark:border-slate-600 dark:bg-slate-800">
+                            <div className="text-lg font-bold text-gray-900 dark:text-white">Down Payment Required</div>
+                            <button type="button" onClick={() => setShowDownPaymentModal(false)} className="p-2 rounded-xl border border-gray-200 bg-white text-gray-700 transition-colors hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-700 dark:text-white">
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
                         </div>
                         <div className="p-6 space-y-4">
-                            <div className="text-sm text-slate-300">Bulk order detected. For orders over ₱2,000 a down payment is required.</div>
-                            <div className="p-4 rounded-2xl bg-slate-700/30 border border-slate-600">
+                            <div className="text-sm text-gray-600 dark:text-slate-300">Bulk order detected. For orders over ₱2,000 a down payment is required.</div>
+                            <div className={`p-4 rounded-2xl ${ORDER_PANEL_SUBTLE} bg-white dark:bg-slate-800`}>
                                 <div className="flex items-center justify-between mb-2">
-                                    <div className="text-sm text-slate-300">Order Total</div>
+                                    <div className="text-sm text-gray-600 dark:text-slate-300">Order Total</div>
                                     <div className="text-lg font-bold">{formatMoney(cartTotal)}</div>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <div className="text-sm text-slate-300">Required Down Payment (1/2)</div>
-                                    <div className="text-lg font-bold text-emerald-400">{formatMoney(Math.round((cartTotal / 2) * 100) / 100)}</div>
+                                    <div className="text-sm text-gray-600 dark:text-slate-300">Required Down Payment (1/2)</div>
+                                    <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">{formatMoney(Math.round((cartTotal / 2) * 100) / 100)}</div>
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-sm font-medium text-slate-200">Payment Method</label>
-                                <select value={dpMethod} onChange={(e) => setDpMethod(e.target.value as 'gcash'|'bank_transfer'|'other')} className="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">Payment Method</label>
+                                <select value={dpMethod} onChange={(e) => setDpMethod(e.target.value as 'gcash'|'bank_transfer'|'other')} className={`w-full rounded-xl px-4 py-3 ${ORDER_INPUT}`}>
                                     <option value="gcash">GCash</option>
                                     <option value="bank_transfer">Bank Transfer</option>
                                     <option value="other">Other</option>
@@ -1353,7 +1359,7 @@ export default function OrderPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-sm font-medium text-slate-200">Upload Receipt</label>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">Upload Receipt</label>
                                 <div 
                                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                                     onDrop={(e) => {
@@ -1364,27 +1370,27 @@ export default function OrderPage() {
                                         if (!file) return;
                                         handleDpFile(file);
                                     }}
-                                    className="relative border-2 border-dashed border-slate-600 bg-slate-700/30 rounded-2xl p-8 min-h-[180px] text-center hover:bg-slate-700/50 transition-all duration-200 backdrop-blur-sm flex items-center justify-center gap-4 cursor-pointer"
+                                    className="relative border-2 border-dashed rounded-2xl p-8 min-h-[180px] text-center transition-all duration-200 flex items-center justify-center gap-4 cursor-pointer border-gray-300 bg-gray-50 hover:bg-gray-100 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700"
                                 >
                                     {/* Content (visual) sits below the invisible input so clicks open file picker; remove button sits above input */}
                                     <div className="relative z-10 flex flex-col items-center justify-center gap-3">
                                         {dpReceiptFile ? (
                                             <div className="flex flex-col items-center gap-3">
                                                 {dpReceiptPreview ? (
-                                                    <img src={dpReceiptPreview} alt={dpReceiptFile.name} className="w-36 h-36 object-cover rounded-lg border border-slate-600" />
+                                                    <img src={dpReceiptPreview} alt={dpReceiptFile.name} className="w-36 h-36 object-cover rounded-lg border border-gray-200 dark:border-slate-600" />
                                                 ) : (
-                                                    <div className="w-36 h-36 rounded-lg bg-slate-600 flex items-center justify-center text-sm text-slate-300 border border-slate-600">{dpReceiptFile.name.split('.').pop()?.toUpperCase() || 'FILE'}</div>
+                                                    <div className="w-36 h-36 rounded-lg bg-gray-100 flex items-center justify-center text-sm text-gray-600 border border-gray-200 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-600">{dpReceiptFile.name.split('.').pop()?.toUpperCase() || 'FILE'}</div>
                                                 )}
-                                                <div className="text-sm text-slate-200 truncate max-w-[260px]" title={dpReceiptFile.name}>{dpReceiptFile.name}</div>
+                                                <div className="text-sm text-gray-700 truncate max-w-[260px] dark:text-slate-200" title={dpReceiptFile.name}>{dpReceiptFile.name}</div>
                                             </div>
                                         ) : (
                                             <>
-                                                <svg className="w-14 h-14 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <svg className="w-14 h-14 text-gray-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                                 </svg>
                                                 <div>
-                                                    <div className="text-sm font-medium text-slate-200">Drag & drop receipt here</div>
-                                                    <div className="text-xs text-slate-400">Supports: JPG, PNG, PDF</div>
+                                                    <div className="text-sm font-medium text-gray-700 dark:text-slate-200">Drag & drop receipt here</div>
+                                                    <div className="text-xs text-gray-500 dark:text-slate-400">Supports: JPG, PNG, PDF</div>
                                                 </div>
                                             </>
                                         )}
@@ -1400,7 +1406,7 @@ export default function OrderPage() {
 
                                     {/* Remove button sits on top so it remains clickable when preview shown */}
                                     {dpReceiptFile && (
-                                        <button type="button" onClick={() => handleDpFile(null)} className="absolute top-3 right-3 z-30 text-red-400 hover:text-red-300 bg-black/30 backdrop-blur-sm px-2 py-1 rounded-md">
+                                        <button type="button" onClick={() => handleDpFile(null)} className="absolute top-3 right-3 z-30 text-red-600 hover:text-red-500 bg-white/80 px-2 py-1 rounded-md shadow-sm dark:bg-black/30 dark:text-red-300">
                                             ✕
                                         </button>
                                     )}
@@ -1408,12 +1414,12 @@ export default function OrderPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="block text-sm font-medium text-slate-200">Reference Number</label>
-                                <input value={dpReference} onChange={(e) => setDpReference(e.target.value)} className="w-full rounded-xl bg-slate-700 border border-slate-600 px-4 py-3 text-white" placeholder="e.g. GCash reference or bank transaction ID" />
+                                <label className="block text-sm font-medium text-gray-700 dark:text-slate-200">Reference Number</label>
+                                <input value={dpReference} onChange={(e) => setDpReference(e.target.value)} className={`w-full rounded-xl px-4 py-3 ${ORDER_INPUT}`} placeholder="e.g. GCash reference or bank transaction ID" />
                             </div>
 
                                 <div className="flex items-center gap-3 pt-2">
-                                <button onClick={() => setShowDownPaymentModal(false)} className="flex-1 px-6 py-3 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-700 transition-all">Cancel</button>
+                                <button onClick={() => setShowDownPaymentModal(false)} className={`flex-1 px-6 py-3 rounded-xl font-medium transition-all duration-200 ${ORDER_BUTTON_NEUTRAL}`}>Cancel</button>
                                 <button disabled={!dpReceiptFile} onClick={async () => {
                                     if (!dpReceiptFile) {
                                         setNotif({ type: 'error', message: 'Please upload a receipt to proceed.' });
@@ -1432,16 +1438,16 @@ export default function OrderPage() {
             {showPaymentModal && paymentOrderId && (
                 <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowPaymentModal(false)} />
-                    <div className="relative z-10 max-w-md w-full rounded-3xl border border-slate-600 bg-gradient-to-br from-slate-800 to-slate-900 text-white shadow-2xl overflow-hidden">
+                    <div className={`relative z-10 max-w-md w-full rounded-3xl overflow-hidden shadow-2xl ${ORDER_PANEL}`}>
                         {/* Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-600 bg-slate-800/50 backdrop-blur-sm">
-                            <div className="text-xl font-bold">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50/90 backdrop-blur-sm dark:border-slate-600 dark:bg-slate-800/50">
+                            <div className="text-xl font-bold text-gray-900 dark:text-white">
                                 Order Status
                             </div>
                             <button 
                                 type="button" 
                                 onClick={() => setShowPaymentModal(false)}
-                                className="p-2 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 transition-colors"
+                                className="p-2 rounded-xl border border-gray-200 bg-white text-gray-700 transition-colors hover:bg-gray-50 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                             >
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
@@ -1451,11 +1457,11 @@ export default function OrderPage() {
                         <div className="p-6 space-y-6">
                             {/* Status Display */}
                             <div className="text-center">
-                                <div className="text-sm text-slate-400 mb-2">Current Status</div>
+                                <div className="text-sm text-gray-500 mb-2 dark:text-slate-400">Current Status</div>
                                 <div className={`text-2xl font-bold ${
                                     watchedOrderStatus === 'ready' || watchedOrderStatus === 'completed' 
-                                        ? 'text-emerald-400' 
-                                        : 'text-blue-400'
+                                        ? 'text-emerald-600 dark:text-emerald-400' 
+                                        : 'text-blue-600 dark:text-blue-400'
                                 }`}>
                                     {watchedOrderStatus === 'pending' && 'Waiting for Confirmation'}
                                     {watchedOrderStatus === 'processing' && 'Being Prepared'}
@@ -1470,7 +1476,7 @@ export default function OrderPage() {
                                 <div className="space-y-4">
                                     {watchedOrderStatus === 'ready' && (
                                         <div className="text-center">
-                                            <div className="text-sm text-slate-300 mb-3">Show this QR code at pickup</div>
+                                            <div className="text-sm text-gray-600 mb-3 dark:text-slate-300">Show this QR code at pickup</div>
                                             <div className="flex items-center justify-center p-4 bg-white rounded-2xl shadow-2xl">
                                                 <QRCodeCanvas 
                                                     value={`ORDER:${paymentOrderId}`} 
@@ -1479,14 +1485,14 @@ export default function OrderPage() {
                                                     className="rounded-lg"
                                                 />
                                             </div>
-                                            <div className="text-xs text-slate-400 mt-3">
+                                            <div className="text-xs text-gray-500 mt-3 dark:text-slate-400">
                                                 Present this QR code to collect your order
                                             </div>
                                         </div>
                                     )}
                                     {watchedOrderStatus === 'completed' && receiptUrl && (
                                         <div className="text-center">
-                                            <div className="text-sm text-slate-300 mb-3">Your receipt is ready</div>
+                                            <div className="text-sm text-gray-600 mb-3 dark:text-slate-300">Your receipt is ready</div>
                                             <a 
                                                 href={receiptUrl} 
                                                 target="_blank" 
@@ -1507,7 +1513,7 @@ export default function OrderPage() {
                             <div className="flex flex-col gap-3">
                                 <button 
                                     onClick={() => setShowPaymentModal(false)}
-                                    className="w-full px-6 py-3 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white transition-all duration-200 font-medium"
+                                    className={`w-full px-6 py-3 rounded-xl font-medium transition-all duration-200 ${ORDER_BUTTON_NEUTRAL}`}
                                 >
                                     Close
                                 </button>

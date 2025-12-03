@@ -81,6 +81,18 @@ const productSettings: Record<string, any> = {
   },
 };
 
+const SAVED_PAGE_WRAPPER = 'min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white';
+const SAVED_PRIMARY_CARD = 'rounded-3xl border border-gray-200 bg-white/95 shadow-2xl dark:border-slate-800 dark:bg-slate-900/70';
+const SAVED_PANEL = 'rounded-2xl border border-gray-200 bg-white/95 shadow-xl dark:border-slate-800 dark:bg-slate-900/70';
+const SAVED_SUBCARD = 'rounded-xl border border-gray-200 bg-gray-50 text-gray-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100';
+const SAVED_BUTTON_NEUTRAL = 'bg-white border border-gray-200 text-gray-900 hover:bg-gray-50 dark:bg-slate-800/60 dark:border-slate-600 dark:text-white dark:hover:bg-slate-700/70';
+const SAVED_FILTER_INACTIVE = 'bg-white/80 text-gray-600 border border-gray-200 hover:border-gray-300 dark:bg-slate-800/40 dark:text-slate-300 dark:border-slate-700';
+const SAVED_FILTER_ACTIVE = 'bg-blue-500/15 text-blue-600 border border-blue-500/40 dark:text-blue-300';
+const SAVED_CARD = 'rounded-2xl border border-gray-200 bg-white/95 shadow-lg dark:border-slate-800 dark:bg-slate-900/70';
+const SAVED_CARD_HOVER = 'transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl dark:hover:border-slate-600';
+const SAVED_MEDIA_FRAME = 'rounded-2xl border border-gray-200 bg-gray-50 dark:border-slate-800 dark:bg-slate-950';
+const SAVED_BADGE_MUTED = 'bg-white/80 text-gray-600 border border-gray-200 dark:bg-slate-900/70 dark:text-slate-200 dark:border-slate-700';
+
 class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
   constructor(props: any) {
     super(props);
@@ -92,7 +104,7 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
   }
   render() {
     if (this.state.hasError) {
-      return <div className="p-4 text-red-400 text-center">Something went wrong with the preview. Please reload.</div>;
+      return <div className="p-4 text-center text-red-600 bg-red-50 rounded-xl dark:bg-red-500/10 dark:text-red-200">Something went wrong with the preview. Please reload.</div>;
     }
     return this.props.children;
   }
@@ -101,7 +113,7 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
 function Loader() {
   return (
     <Html center>
-      <div className="text-white text-lg animate-pulse">Loading Model...</div>
+      <div className="text-gray-900 text-lg animate-pulse dark:text-white">Loading Model...</div>
     </Html>
   );
 }
@@ -280,34 +292,34 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 dark:bg-black/70"
       onClick={onClose}
     >
       <div 
-        className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl"
+        className={`${SAVED_PRIMARY_CARD} w-full max-w-6xl max-h-[90vh] overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between dark:border-slate-800">
           <div>
-            <h2 className="text-2xl font-bold text-white">{design.name}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{design.name}</h2>
             <div className="flex items-center gap-3 mt-1">
               <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getProductTypeColor(design.productType)}`}>
                 {design.productType}
               </span>
               <div className="flex items-center gap-2">
                 <div 
-                  className="w-3 h-3 rounded-full border border-gray-600"
+                  className="w-3 h-3 rounded-full border border-gray-300 dark:border-slate-600"
                   style={{ backgroundColor: design.color || '#ffffff' }}
                 />
-                <span className="text-sm text-gray-400">{design.color}</span>
+                <span className="text-sm text-gray-500 dark:text-slate-300">{design.color}</span>
               </div>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 text-gray-500 rounded-lg transition-colors hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800/70"
           >
-            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -319,12 +331,12 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
             </div>
           ) : imageError ? (
-            <div className="flex flex-col items-center justify-center h-96 text-gray-400">
-              <p className="text-lg">Failed to load preview</p>
-              <p className="text-sm text-gray-500">{design.name}</p>
+            <div className="flex flex-col items-center justify-center h-96 text-gray-600 dark:text-slate-300">
+              <p className="text-lg font-medium">Failed to load preview</p>
+              <p className="text-sm text-gray-500 dark:text-slate-400">{design.name}</p>
             </div>
           ) : is3DProduct && variation && productInfo ? (
-            <div className="h-[500px] rounded-xl overflow-hidden border border-gray-700">
+            <div className={`${SAVED_MEDIA_FRAME} h-[500px] overflow-hidden relative`}>
               <ErrorBoundary>
                 <Canvas 
                   camera={{ position: [0, 0, 5], fov: 50 }}
@@ -357,16 +369,16 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
               </ErrorBoundary>
               
               <div className="absolute top-4 right-4 z-10">
-                <label className="flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-700 hover:bg-gray-800 cursor-pointer transition-all duration-200">
+                <label className="flex items-center gap-2 bg-white/90 px-4 py-2 rounded-xl border border-gray-200 shadow-sm cursor-pointer transition-all duration-200 dark:bg-slate-900/80 dark:border-slate-700">
                   <input
                     type="checkbox"
                     checked={autoRotate}
                     onChange={(e) => setAutoRotate(e.target.checked)}
-                    className="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 rounded focus:ring-blue-600 focus:ring-offset-gray-800 focus:ring-2 focus:ring-offset-2 cursor-pointer"
+                    className="w-4 h-4 text-blue-500 bg-white border-gray-300 rounded cursor-pointer focus:ring-blue-600 focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:bg-slate-800 dark:border-slate-600 dark:focus:ring-offset-slate-900"
                   />
                   <div className="flex items-center gap-2">
-                    <MdOutlineRotateRight className={`w-4 h-4 ${autoRotate ? 'text-blue-400 animate-spin' : 'text-gray-400'}`} />
-                    <span className={`text-sm font-medium ${autoRotate ? 'text-blue-300' : 'text-gray-300'}`}>
+                    <MdOutlineRotateRight className={`w-4 h-4 ${autoRotate ? 'text-blue-500 animate-spin' : 'text-gray-500 dark:text-slate-400'}`} />
+                    <span className={`text-sm font-medium ${autoRotate ? 'text-blue-600 dark:text-blue-300' : 'text-gray-600 dark:text-slate-300'}`}>
                       Auto Rotate
                     </span>
                   </div>
@@ -375,7 +387,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
             </div>
           ) : (
             <div className="flex flex-col items-center">
-              <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-700">
+              <div className={`${SAVED_MEDIA_FRAME} p-8`}>
                 <img
                   src={previewImage}
                   alt={design.name}
@@ -387,7 +399,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
           )}
         </div>
 
-        <div className="p-6 border-t border-gray-700 flex justify-end gap-3">
+        <div className="p-6 border-t border-gray-200 flex justify-end gap-3 dark:border-slate-800">
           <button
             onClick={() => {
               window.location.href = `/customer/order?designId=${design._id}`;
@@ -618,12 +630,14 @@ const SavedDesigns: React.FC = () => {
   if (loading) {
     return (
       <DashboardLayout role="customer">
-        <div className="w-full max-w-7xl mx-auto p-6">
-          <div className="flex flex-col items-center justify-center min-h-[60vh]">
-            <div className="relative">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+        <div className={SAVED_PAGE_WRAPPER}>
+          <div className="w-full max-w-7xl mx-auto px-4 py-16">
+            <div className={`flex flex-col items-center justify-center min-h-[50vh] ${SAVED_PANEL} p-12`}>
+              <div className="relative">
+                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+              </div>
+              <p className="mt-4 text-gray-600 animate-pulse dark:text-slate-300">Loading your designs...</p>
             </div>
-            <p className="mt-4 text-gray-400 animate-pulse">Loading your designs...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -632,26 +646,25 @@ const SavedDesigns: React.FC = () => {
 
   return (
     <DashboardLayout role="customer">
-      <div className="w-full max-w-7xl mx-auto p-4 sm:p-6">
+      <div className={SAVED_PAGE_WRAPPER}>
+        <div className="w-full max-w-7xl mx-auto px-4 pb-16">
         <div className="mb-8 text-center sm:text-left">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 mt-5">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-white">
-                Design Gallery
-              </h1>
-              <p className="text-gray-400 mt-2">
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">Design Gallery</h1>
+              <p className="text-gray-600 mt-2 dark:text-slate-300">
                 {filteredDesigns.length === 0 
                   ? "No designs match your filters" 
                   : `${filteredDesigns.length} design${filteredDesigns.length !== 1 ? 's' : ''} found`}
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3 justify-center sm:justify-end">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-200 ${
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-200 ${
                   showFilters || productTypeFilter !== 'all' || dimensionFilter !== 'all'
-                    ? 'bg-blue-600/20 text-blue-400 border-blue-500/50'
-                    : 'bg-gray-800/50 text-gray-400 border-gray-700 hover:border-gray-600'
+                    ? SAVED_FILTER_ACTIVE
+                    : SAVED_FILTER_INACTIVE
                 }`}
               >
                 <FiFilter />
@@ -660,16 +673,16 @@ const SavedDesigns: React.FC = () => {
                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                 )}
               </button>
-              
+
               <button
                 onClick={handleRefreshDesigns}
                 disabled={refreshing}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800/50 text-gray-400 border border-gray-700 hover:border-gray-600 hover:text-gray-300 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50"
+                className={`inline-flex items-center gap-2 px-4 py-2 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50 ${SAVED_BUTTON_NEUTRAL}`}
               >
-                <FiRefreshCw className={`${refreshing ? 'animate-spin' : ''}`} />
+                <FiRefreshCw className={refreshing ? 'animate-spin' : ''} />
                 {refreshing ? 'Refreshing...' : 'Refresh'}
               </button>
-              
+
               <a
                 href="/dashboard/customize"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
@@ -681,31 +694,27 @@ const SavedDesigns: React.FC = () => {
           </div>
 
           {showFilters && (
-            <div className="mb-8 bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6 animate-in slide-in-from-top duration-300">
+            <div className={`${SAVED_PANEL} mb-8 p-6 animate-in slide-in-from-top duration-300`}>
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-white">Filter Designs</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Filter Designs</h3>
                 {(productTypeFilter !== 'all' || dimensionFilter !== 'all') && (
                   <button
                     onClick={clearFilters}
-                    className="text-sm text-gray-400 hover:text-white flex items-center gap-1"
+                    className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1 dark:text-slate-300 dark:hover:text-white"
                   >
                     <FiX /> Clear Filters
                   </button>
                 )}
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-3">
-                    Product Type
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-3 dark:text-slate-200">Product Type</label>
                   <div className="flex flex-wrap gap-2">
                     <button
                       onClick={() => setProductTypeFilter('all')}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                        productTypeFilter === 'all'
-                          ? 'bg-gray-700 text-white border border-gray-600'
-                          : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                        productTypeFilter === 'all' ? SAVED_FILTER_ACTIVE : SAVED_FILTER_INACTIVE
                       }`}
                     >
                       All Products
@@ -713,9 +722,7 @@ const SavedDesigns: React.FC = () => {
                     <button
                       onClick={() => setProductTypeFilter('3d')}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                        productTypeFilter === '3d'
-                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/50'
-                          : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                        productTypeFilter === '3d' ? 'bg-indigo-500/15 text-indigo-600 border border-indigo-500/30 dark:text-indigo-200' : SAVED_FILTER_INACTIVE
                       }`}
                     >
                       <MdOutline3dRotation className="text-sm" />
@@ -724,9 +731,7 @@ const SavedDesigns: React.FC = () => {
                     <button
                       onClick={() => setProductTypeFilter('2d')}
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                        productTypeFilter === '2d'
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/50'
-                          : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                        productTypeFilter === '2d' ? 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/30 dark:text-emerald-200' : SAVED_FILTER_INACTIVE
                       }`}
                     >
                       <MdOutlineImage className="text-sm" />
@@ -737,9 +742,7 @@ const SavedDesigns: React.FC = () => {
                         key={type}
                         onClick={() => setProductTypeFilter(type)}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                          productTypeFilter === type
-                            ? getProductTypeColor(type)
-                            : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                          productTypeFilter === type ? getProductTypeColor(type) : SAVED_FILTER_INACTIVE
                         }`}
                       >
                         {type}
@@ -750,18 +753,14 @@ const SavedDesigns: React.FC = () => {
 
                 {(productTypeFilter === 'all' || productTypeFilter === '2d' || twoDProducts.includes(productTypeFilter)) && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-3">
-                      Product Size
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-3 dark:text-slate-200">Product Size</label>
                     <div className="flex flex-wrap gap-2">
                       {Object.entries(dimensionOptions).map(([key, label]) => (
                         <button
                           key={key}
                           onClick={() => setDimensionFilter(key)}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                            dimensionFilter === key
-                              ? 'bg-blue-600/20 text-blue-400 border border-blue-500/50'
-                              : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                            dimensionFilter === key ? SAVED_FILTER_ACTIVE : SAVED_FILTER_INACTIVE
                           }`}
                         >
                           {label}
@@ -776,29 +775,29 @@ const SavedDesigns: React.FC = () => {
 
           {designs.length > 0 && (
             <div className="grid grid-cols-2 gap-4 mb-8">
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700">
-                <div className="text-2xl font-bold text-white">{designs.length}</div>
-                <div className="text-sm text-gray-400">Total Designs</div>
+              <div className={`${SAVED_SUBCARD} flex flex-col gap-1`}>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">{designs.length}</div>
+                <div className="text-sm text-gray-500 dark:text-slate-300">Total Designs</div>
               </div>
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700">
-                <div className="text-2xl font-bold text-white">
+              <div className={`${SAVED_SUBCARD} flex flex-col gap-1`}>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
                   {new Set(designs.map(d => d.productType)).size}
                 </div>
-                <div className="text-sm text-gray-400">Product Types</div>
+                <div className="text-sm text-gray-500 dark:text-slate-300">Product Types</div>
               </div>
             </div>
           )}
         </div>
 
         {filteredDesigns.length === 0 ? (
-          <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-12 text-center">
-            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 mb-6">
-              <div className="text-4xl text-gray-400">🔍</div>
+          <div className={`${SAVED_PANEL} text-center p-12`}>
+            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-blue-500/10 text-4xl text-gray-500 mb-6 dark:text-slate-300">
+              🔍
             </div>
-            <h3 className="text-2xl font-bold text-white mb-3">
+            <h3 className="text-2xl font-bold text-gray-900 mb-3 dark:text-white">
               {designs.length === 0 ? 'No Designs Yet' : 'No Designs Found'}
             </h3>
-            <p className="text-gray-400 mb-6 max-w-md mx-auto">
+            <p className="text-gray-600 mb-6 max-w-md mx-auto dark:text-slate-300">
               {designs.length === 0 
                 ? 'Create your first custom design' 
                 : 'Try changing your filters'}
@@ -813,7 +812,7 @@ const SavedDesigns: React.FC = () => {
               {designs.length > 0 && (
                 <button
                   onClick={clearFilters}
-                  className="px-8 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl transition-all duration-200 border border-gray-600"
+                  className={`px-8 py-3 font-semibold rounded-xl ${SAVED_BUTTON_NEUTRAL}`}
                 >
                   Clear Filters
                 </button>
@@ -825,10 +824,10 @@ const SavedDesigns: React.FC = () => {
             {filteredDesigns.map((design) => (
               <div
                 key={design._id}
-                className="group bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm rounded-2xl border border-gray-700 overflow-hidden hover:border-gray-600 transition-all duration-300 hover:shadow-2xl"
+                className={`${SAVED_CARD} ${SAVED_CARD_HOVER} group overflow-hidden`}
               >
                 <div 
-                  className="h-56 relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 cursor-pointer group"
+                  className="h-56 relative overflow-hidden bg-gray-100 cursor-pointer group dark:bg-slate-950"
                   onClick={() => setSelectedDesign(design)}
                 >
                   <div className="w-full h-full relative">
@@ -846,9 +845,9 @@ const SavedDesigns: React.FC = () => {
                       }}
                     />
                     
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
-                      <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 mb-2">
-                        <div className="text-white text-sm font-semibold flex items-center gap-2">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
+                      <div className="bg-white/90 rounded-lg p-3 mb-2 text-gray-900 shadow-sm dark:bg-slate-900/70 dark:text-white">
+                        <div className="text-sm font-semibold flex items-center gap-2">
                           <FiEye className="w-4 h-4" />
                           View Design
                         </div>
@@ -861,20 +860,20 @@ const SavedDesigns: React.FC = () => {
                     
                     <div className="absolute top-3 right-3">
                       {threeDProducts.includes(design.productType) ? (
-                        <div className="flex items-center gap-1 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
-                          <MdOutline3dRotation className="text-blue-400 text-xs" />
-                          <span className="text-xs text-gray-300">3D</span>
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${SAVED_BADGE_MUTED}`}>
+                          <MdOutline3dRotation className="text-indigo-500" />
+                          <span>3D</span>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
-                          <MdOutlineImage className="text-green-400 text-xs" />
-                          <span className="text-xs text-gray-300">2D</span>
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold ${SAVED_BADGE_MUTED}`}>
+                          <MdOutlineImage className="text-emerald-500" />
+                          <span>2D</span>
                         </div>
                       )}
                     </div>
                     
-                    <div className="absolute bottom-3 right-3 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
-                      <div className="text-xs text-gray-300 font-medium">
+                    <div className={`absolute bottom-3 right-3 px-2 py-1 rounded-lg text-xs font-medium ${SAVED_BADGE_MUTED}`}>
+                      <div>
                         {getTimeOfDay(design.createdAt)}
                       </div>
                     </div>
@@ -884,32 +883,32 @@ const SavedDesigns: React.FC = () => {
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-bold text-white truncate text-lg mb-1">
+                      <h3 className="font-bold text-gray-900 truncate text-lg mb-1 dark:text-white">
                         {design.name}
                       </h3>
                       <div className="flex items-center gap-2 mb-2">
                         <div 
-                          className="w-4 h-4 rounded-full border border-gray-600 shadow-sm"
+                          className="w-4 h-4 rounded-full border border-gray-200 shadow-sm dark:border-slate-600"
                           style={{ backgroundColor: design.color }}
                           title={design.color}
                         />
-                        <span className="text-sm text-gray-400 capitalize">{design.color}</span>
+                        <span className="text-sm text-gray-600 capitalize dark:text-slate-300">{design.color}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
                         <span>{formatDate(design.createdAt)}</span>
                         <span>•</span>
                         <span>{getTimeOfDay(design.createdAt)}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 bg-gray-700/50 rounded-lg px-2 py-1">
-                      <FiEye className="text-gray-400 text-sm" />
-                      <span className="text-xs text-gray-300 font-medium">{design.viewCount}</span>
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-lg border border-gray-200 bg-white/80 text-gray-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200">
+                      <FiEye className="text-sm" />
+                      <span className="text-xs font-medium">{design.viewCount}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 mb-5 p-3 bg-gray-700/30 rounded-xl border border-gray-600/50">
+                  <div className="flex items-center gap-3 mb-5 p-3 rounded-xl border border-gray-200 bg-white/80 text-gray-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200">
                     <div className="relative">
-                      <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden border border-gray-500">
+                      <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center overflow-hidden border border-gray-200 dark:bg-slate-800 dark:border-slate-600">
                         {design.store.logoFileId ? (
                           <img
                             src={`${import.meta.env.VITE_API_URL}/print-store/logo/${design.store.logoFileId}`}
@@ -922,7 +921,7 @@ const SavedDesigns: React.FC = () => {
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-200 truncate">
+                      <div className="text-sm font-medium text-gray-700 truncate dark:text-slate-200">
                         {design.store.name}
                       </div>
                     </div>
@@ -939,7 +938,7 @@ const SavedDesigns: React.FC = () => {
                     <button
                       onClick={() => handleDownload(design)}
                       disabled={downloadingId === design._id}
-                      className="p-3 hover:bg-blue-600/20 rounded-xl text-gray-400 hover:text-blue-400 transition-all duration-200 border border-gray-600 hover:border-blue-500/50 disabled:opacity-50"
+                      className="p-3 rounded-xl border border-gray-200 bg-white text-gray-600 transition-all duration-200 hover:text-blue-600 hover:border-blue-400 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200 dark:hover:text-blue-300 dark:hover:border-blue-400"
                       title="Download as PNG"
                     >
                       {downloadingId === design._id ? (
@@ -953,7 +952,7 @@ const SavedDesigns: React.FC = () => {
                         setDesignToDelete(design._id);
                         setShowDeleteDialog(true);
                       }}
-                      className="p-3 hover:bg-red-600/20 rounded-xl text-gray-400 hover:text-red-400 transition-all duration-200 border border-gray-600 hover:border-red-500/50"
+                      className="p-3 rounded-xl border border-gray-200 text-gray-500 transition-all duration-200 hover:text-red-500 hover:border-red-400 dark:border-slate-700 dark:text-slate-300 dark:hover:border-red-500/50 dark:hover:text-red-300"
                       title="Delete"
                     >
                       <FiTrash2 />
@@ -965,8 +964,9 @@ const SavedDesigns: React.FC = () => {
           </div>
         )}
       </div>
+    </div>
 
-      <ConfirmDialog
+    <ConfirmDialog
         isOpen={showDeleteDialog}
         onClose={() => {
           setShowDeleteDialog(false);
@@ -979,12 +979,12 @@ const SavedDesigns: React.FC = () => {
         confirmColor="red"
       />
 
-      {selectedDesign && (
-        <PreviewModal
-          design={selectedDesign}
-          onClose={() => setSelectedDesign(null)}
-        />
-      )}
+    {selectedDesign && (
+      <PreviewModal
+        design={selectedDesign}
+        onClose={() => setSelectedDesign(null)}
+      />
+    )}
     </DashboardLayout>
   );
 };
