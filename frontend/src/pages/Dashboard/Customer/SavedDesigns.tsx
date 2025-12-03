@@ -2,19 +2,17 @@ import React, { useState, useEffect, Suspense, useRef } from "react";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
 import { getMyDesigns, deleteDesign, getThumbnailUrl, type SavedDesign } from "@/lib/savedDesigns";
-import { FiTrash2, FiEdit, FiDownload, FiEye, FiShoppingCart, FiShare2, FiCopy, FiFilter, FiX } from "react-icons/fi";
+import { FiTrash2, FiEdit, FiDownload, FiEye, FiShoppingCart, FiShare2, FiCopy, FiFilter, FiX, FiRefreshCw } from "react-icons/fi";
 import { MdOutlineAddShoppingCart, MdOutline3dRotation, MdOutlineImage, MdOutlineRotateRight } from "react-icons/md";
 import { TbColorSwatch, TbPhotoEdit } from "react-icons/tb";
 import { toast } from "react-toastify";
 import ConfirmDialog from "../shared_components/ConfirmDialog";
 import { useNavigate } from "react-router-dom";
 
-// Import Three.js components for modal viewer
 import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Environment, Decal, useGLTF, Html } from "@react-three/drei";
 import * as THREE from "three";
 
-// --- Product Settings (from Customize.tsx) ---
 const productSettings: Record<string, any> = {
   Mug: {
     type: "3d",
@@ -83,7 +81,6 @@ const productSettings: Record<string, any> = {
   },
 };
 
-// --- Error Boundary ---
 class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
   constructor(props: any) {
     super(props);
@@ -101,7 +98,6 @@ class ErrorBoundary extends React.Component<any, { hasError: boolean }> {
   }
 }
 
-// --- Loader ---
 function Loader() {
   return (
     <Html center>
@@ -110,120 +106,150 @@ function Loader() {
   );
 }
 
-// --- 2D Product Preview Component for modal ---
-function Product2DPreviewModal({
-  decalImage,
-  backgroundColor,
-  dimensions,
-  position = [0.5, 0.5],
-  scale = 0.5
+function ProductModel3D({
+  decalTexture, decalPosition, decalScale, modelPath, scale, position, rotation, targetMeshName, baseColor
 }: {
-  decalImage: string | null;
-  backgroundColor: string;
-  dimensions?: { width: number; height: number };
-  position?: [number, number];
-  scale?: number;
+  decalTexture: THREE.Texture | null;
+  decalPosition: [number, number, number];
+  decalScale: number;
+  modelPath: string;
+  scale: number | [number, number, number];
+  position: [number, number, number];
+  rotation: [number, number, number];
+  targetMeshName: string;
+  baseColor: string;
 }) {
-  const getDimensions = () => {
-    if (dimensions) return dimensions;
-    return { width: 200, height: 200 };
-  };
+  if (!modelPath) return <Loader />;
+  const { nodes } = useGLTF(modelPath);
+  const [actualMesh, setActualMesh] = useState<THREE.Mesh | null>(null);
+  const meshRef = useRef<THREE.Mesh>(null);
+  const [textureAspect, setTextureAspect] = useState(1);
 
-  const dims = getDimensions();
-  const aspectRatio = dims.width / dims.height;
+  useEffect(() => {
+    if (!nodes[targetMeshName]) {
+      console.warn(`⚠️ Target Mesh "${targetMeshName}" not found. Available nodes:`, Object.keys(nodes));
+    }
+
+    const targetNode = nodes[targetMeshName];
+    if (!targetNode) return;
+    
+    let foundMesh: THREE.Mesh | null = null;
+    if (targetNode.isMesh) foundMesh = targetNode as THREE.Mesh;
+    else {
+      targetNode.traverse((child) => {
+        if (child instanceof THREE.Mesh && !foundMesh) foundMesh = child;
+      });
+    }
+    setActualMesh(foundMesh || null);
+  }, [nodes, targetMeshName, modelPath]);
+
+  useEffect(() => {
+    if (decalTexture) {
+      decalTexture.anisotropy = 16;
+      decalTexture.needsUpdate = true;
+
+      const { image } = decalTexture;
+      if (image && image.width && image.height) {
+        setTextureAspect(image.width / image.height);
+      }
+    }
+  }, [decalTexture]); 
+
+  if (!actualMesh) return null;
+
+  const adjustedWidth = decalScale * textureAspect;
+  const adjustedHeight = decalScale;
+  const decalDepth = 1; 
 
   return (
-    <div className="w-full h-full flex items-center justify-center">
-      <div 
-        className="relative border-2 border-gray-600 rounded-lg shadow-2xl"
-        style={{
-          width: 'min(90%, 400px)',
-          height: 'min(90%, 400px)',
-          backgroundColor,
-          aspectRatio: aspectRatio,
-          backgroundImage: `linear-gradient(to right, rgba(100,100,100,0.2) 1px, transparent 1px),
-                           linear-gradient(to bottom, rgba(100,100,100,0.2) 1px, transparent 1px)`,
-          backgroundSize: '20px 20px'
-        }}
-      >
-        {/* Decal Image */}
-        {decalImage && (
-          <div 
-            className="absolute rounded-lg overflow-hidden border-2 border-blue-400/30"
-            style={{
-              backgroundImage: `url(${decalImage})`,
-              backgroundSize: 'contain',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              width: `${scale * 100}%`,
-              height: `${scale * 100}%`,
-              left: `${position[0] * 100}%`,
-              top: `${position[1] * 100}%`,
-              transform: `translate(-${position[0] * 100}%, -${position[1] * 100}%)`
-            }}
-          />
-        )}
+    <group scale={scale} position={position} rotation={rotation}>
+      <mesh ref={meshRef} geometry={actualMesh.geometry} castShadow receiveShadow>
+        <meshStandardMaterial 
+          key={decalTexture?.uuid || "base-material"}
+          color={baseColor} 
+          roughness={0.8} 
+          metalness={0.1} 
+        />
         
-        {/* Dimensions Label */}
-        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-gray-400 text-sm font-mono whitespace-nowrap bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded">
-          {dims.width}mm × {dims.height}mm
-        </div>
-      </div>
-    </div>
+        {decalTexture && (
+          <Decal
+            position={decalPosition}
+            rotation={[0, 0, 0]}
+            scale={[adjustedWidth, adjustedHeight, decalDepth]} 
+            map={decalTexture}
+            mesh={meshRef}
+          >
+            <meshStandardMaterial
+              map={decalTexture}
+              polygonOffset
+              polygonOffsetFactor={-1} 
+              transparent
+              roughness={1}
+              toneMapped={false} 
+            />
+          </Decal>
+        )}
+      </mesh>
+    </group>
   );
 }
 
-// --- 3D Model Viewer for modal ---
-function ThreeDModelViewerModal({ 
-  design 
-}: { 
-  design: SavedDesign 
-}) {
+interface PreviewModalProps {
+  design: SavedDesign;
+  onClose: () => void;
+}
+
+const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
-  const meshRef = useRef<THREE.Mesh>(null);
-  const [actualMesh, setActualMesh] = useState<THREE.Mesh | null>(null);
   
   const productInfo = productSettings[design.productType];
   const variation = productInfo?.variations[design.color];
   
-  // Get the ORIGINAL uploaded image from customization data (for interactive 3D preview)
-  const decalImage = design.customization?.originalImage || design.thumbnail;
+  const getPreviewImage = (): string => {
+    if (design.customization?.originalImage) {
+      const img = design.customization.originalImage;
+      if (img.startsWith('data:image/')) {
+        return img;
+      }
+    }
+    
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    return `${baseUrl}/api/saved-designs/${design._id}/image`;
+  };
+
+  const previewImage = getPreviewImage();
+  const is3DProduct = ['Mug', 'T-Shirt'].includes(design.productType);
 
   useEffect(() => {
-    if (decalImage) {
-      console.log("🖼️ Loading design image for 3D preview:", decalImage.substring(0, 100));
+    if (is3DProduct && previewImage) {
       const loader = new THREE.TextureLoader();
       loader.load(
-        decalImage,
+        previewImage,
         (loadedTexture) => {
           loadedTexture.encoding = THREE.sRGBEncoding;
           loadedTexture.anisotropy = 16;
-          loadedTexture.needsUpdate = true;
           setTexture(loadedTexture);
-          console.log("✅ Texture loaded for design preview");
+          setIsLoading(false);
         },
         undefined,
         (error) => {
-          console.error('❌ Error loading design texture:', error);
-          toast.error("Failed to load design image");
+          console.error('Error loading texture:', error);
+          setImageError(true);
+          setIsLoading(false);
         }
       );
+    } else {
+      setIsLoading(false);
     }
-  }, [decalImage]);
+  }, [previewImage, is3DProduct]);
 
-  if (!productInfo || !variation) {
-    return (
-      <div className="w-full h-full flex items-center justify-center text-gray-400">
-        Unable to load 3D preview
-      </div>
-    );
-  }
-
-  const convertTo3DPosition = (): [number, number, number] => {
+  const getDecalPosition = (): [number, number, number] => {
     if (!design.customization?.position) {
-      return productInfo.decalDefaults.position;
+      return productInfo?.decalDefaults?.position || [0, 0, 0];
     }
     
     const position2D = [design.customization.position.x, design.customization.position.y] as [number, number];
@@ -231,143 +257,150 @@ function ThreeDModelViewerModal({
     if (design.productType === 'Mug') {
       const x = (position2D[0] - 0.5) * 0.6;
       const y = 0.8 + (position2D[1] * 0.7);
-      return [x, y, productInfo.decalDefaults.position[2]];
+      return [x, y, productInfo?.decalDefaults?.position[2] || 0.5];
     } else if (design.productType === 'T-Shirt') {
       const x = (position2D[0] - 0.5);
       const y = 0.3 + (position2D[1] * 0.5);
-      return [x, y, productInfo.decalDefaults.position[2]];
+      return [x, y, productInfo?.decalDefaults?.position[2] || 0.5];
     }
     
-    return productInfo.decalDefaults.position;
+    return productInfo?.decalDefaults?.position || [0, 0, 0];
   };
 
-  const decalPosition = convertTo3DPosition();
-  const decalScale = design.customization?.scale || productInfo.decalDefaults.scale;
-
-  // Product Model Component
-  const ProductModel = () => {
-    const { nodes } = useGLTF(variation.path);
-    const [textureAspect, setTextureAspect] = useState(1);
-
-    useEffect(() => {
-      // Find the target mesh
-      const targetNode = nodes[variation.targetMeshName];
-      if (targetNode) {
-        if (targetNode.isMesh) {
-          setActualMesh(targetNode as THREE.Mesh);
-        } else {
-          targetNode.traverse((child) => {
-            if (child instanceof THREE.Mesh && !actualMesh) {
-              setActualMesh(child);
-            }
-          });
-        }
-      }
-    }, [nodes]);
-
-    useEffect(() => {
-      if (texture?.image) {
-        const img = texture.image;
-        if (img.width && img.height) {
-          setTextureAspect(img.width / img.height);
-        }
-      }
-    }, [texture]);
-
-    if (!actualMesh) return <Loader />;
-
-    const adjustedWidth = decalScale * textureAspect;
-    const adjustedHeight = decalScale;
-
-    return (
-      <group scale={variation.scale} position={variation.position} rotation={variation.rotation}>
-        <mesh ref={meshRef} geometry={actualMesh.geometry} castShadow receiveShadow>
-          <meshStandardMaterial 
-            color={variation.colorCode} 
-            roughness={0.8} 
-            metalness={0.1} 
-          />
-          
-          {texture && (
-            <Decal
-              position={decalPosition}
-              rotation={[0, 0, 0]}
-              scale={[adjustedWidth, adjustedHeight, 1]}
-              map={texture}
-              mesh={meshRef}
-            >
-              <meshStandardMaterial
-                map={texture}
-                polygonOffset
-                polygonOffsetFactor={-1}
-                transparent
-                roughness={1}
-                toneMapped={false}
-              />
-            </Decal>
-          )}
-        </mesh>
-      </group>
-    );
+  const getProductTypeColor = (productType: string) => {
+    switch (productType) {
+      case 'Mug': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
+      case 'T-Shirt': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 'Mousepad': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+      case 'Sticker': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'Phone Case': return 'bg-pink-500/20 text-pink-400 border-pink-500/30';
+      default: return 'bg-gray-500/20 text-gray-400 border-gray-500/30';
+    }
   };
 
   return (
-    <div className="w-full h-full relative rounded-xl overflow-hidden">
-      <ErrorBoundary>
-        <Canvas 
-          camera={{ position: [0, 0, 5], fov: 50 }}
-          onPointerDown={() => setIsDragging(true)} 
-          onPointerUp={() => setIsDragging(false)}
-        >
-          <ambientLight intensity={0.8} />
-          <Environment preset="city" />
-          <Suspense fallback={<Loader />}>
-            <ProductModel />
-          </Suspense>
-          <OrbitControls 
-            enablePan={false} 
-            minDistance={2} 
-            maxDistance={10} 
-            autoRotate={autoRotate && !isDragging} 
-            autoRotateSpeed={1.5} 
-          />
-        </Canvas>
-      </ErrorBoundary>
-      
-      {/* Rotate toggle */}
-      <div className="absolute top-4 right-4 z-10">
-        <label className="flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-700 hover:bg-gray-800 cursor-pointer transition-all duration-200">
-          <input
-            type="checkbox"
-            checked={autoRotate}
-            onChange={(e) => setAutoRotate(e.target.checked)}
-            className="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 rounded focus:ring-blue-600 focus:ring-offset-gray-800 focus:ring-2 focus:ring-offset-2 cursor-pointer"
-          />
-          <div className="flex items-center gap-2">
-            <MdOutlineRotateRight className={`w-4 h-4 ${autoRotate ? 'text-blue-400 animate-spin' : 'text-gray-400'}`} />
-            <span className={`text-sm font-medium ${autoRotate ? 'text-blue-300' : 'text-gray-300'}`}>
-              Auto Rotate
-            </span>
+    <div 
+      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 w-full max-w-6xl max-h-[90vh] overflow-hidden shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="p-6 border-b border-gray-700 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-white">{design.name}</h2>
+            <div className="flex items-center gap-3 mt-1">
+              <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getProductTypeColor(design.productType)}`}>
+                {design.productType}
+              </span>
+              <div className="flex items-center gap-2">
+                <div 
+                  className="w-3 h-3 rounded-full border border-gray-600"
+                  style={{ backgroundColor: design.color || '#ffffff' }}
+                />
+                <span className="text-sm text-gray-400">{design.color}</span>
+              </div>
+            </div>
           </div>
-        </label>
-      </div>
-      
-      {/* Customization info overlay */}
-      <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-lg">
-        <div className="flex items-center gap-2">
-          <span>Position: X: {design.customization?.position?.x?.toFixed(2) || '0.50'}, Y: {design.customization?.position?.y?.toFixed(2) || '0.50'}</span>
-          <span>•</span>
-          <span>Scale: {design.customization?.scale?.toFixed(2) || '1.00'}</span>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-      </div>
 
-      {/* Instructions */}
-      <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-sm text-white text-sm px-4 py-2 rounded-lg">
-        Drag to rotate • Scroll to zoom
+        <div className="p-6 max-h-[calc(90vh-12rem)] overflow-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center h-96">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          ) : imageError ? (
+            <div className="flex flex-col items-center justify-center h-96 text-gray-400">
+              <p className="text-lg">Failed to load preview</p>
+              <p className="text-sm text-gray-500">{design.name}</p>
+            </div>
+          ) : is3DProduct && variation && productInfo ? (
+            <div className="h-[500px] rounded-xl overflow-hidden border border-gray-700">
+              <ErrorBoundary>
+                <Canvas 
+                  camera={{ position: [0, 0, 5], fov: 50 }}
+                  onPointerDown={() => setIsDragging(true)}
+                  onPointerUp={() => setIsDragging(false)}
+                >
+                  <ambientLight intensity={0.8} />
+                  <Environment preset="city" />
+                  <Suspense fallback={<Loader />}>
+                    <ProductModel3D 
+                      decalTexture={texture}
+                      decalPosition={getDecalPosition()}
+                      decalScale={design.customization?.scale || productInfo.decalDefaults.scale}
+                      modelPath={variation.path}
+                      scale={variation.scale}
+                      position={variation.position}
+                      rotation={variation.rotation}
+                      targetMeshName={variation.targetMeshName}
+                      baseColor={variation.colorCode}
+                    />
+                  </Suspense>
+                  <OrbitControls 
+                    enablePan={false}
+                    minDistance={2}
+                    maxDistance={10}
+                    autoRotate={autoRotate && !isDragging}
+                    autoRotateSpeed={1.5}
+                  />
+                </Canvas>
+              </ErrorBoundary>
+              
+              <div className="absolute top-4 right-4 z-10">
+                <label className="flex items-center gap-2 bg-gray-800/80 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-700 hover:bg-gray-800 cursor-pointer transition-all duration-200">
+                  <input
+                    type="checkbox"
+                    checked={autoRotate}
+                    onChange={(e) => setAutoRotate(e.target.checked)}
+                    className="w-4 h-4 text-blue-500 bg-gray-700 border-gray-600 rounded focus:ring-blue-600 focus:ring-offset-gray-800 focus:ring-2 focus:ring-offset-2 cursor-pointer"
+                  />
+                  <div className="flex items-center gap-2">
+                    <MdOutlineRotateRight className={`w-4 h-4 ${autoRotate ? 'text-blue-400 animate-spin' : 'text-gray-400'}`} />
+                    <span className={`text-sm font-medium ${autoRotate ? 'text-blue-300' : 'text-gray-300'}`}>
+                      Auto Rotate
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <div className="bg-gray-800/50 rounded-xl p-8 border border-gray-700">
+                <img
+                  src={previewImage}
+                  alt={design.name}
+                  className="max-w-full max-h-[60vh] rounded-lg shadow-2xl"
+                  onError={() => setImageError(true)}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-gray-700 flex justify-end gap-3">
+          <button
+            onClick={() => {
+              window.location.href = `/customer/order?designId=${design._id}`;
+            }}
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-lg flex items-center gap-2 transition-colors"
+          >
+            <FiShoppingCart /> Order Now
+          </button>
+        </div>
       </div>
     </div>
   );
-}
+};
 
 const SavedDesigns: React.FC = () => {
   const { user } = useAuth();
@@ -379,17 +412,15 @@ const SavedDesigns: React.FC = () => {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [designToDelete, setDesignToDelete] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   
-  // Filter states
   const [showFilters, setShowFilters] = useState(false);
   const [productTypeFilter, setProductTypeFilter] = useState<string>('all');
   const [dimensionFilter, setDimensionFilter] = useState<string>('all');
 
-  // Product type options
   const threeDProducts = ['Mug', 'T-Shirt'];
   const twoDProducts = ['Mousepad', 'Sticker', 'Phone Case'];
 
-  // Dimension options for 2D products
   const dimensionOptions = {
     'all': 'All Sizes',
     'mousepad': 'Mousepad (300x100mm)',
@@ -397,7 +428,6 @@ const SavedDesigns: React.FC = () => {
     'phonecase': 'Phone Case (80x160mm)'
   };
 
-  // Preload 3D models
   useEffect(() => {
     useGLTF.preload("/models/mug.glb");
     useGLTF.preload("/models/shirt.glb");
@@ -411,97 +441,35 @@ const SavedDesigns: React.FC = () => {
     filterDesigns();
   }, [designs, productTypeFilter, dimensionFilter]);
 
-const fetchDesigns = async () => {
-  try {
-    setLoading(true);
-    const data = await getMyDesigns();
-    
-    console.log("📦 Fetched designs:", data.map(d => ({
-      name: d.name,
-      productType: d.productType,
-      hasThumbnailUrl: !!d.thumbnailUrl,
-      thumbnailUrl: d.thumbnailUrl?.substring(0, 50),
-      hasOriginalImage: !!d.customization?.originalImage
-    })));
-    
-    // Process designs to ensure they have valid image URLs
-    const processedDesigns = data.map(design => {
-      const processed = { ...design };
+  const fetchDesigns = async () => {
+    try {
+      setLoading(true);
+      const data = await getMyDesigns();
       
-      // If thumbnailUrl is not set, try to get it
-      if (!processed.thumbnailUrl) {
-        processed.thumbnailUrl = getThumbnailUrl(design);
-      }
-      
-      // Ensure customization has originalImage
-      if (!processed.customization?.originalImage && processed.thumbnailUrl) {
-        if (!processed.customization) processed.customization = {};
-        processed.customization.originalImage = processed.thumbnailUrl;
-      }
-      
-      return processed;
-    });
-    
-    setDesigns(processedDesigns);
-    setFilteredDesigns(processedDesigns);
-    
-    // Store in cache with timestamp
-    localStorage.setItem('savedDesignsCache', JSON.stringify({
-      data: processedDesigns,
-      timestamp: new Date().toISOString()
-    }));
-    
-  } catch (error) {
-    console.error("Error fetching designs:", error);
-    
-    // Try to load from cache
-    const cache = localStorage.getItem('savedDesignsCache');
-    if (cache) {
-      try {
-        const { data, timestamp } = JSON.parse(cache);
-        const cacheAge = new Date().getTime() - new Date(timestamp).getTime();
-        
-        if (cacheAge < 10 * 60 * 1000) { // 10 minute cache
-          // Process cached designs to ensure URLs
-          const processedCachedDesigns = data.map((design: SavedDesign) => {
-            const processed = { ...design };
-            
-            if (!processed.thumbnailUrl) {
-              processed.thumbnailUrl = getThumbnailUrl(design);
-            }
-            
-            if (!processed.customization?.originalImage && processed.thumbnailUrl) {
-              if (!processed.customization) processed.customization = {};
-              processed.customization.originalImage = processed.thumbnailUrl;
-            }
-            
-            return processed;
-          });
-          
-          setDesigns(processedCachedDesigns);
-          setFilteredDesigns(processedCachedDesigns);
-          toast.info("Showing cached designs");
+      console.log("=== IMAGE DEBUG ===");
+      data.forEach((design, i) => {
+        console.log(`${i+1}. ${design.name} (${design.productType})`);
+        if (design.customization?.originalImage) {
+          console.log('   Has original image:', design.customization.originalImage.substring(0, 100));
         } else {
-          localStorage.removeItem('savedDesignsCache');
-          toast.error("Failed to load designs. Please refresh.");
+          console.log('   NO original image in customization');
         }
-      } catch (parseError) {
-        console.error("Error parsing cache:", parseError);
-        localStorage.removeItem('savedDesignsCache');
-        toast.error("Failed to load designs.");
-      }
-    } else {
+      });
+      
+      setDesigns(data);
+      setFilteredDesigns(data);
+      
+    } catch (error) {
+      console.error("Error fetching designs:", error);
       toast.error("Failed to load saved designs");
+    } finally {
+      setLoading(false);
     }
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const filterDesigns = () => {
     let filtered = [...designs];
 
-    // Apply product type filter
     if (productTypeFilter !== 'all') {
       if (productTypeFilter === '3d') {
         filtered = filtered.filter(design => threeDProducts.includes(design.productType));
@@ -512,7 +480,6 @@ const fetchDesigns = async () => {
       }
     }
 
-    // Apply dimension filter for 2D products
     if (dimensionFilter !== 'all' && (productTypeFilter === 'all' || productTypeFilter === '2d' || twoDProducts.includes(productTypeFilter))) {
       switch (dimensionFilter) {
         case 'mousepad':
@@ -534,17 +501,6 @@ const fetchDesigns = async () => {
     try {
       await deleteDesign(id);
       setDesigns(designs.filter(design => design._id !== id));
-      
-      // Update cache
-      const cache = localStorage.getItem('savedDesignsCache');
-      if (cache) {
-        const { timestamp } = JSON.parse(cache);
-        localStorage.setItem('savedDesignsCache', JSON.stringify({
-          data: designs.filter(design => design._id !== id),
-          timestamp: timestamp
-        }));
-      }
-      
       toast.success("Design deleted successfully");
     } catch (error) {
       console.error("Error deleting design:", error);
@@ -559,24 +515,21 @@ const fetchDesigns = async () => {
     try {
       setDownloadingId(design._id);
       
-      // Use the thumbnail (captured snapshot) for download
-      if (design.thumbnail) {
-        console.log("📥 Downloading design thumbnail:", design.thumbnail.substring(0, 100));
-        const response = await fetch(design.thumbnail);
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${design.name.replace(/\s+/g, '_')}_${design.productType}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        toast.success("Design downloaded as PNG!");
-      } else {
-        toast.error("No design image available for download");
-      }
+      const imageUrl = getThumbnailUrl(design);
+      console.log("📥 Downloading from:", imageUrl.substring(0, 100));
+      
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${design.name.replace(/\s+/g, '_')}_${design.productType}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Design downloaded!");
     } catch (error) {
       console.error("Error downloading design:", error);
       toast.error("Failed to download design");
@@ -597,21 +550,6 @@ const fetchDesigns = async () => {
     toast.info(`Proceeding to order for ${design.productType}`);
   };
 
-  const handleShareDesign = (design: SavedDesign) => {
-    const shareUrl = `${window.location.origin}/share/design/${design._id}`;
-    
-    if (navigator.share) {
-      navigator.share({
-        title: design.name,
-        text: `Check out my custom ${design.productType} design!`,
-        url: shareUrl,
-      });
-    } else {
-      navigator.clipboard.writeText(shareUrl);
-      toast.success("Link copied to clipboard!");
-    }
-  };
-
   const handleDuplicateDesign = (design: SavedDesign) => {
     navigate("/dashboard/customize", {
       state: {
@@ -620,6 +558,19 @@ const fetchDesigns = async () => {
       }
     });
     toast.info(`Duplicating "${design.name}"...`);
+  };
+
+  const handleRefreshDesigns = async () => {
+    try {
+      setRefreshing(true);
+      await fetchDesigns();
+      toast.success("Designs refreshed");
+    } catch (error) {
+      console.error("Error refreshing designs:", error);
+      toast.error("Failed to refresh designs");
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const getProductTypeColor = (productType: string) => {
@@ -671,11 +622,8 @@ const fetchDesigns = async () => {
           <div className="flex flex-col items-center justify-center min-h-[60vh]">
             <div className="relative">
               <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-2xl">🎨</div>
-              </div>
             </div>
-            <p className="mt-4 text-gray-400 animate-pulse">Loading your creative designs...</p>
+            <p className="mt-4 text-gray-400 animate-pulse">Loading your designs...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -685,11 +633,10 @@ const fetchDesigns = async () => {
   return (
     <DashboardLayout role="customer">
       <div className="w-full max-w-7xl mx-auto p-4 sm:p-6">
-        {/* Header */}
         <div className="mb-8 text-center sm:text-left">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+              <h1 className="text-3xl md:text-4xl font-bold text-white">
                 Design Gallery
               </h1>
               <p className="text-gray-400 mt-2">
@@ -713,6 +660,16 @@ const fetchDesigns = async () => {
                   <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
                 )}
               </button>
+              
+              <button
+                onClick={handleRefreshDesigns}
+                disabled={refreshing}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800/50 text-gray-400 border border-gray-700 hover:border-gray-600 hover:text-gray-300 font-semibold rounded-xl transition-all duration-200 disabled:opacity-50"
+              >
+                <FiRefreshCw className={`${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
+              
               <a
                 href="/dashboard/customize"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
@@ -723,7 +680,6 @@ const fetchDesigns = async () => {
             </div>
           </div>
 
-          {/* Filters Panel */}
           {showFilters && (
             <div className="mb-8 bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6 animate-in slide-in-from-top duration-300">
               <div className="flex items-center justify-between mb-4">
@@ -739,7 +695,6 @@ const fetchDesigns = async () => {
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Product Type Filter */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-3">
                     Product Type
@@ -793,7 +748,6 @@ const fetchDesigns = async () => {
                   </div>
                 </div>
 
-                {/* Dimension Filter (only for 2D products) */}
                 {(productTypeFilter === 'all' || productTypeFilter === '2d' || twoDProducts.includes(productTypeFilter)) && (
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-3">
@@ -820,7 +774,6 @@ const fetchDesigns = async () => {
             </div>
           )}
 
-          {/* Stats */}
           {designs.length > 0 && (
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-4 border border-gray-700">
@@ -837,7 +790,6 @@ const fetchDesigns = async () => {
           )}
         </div>
 
-        {/* Designs Grid */}
         {filteredDesigns.length === 0 ? (
           <div className="bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-12 text-center">
             <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 mb-6">
@@ -848,8 +800,8 @@ const fetchDesigns = async () => {
             </h3>
             <p className="text-gray-400 mb-6 max-w-md mx-auto">
               {designs.length === 0 
-                ? 'Create your first custom design and watch your collection grow.' 
-                : 'Try changing your filters or clear them to see all designs.'}
+                ? 'Create your first custom design' 
+                : 'Try changing your filters'}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <a
@@ -875,122 +827,60 @@ const fetchDesigns = async () => {
                 key={design._id}
                 className="group bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-sm rounded-2xl border border-gray-700 overflow-hidden hover:border-gray-600 transition-all duration-300 hover:shadow-2xl"
               >
-                {/* Design Preview - SHOW THE EXACT FRONT VIEW CAPTURED THUMBNAIL (NO EMOJIS) */}
                 <div 
                   className="h-56 relative overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 cursor-pointer group"
                   onClick={() => setSelectedDesign(design)}
                 >
-                  {design.thumbnail ? (
-                    <div className="w-full h-full relative">
-                      {/* THUMBNAIL IMAGE - This shows the exact front view captured from customize page */}
-                      <img
-                        src={getThumbnailUrl(design) || design.customization?.originalImage || design.thumbnail as string}
-                        alt={design.name}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        onError={(e) => {
-                          console.error('❌ Thumbnail failed to load for:', design.name);
-                          const target = e.target as HTMLImageElement;
-                          
-                          // Try fallback sources in order
-                          const fallbackSources = [
-                            design.customization?.originalImage,
-                            design.thumbnail as string,
-                            `${import.meta.env.VITE_API_URL}/saved-designs/${design._id}/image`
-                          ];
-                          
-                          // Find current source index
-                          const currentSrc = target.src;
-                          const currentIndex = fallbackSources.findIndex(src => src === currentSrc);
-                          
-                          if (currentIndex < fallbackSources.length - 1) {
-                            // Try next fallback
-                            const nextSrc = fallbackSources[currentIndex + 1];
-                            if (nextSrc && nextSrc !== currentSrc) {
-                              target.src = nextSrc;
-                              console.log('🔄 Trying fallback source:', nextSrc.substring(0, 50));
-                              return;
-                            }
-                          }
-                          
-                          // All sources failed, show fallback UI
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent) {
-                            const existingFallback = parent.querySelector('.thumbnail-fallback');
-                            if (!existingFallback) {
-                              const fallback = document.createElement('div');
-                              fallback.className = 'thumbnail-fallback w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 p-4';
-                              fallback.innerHTML = `
-                                <div class="text-center">
-                                  <div class="text-sm text-gray-300 font-medium mb-1">${design.productType}</div>
-                                  <div class="text-xs text-gray-500 mb-2">${design.name}</div>
-                                  <div class="text-xs text-gray-400">Design preview</div>
-                                </div>
-                              `;
-                              parent.appendChild(fallback);
-                            }
-                          }
-                        }}
-                        onLoad={() => {
-                          console.log('✅ Thumbnail loaded for:', design.name);
-                        }}
-                      />
-                      
-                      {/* Hover overlay with "View 3D" button */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
-                        <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 mb-2">
-                          <div className="text-white text-sm font-semibold flex items-center gap-2">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-                            </svg>
-                            View in 3D
-                          </div>
-                        </div>
-                        <p className="text-white/80 text-xs text-center">
-                          Click to interact with 3D model
-                        </p>
-                      </div>
-                      
-                      {/* Product Type Badge */}
-                      <div className={`absolute top-3 left-3 px-3 py-1 rounded-full border text-xs font-semibold backdrop-blur-sm ${getProductTypeColor(design.productType)}`}>
-                        {design.productType}
-                      </div>
-                      
-                      {/* 3D/2D Badge */}
-                      <div className="absolute top-3 right-3">
-                        {threeDProducts.includes(design.productType) ? (
-                          <div className="flex items-center gap-1 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
-                            <MdOutline3dRotation className="text-blue-400 text-xs" />
-                            <span className="text-xs text-gray-300">3D</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
-                            <MdOutlineImage className="text-green-400 text-xs" />
-                            <span className="text-xs text-gray-300">2D</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {/* Saved Time */}
-                      <div className="absolute bottom-3 right-3 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
-                        <div className="text-xs text-gray-300 font-medium">
-                          {getTimeOfDay(design.createdAt)}
+                  <div className="w-full h-full relative">
+                    <img
+                      src={getThumbnailUrl(design)}
+                      alt={design.name}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        console.error('❌ Image failed:', design.name);
+                        const target = e.target as HTMLImageElement;
+                        target.style.opacity = '0.5';
+                      }}
+                      onLoad={() => {
+                        console.log('✅ Image loaded:', design.name);
+                      }}
+                    />
+                    
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
+                      <div className="bg-black/60 backdrop-blur-sm rounded-lg p-3 mb-2">
+                        <div className="text-white text-sm font-semibold flex items-center gap-2">
+                          <FiEye className="w-4 h-4" />
+                          View Design
                         </div>
                       </div>
                     </div>
-                  ) : (
-                    // When there's NO thumbnail at all - show minimal preview (NO EMOJIS)
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900 p-4">
-                      <div className="text-center">
-                        <div className="text-sm text-gray-300 font-medium mb-1">{design.productType}</div>
-                        <div className="text-xs text-gray-500 mb-2">No preview available</div>
-                        <div className="text-xs text-gray-400">{design.name}</div>
+                    
+                    <div className={`absolute top-3 left-3 px-3 py-1 rounded-full border text-xs font-semibold backdrop-blur-sm ${getProductTypeColor(design.productType)}`}>
+                      {design.productType}
+                    </div>
+                    
+                    <div className="absolute top-3 right-3">
+                      {threeDProducts.includes(design.productType) ? (
+                        <div className="flex items-center gap-1 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
+                          <MdOutline3dRotation className="text-blue-400 text-xs" />
+                          <span className="text-xs text-gray-300">3D</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
+                          <MdOutlineImage className="text-green-400 text-xs" />
+                          <span className="text-xs text-gray-300">2D</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="absolute bottom-3 right-3 bg-gray-900/80 backdrop-blur-sm px-2 py-1 rounded-lg">
+                      <div className="text-xs text-gray-300 font-medium">
+                        {getTimeOfDay(design.createdAt)}
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
 
-                {/* Design Info */}
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1 min-w-0">
@@ -1017,7 +907,6 @@ const fetchDesigns = async () => {
                     </div>
                   </div>
 
-                  {/* Store Info */}
                   <div className="flex items-center gap-3 mb-5 p-3 bg-gray-700/30 rounded-xl border border-gray-600/50">
                     <div className="relative">
                       <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden border border-gray-500">
@@ -1039,7 +928,6 @@ const fetchDesigns = async () => {
                     </div>
                   </div>
 
-                  {/* Actions */}
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleUseDesign(design)}
@@ -1047,13 +935,6 @@ const fetchDesigns = async () => {
                     >
                       <FiShoppingCart className="text-lg group-hover/order:scale-110 transition-transform" />
                       Order Now
-                    </button>
-                    <button
-                      onClick={() => handleDuplicateDesign(design)}
-                      className="p-3 hover:bg-gray-700 rounded-xl text-gray-400 hover:text-white transition-all duration-200 border border-gray-600 hover:border-gray-500"
-                      title="Duplicate Design"
-                    >
-                      <FiCopy />
                     </button>
                     <button
                       onClick={() => handleDownload(design)}
@@ -1083,104 +964,8 @@ const fetchDesigns = async () => {
             ))}
           </div>
         )}
-
-        {/* Design Preview Modal */}
-        {selectedDesign && (
-          <div 
-            className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300"
-            onClick={() => setSelectedDesign(null)}
-          >
-            <div 
-              className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-2xl border border-gray-700 w-full max-w-6xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6 border-b border-gray-700 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-white">{selectedDesign.name}</h3>
-                  <p className="text-gray-400 text-sm">
-                    {selectedDesign.productType} • {selectedDesign.color}
-                    <span className="ml-3 text-xs bg-gray-700 px-2 py-1 rounded">
-                      {formatDate(selectedDesign.createdAt)} at {getTimeOfDay(selectedDesign.createdAt)}
-                    </span>
-                  </p>
-                </div>
-                <button
-                  onClick={() => setSelectedDesign(null)}
-                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="flex-1 overflow-hidden p-6">
-                <div className="h-[500px] rounded-xl overflow-hidden border border-gray-600">
-                  {threeDProducts.includes(selectedDesign.productType) ? (
-                    // 3D PREVIEW MODAL - Uses originalImage to recreate the design
-                    <ThreeDModelViewerModal design={selectedDesign} />
-                  ) : (
-                    // 2D Preview
-                    <Product2DPreviewModal
-                      decalImage={selectedDesign.customization?.originalImage || selectedDesign.thumbnail || ''}
-                      backgroundColor={selectedDesign.color}
-                      dimensions={selectedDesign.customization?.productDimensions}
-                      position={selectedDesign.customization?.position ? 
-                        [selectedDesign.customization.position.x, selectedDesign.customization.position.y] as [number, number] : 
-                        [0.5, 0.5]
-                      }
-                      scale={selectedDesign.customization?.scale || 0.5}
-                    />
-                  )}
-                </div>
-              </div>
-              
-              <div className="p-6 border-t border-gray-700">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="bg-gray-700/30 rounded-lg p-4">
-                    <div className="text-sm text-gray-400 mb-1">Position</div>
-                    <div className="text-white font-medium">
-                      X: {selectedDesign.customization?.position?.x?.toFixed(2) || '0.50'}, 
-                      Y: {selectedDesign.customization?.position?.y?.toFixed(2) || '0.50'}
-                    </div>
-                  </div>
-                  <div className="bg-gray-700/30 rounded-lg p-4">
-                    <div className="text-sm text-gray-400 mb-1">Scale</div>
-                    <div className="text-white font-medium">
-                      {selectedDesign.customization?.scale?.toFixed(2) || '1.00'}x
-                    </div>
-                  </div>
-                  <div className="bg-gray-700/30 rounded-lg p-4">
-                    <div className="text-sm text-gray-400 mb-1">Saved</div>
-                    <div className="text-white font-medium">
-                      {formatDate(selectedDesign.createdAt)}
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex justify-end gap-3">
-                  <button
-                    onClick={() => handleUseDesign(selectedDesign)}
-                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white font-semibold rounded-xl transition-all duration-200"
-                  >
-                    <FiShoppingCart className="inline mr-2" />
-                    Order This Design
-                  </button>
-                  <button
-                    onClick={() => handleDownload(selectedDesign)}
-                    disabled={downloadingId === selectedDesign._id}
-                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-semibold rounded-xl transition-all duration-200 border border-gray-600 disabled:opacity-50"
-                  >
-                    {downloadingId === selectedDesign._id ? 'Downloading...' : 'Download PNG'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={showDeleteDialog}
         onClose={() => {
@@ -1193,6 +978,13 @@ const fetchDesigns = async () => {
         confirmText="Delete"
         confirmColor="red"
       />
+
+      {selectedDesign && (
+        <PreviewModal
+          design={selectedDesign}
+          onClose={() => setSelectedDesign(null)}
+        />
+      )}
     </DashboardLayout>
   );
 };

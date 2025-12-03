@@ -9,6 +9,7 @@ import Cropper from 'react-easy-crop';
 import { saveDesign } from "@/lib/savedDesigns";
 import { useAuth } from "@/context/AuthContext";
 import html2canvas from 'html2canvas';
+import { toast } from "react-toastify";
 
 // --- TYPES ---
 interface CropArea {
@@ -982,236 +983,91 @@ const Customize: React.FC = () => {
   };
 
   // FIXED: COMPLETE handleSaveAndProceed function with proper thumbnail capture
-  const handleSaveAndProceed = async () => {
-    if (!selectedProduct || !selectedColor || !preview || !user) {
-      setNotification("Please complete your design first.");
+ const handleSaveAndProceed = async () => {
+  if (!selectedProduct || !selectedColor || !preview || !user) {
+    setNotification("Please complete your design first.");
+    return;
+  }
+
+  try {
+    setIsSaving(true);
+    
+    let storeId = localStorage.getItem("customerStoreId") || location.state?.storeId;
+    
+    if (!storeId) {
+      setNotification("Please select a store first.");
+      setTimeout(() => navigate("/customer/select-shop"), 2000);
       return;
     }
 
-    try {
-      setIsSaving(true);
-      
-      // Get storeId
-      let storeId = 
-        localStorage.getItem("customerStoreId") ||
-        location.state?.storeId ||
-        null;
-
-      if (!storeId) {
-        setNotification("Please select a store first. Redirecting to store selection...");
-        setTimeout(() => {
-          navigate("/customer/select-shop");
-        }, 2000);
+    console.log("💾 SAVING DESIGN...");
+    
+    let dataUrlForSaving = preview;
+    
+    if (preview.startsWith('blob:')) {
+      console.log("Converting blob URL to data URL...");
+      try {
+        const response = await fetch(preview);
+        const blob = await response.blob();
+        dataUrlForSaving = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        console.log("✅ Converted to data URL, length:", dataUrlForSaving.length);
+      } catch (error) {
+        console.error("❌ Conversion failed:", error);
+        setNotification("Failed to process image. Please try again.");
         return;
       }
-
-      console.log("📸 CAPTURING EXACT DESIGN VIEW FOR THUMBNAIL...");
-      
-      // CAPTURE 1: Front-facing thumbnail (what user sees in editor)
-      let frontViewThumbnail = "";
-      
-      try {
-        // Wait for everything to render
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        if (currentProductInfo?.type === '3d') {
-          console.log("🔄 Capturing front view of 3D model...");
-          
-          // IMPORTANT: Reset camera to front view before capturing
-          const canvas = document.querySelector('canvas');
-          if (canvas) {
-            console.log("✅ Found canvas, capturing front view...");
-            
-            // Capture from the canvas itself - it already shows the front view
-            const captureCanvas = document.createElement('canvas');
-            captureCanvas.width = 800; // Good thumbnail size
-            captureCanvas.height = 600;
-            const ctx = captureCanvas.getContext('2d');
-            
-            if (ctx) {
-              // Fill with nice gradient background
-              const gradient = ctx.createLinearGradient(0, 0, 800, 600);
-              gradient.addColorStop(0, '#1e293b');
-              gradient.addColorStop(1, '#0f172a');
-              ctx.fillStyle = gradient;
-              ctx.fillRect(0, 0, 800, 600);
-              
-              // Calculate dimensions to fit while maintaining aspect ratio
-              const canvasAspect = canvas.width / canvas.height;
-              const thumbnailAspect = 800 / 600;
-              
-              let drawWidth, drawHeight, offsetX, offsetY;
-              
-              if (canvasAspect > thumbnailAspect) {
-                // Canvas is wider than thumbnail
-                drawWidth = 800;
-                drawHeight = 800 / canvasAspect;
-                offsetX = 0;
-                offsetY = (600 - drawHeight) / 2;
-              } else {
-                // Canvas is taller than thumbnail
-                drawHeight = 600;
-                drawWidth = 600 * canvasAspect;
-                offsetX = (800 - drawWidth) / 2;
-                offsetY = 0;
-              }
-              
-              // Enable high-quality rendering
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = 'high';
-              
-              // Draw the canvas (this is the front view the user sees)
-              ctx.drawImage(canvas, offsetX, offsetY, drawWidth, drawHeight);
-              
-              // Add a nice border
-              ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-              ctx.lineWidth = 2;
-              ctx.strokeRect(offsetX, offsetY, drawWidth, drawHeight);
-              
-              // Add subtle shadow
-              ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-              ctx.shadowBlur = 20;
-              ctx.shadowOffsetX = 0;
-              ctx.shadowOffsetY = 10;
-              ctx.fillRect(offsetX, offsetY, drawWidth, drawHeight);
-              ctx.shadowColor = 'transparent';
-              ctx.shadowBlur = 0;
-              
-              // Add product label
-              ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-              ctx.font = 'bold 16px Arial';
-              ctx.textAlign = 'center';
-              ctx.fillText(selectedProduct, 400, 30);
-              
-              frontViewThumbnail = captureCanvas.toDataURL('image/png', 1.0);
-              console.log('✅ Front view thumbnail captured:', frontViewThumbnail.substring(0, 100) + '...');
-              
-              // Save thumbnail to localStorage for testing
-              localStorage.setItem('lastThumbnail', frontViewThumbnail);
-            }
-          } else {
-            console.warn('⚠️ No canvas found for thumbnail capture');
-            // Create a fallback thumbnail
-            frontViewThumbnail = await createFallbackThumbnail(selectedProduct, selectedColor, preview);
-          }
-        } else {
-          // For 2D products
-          console.log("🖼️ Capturing 2D thumbnail...");
-          const containerId = `2d-preview-${selectedProduct}-${selectedColor}`;
-          const previewContainer = document.getElementById(containerId);
-          
-          if (previewContainer) {
-            const canvas = await html2canvas(previewContainer as HTMLElement, {
-              backgroundColor: '#1e293b',
-              scale: 2,
-              useCORS: true,
-              allowTaint: true,
-              logging: false
-            });
-            
-            frontViewThumbnail = canvas.toDataURL('image/png', 1.0);
-            console.log('✅ 2D thumbnail captured');
-          } else {
-            frontViewThumbnail = await createFallbackThumbnail(selectedProduct, selectedColor, preview);
-          }
-        }
-      } catch (captureError) {
-        console.error('❌ Thumbnail capture error:', captureError);
-        // Create a fallback thumbnail
-        frontViewThumbnail = await createFallbackThumbnail(selectedProduct, selectedColor, preview);
-      }
-
-      // CAPTURE 2: Original uploaded image (for recreation in preview modal)
-      const originalImage = preview;
-      
-      // Convert thumbnail to File
-      console.log("🔄 Converting thumbnail to file...");
-      let thumbnailFile: File;
-      try {
-        const response = await fetch(frontViewThumbnail);
-        const blob = await response.blob();
-        thumbnailFile = new File([blob], `thumbnail-${selectedProduct}-${Date.now()}.png`, { 
-          type: "image/png" 
-        });
-        console.log("✅ Thumbnail file created:", thumbnailFile.name, thumbnailFile.size, "bytes");
-      } catch (fileError) {
-        console.error("❌ Error creating thumbnail file:", fileError);
-        throw new Error("Failed to create thumbnail file");
-      }
-
-      // Convert original image to File
-      console.log("🔄 Converting original image to file...");
-      let originalFile: File;
-      try {
-        const response = await fetch(originalImage);
-        const blob = await response.blob();
-        originalFile = new File([blob], `original-${selectedProduct}-${Date.now()}.png`, { 
-          type: "image/png" 
-        });
-        console.log("✅ Original file created:", originalFile.name, originalFile.size, "bytes");
-      } catch (fileError) {
-        console.error("❌ Error creating original file:", fileError);
-        throw new Error("Failed to create original design file");
-      }
-
-      // Prepare design data - THUMBNAIL is the front view capture!
-      const designData = {
-        productType: selectedProduct,
-        color: selectedColor,
-        storeId,
-        customization: {
-          position: currentProductInfo?.type === '3d' ? 
-            { x: draggablePosition[0], y: draggablePosition[1] } : 
-            { x: decal2DPosition[0], y: decal2DPosition[1] },
-          scale: currentProductInfo?.type === '3d' ? decal3DScale : decal2DScale,
-          // Store 3D position
-          ...(currentProductInfo?.type === '3d' && {
-            decalPosition3D: {
-              x: decal3DPosition[0],
-              y: decal3DPosition[1],
-              z: decal3DPosition[2]
-            }
-          }),
-          // Store 2D dimensions
-          ...(currentProductInfo?.type === '2d' && {
-            productDimensions: currentProductInfo.dimensions
-          }),
-          // Store the original uploaded image FOR THE PREVIEW MODAL
-          originalImage: originalImage
-        },
-        name: `My ${selectedProduct} Design`,
-        thumbnail: frontViewThumbnail, // This is the FRONT VIEW CAPTURE!
-        tags: ['custom', selectedProduct.toLowerCase().replace(' ', '-'), selectedColor]
-      };
-
-      console.log("📦 Saving design with:", {
-        productType: designData.productType,
-        color: designData.color,
-        thumbnailSize: frontViewThumbnail.length,
-        hasOriginalImage: !!designData.customization.originalImage
-      });
-
-      // Save to backend
-      await saveDesign(designData, originalFile, thumbnailFile);
-      
-      console.log("✅ Design saved successfully!");
-      
-      // Show success message
-      setNotification("Design saved successfully!");
-      
-      // Close modal and navigate
-      handleCloseModal();
-      setTimeout(() => {
-        navigate("/dashboard/saved-designs");
-      }, 500);
-      
-    } catch (error) {
-      console.error("❌ Error saving design:", error);
-      setNotification("Failed to save design. Please try again.");
-    } finally {
-      setIsSaving(false);
     }
-  };
+
+    const response = await fetch(dataUrlForSaving);
+    const blob = await response.blob();
+    const designFile = new File([blob], `design-${selectedProduct}-${Date.now()}.png`, {
+      type: "image/png"
+    });
+
+    const thumbnailFile = new File([blob], `thumbnail-${selectedProduct}-${Date.now()}.png`, {
+      type: "image/png"
+    });
+
+    const designData = {
+      productType: selectedProduct,
+      color: selectedColor,
+      storeId,
+      customization: {
+        position: currentProductInfo?.type === '3d' 
+          ? { x: draggablePosition[0], y: draggablePosition[1] }
+          : { x: decal2DPosition[0], y: decal2DPosition[1] },
+        scale: currentProductInfo?.type === '3d' ? decal3DScale : decal2DScale,
+        // CRITICAL: Save as data URL for thumbnails to work
+        originalImage: dataUrlForSaving
+      },
+      name: `My ${selectedProduct} Design`,
+      tags: ['custom', selectedProduct.toLowerCase().replace(' ', '-'), selectedColor]
+    };
+
+    console.log("📦 Saving design with data URL:", {
+      dataUrlLength: dataUrlForSaving.length,
+      dataUrlPreview: dataUrlForSaving.substring(0, 100)
+    });
+
+    await saveDesign(designData, designFile, thumbnailFile);
+    
+    toast.success("✅ Design saved!");
+    
+    setTimeout(() => {
+      navigate("/dashboard/saved-designs");
+    }, 1000);
+    
+  } catch (error) {
+    console.error("❌ Save failed:", error);
+    setNotification("Failed to save design. Please try again.");
+  } finally {
+    setIsSaving(false);
+  }
+};
 
   useEffect(() => {
     useGLTF.preload("/models/mug.glb");

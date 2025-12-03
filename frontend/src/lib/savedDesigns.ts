@@ -25,9 +25,12 @@ export interface SavedDesign {
     productDimensions?: { width: number; height: number };
     originalImage?: string;
   };
-  thumbnail?: string | any;
+  thumbnail?: string;
   thumbnailUrl?: string;
   designUrl?: string;
+  originalImageUrl?: string;
+  is3DProduct?: boolean;
+  is2DProduct?: boolean;
   tags: string[];
   viewCount: number;
   lastViewedAt?: string;
@@ -52,162 +55,90 @@ export interface SaveDesignData {
   tags?: string[];
 }
 
-// Helper to clean URLs - prevent double /api/
-const cleanApiUrl = (url: string): string => {
-  if (!url) return url;
-  // Remove double /api/ if present
-  return url.replace(/\/api\/api\//g, '/api/');
-};
-
-// Get the base URL without duplicate /api/
 const getBaseUrl = (): string => {
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-  // Ensure base URL doesn't end with /api/ if we're going to add it manually
-  if (baseUrl.endsWith('/api')) {
-    return baseUrl.slice(0, -4);
-  }
-  return baseUrl;
+  return baseUrl.replace(/\/$/, '');
 };
 
-// ENHANCED thumbnail URL resolver - FIXED
-export const getThumbnailUrl = (design: SavedDesign): string | null => {
-  if (!design) return null;
+export const getThumbnailUrl = (design: SavedDesign): string => {
+  if (!design || !design._id) return '';
   
-  console.log("🔍 Getting thumbnail for:", design.name, {
-    hasDesignFile: !!design.designFile?.fileId,
-    hasThumbnail: !!design.thumbnail,
-    thumbnailType: typeof design.thumbnail,
-    hasThumbnailUrl: !!design.thumbnailUrl,
-    hasOriginalImage: !!design.customization?.originalImage
-  });
+  console.log(`🖼️ Getting thumbnail for: ${design.name}`);
   
-  const baseUrl = getBaseUrl();
-  
-  // Priority 1: Already resolved thumbnailUrl (backend URL)
-  if (design.thumbnailUrl && design.thumbnailUrl !== 'null') {
-    return cleanApiUrl(design.thumbnailUrl);
-  }
-  
-  // Priority 2: Direct thumbnail field - check if it's a data URL
-  if (design.thumbnail) {
-    if (typeof design.thumbnail === 'string') {
-      // If it's a data URL (uploaded image) - return as-is
-      if (design.thumbnail.startsWith('data:image/')) {
-        return design.thumbnail;
-      }
-      
-      // If it's already a full URL - clean it
-      if (design.thumbnail.startsWith('http')) {
-        return cleanApiUrl(design.thumbnail);
-      }
-      
-      // If it looks like an ObjectId (24 character hex string)
-      if (/^[0-9a-fA-F]{24}$/.test(design.thumbnail)) {
-        // Construct proper URL
-        return `${baseUrl}/api/saved-designs/${design.user}/thumbnail/${design.thumbnail}`;
-      }
-    }
-    
-    // If thumbnail is an object (MongoDB ObjectId)
-    if (typeof design.thumbnail === 'object') {
-      const thumbnailStr = design.thumbnail.toString();
-      if (thumbnailStr !== '[object Object]' && /^[0-9a-fA-F]{24}$/.test(thumbnailStr)) {
-        return `${baseUrl}/api/saved-designs/${design.user}/thumbnail/${thumbnailStr}`;
-      }
-    }
-  }
-  
-  // Priority 3: Original image from customization
+  // 1. FIRST: Use original uploaded image (data URL) if available
   if (design.customization?.originalImage) {
-    if (design.customization.originalImage.startsWith('data:image/') || 
-        design.customization.originalImage.startsWith('http')) {
-      return cleanApiUrl(design.customization.originalImage);
+    const img = design.customization.originalImage;
+    if (img.startsWith('data:image/')) {
+      console.log('✅ Using original image data URL');
+      return img;
     }
   }
   
-  // Priority 4: Design image file as fallback (THIS IS THE UPLOADED IMAGE)
-  if (design.designFile?.fileId) {
-    return `${baseUrl}/api/saved-designs/${design._id}/image`;
-  }
-  
-  console.log("❌ No valid thumbnail source found for:", design.name);
-  return null;
-};
-
-// Helper to get the ORIGINAL UPLOADED image
-export const getOriginalImageUrl = (design: SavedDesign): string | null => {
-  if (!design) return null;
-  
+  // 2. SECOND: Try backend image endpoint
   const baseUrl = getBaseUrl();
   
-  // Get the actual uploaded design file
-  if (design.designFile?.fileId) {
-    return `${baseUrl}/api/saved-designs/${design._id}/image`;
+  // Try multiple endpoint formats
+  const endpoints = [
+    `${baseUrl}/api/saved-designs/${design._id}/image`,
+    `${baseUrl}/api/saved-designs/${design._id}/image/download`,
+    design.designFile?.fileId ? `${baseUrl}/api/uploads/${design.designFile.fileId}` : ''
+  ];
+  
+  for (const endpoint of endpoints) {
+    if (endpoint && endpoint.includes('http')) {
+      console.log(`🔄 Trying endpoint: ${endpoint}`);
+      return endpoint;
+    }
   }
   
-  return null;
+  // 3. FALLBACK: Default endpoint
+  return `${baseUrl}/api/saved-designs/${design._id}/image`;
 };
 
-// Helper to convert data URL to Blob
-function dataURLtoBlob(dataURL: string): Blob {
-  try {
-    const arr = dataURL.split(',');
-    const mimeMatch = arr[0].match(/:(.*?);/);
-    if (!mimeMatch) throw new Error('Invalid data URL');
-    
-    const mime = mimeMatch[1];
-    const bstr = atob(arr[1]);
-    const n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    
-    for (let i = 0; i < n; i++) {
-      u8arr[i] = bstr.charCodeAt(i);
-    }
-    
-    return new Blob([u8arr], { type: mime });
-  } catch (error) {
-    console.error('Error converting data URL to blob:', error);
-    throw error;
+export const getOriginalImageUrl = (design: SavedDesign): string => {
+  if (!design) return '';
+  
+  if (design.customization?.originalImage) {
+    return design.customization.originalImage;
   }
-}
+  
+  const baseUrl = getBaseUrl();
+  return `${baseUrl}/api/saved-designs/${design._id}/image`;
+};
 
-// Save a new design
 export const saveDesign = async (
   designData: SaveDesignData,
   designFile: File,
   thumbnailFile?: File
 ): Promise<SavedDesign> => {
   console.log("🖼️ SAVE DESIGN - Starting...");
+  console.log("📸 Original image size:", designData.customization?.originalImage?.length || 0);
   
   const formData = new FormData();
   
-  // Add design data
+  // Basic design data
   formData.append("productType", designData.productType);
   formData.append("color", designData.color);
   formData.append("storeId", designData.storeId);
   
   if (designData.name) formData.append("name", designData.name);
   
-  // Ensure originalImage is in customization
+  // IMPORTANT: Send customization WITH originalImage (data URL)
+  // Backend now has fieldSize limit to handle it
   if (designData.customization) {
-    if (!designData.customization.originalImage && designData.thumbnail) {
-      designData.customization.originalImage = designData.thumbnail;
-    }
+    console.log("💾 Saving customization WITH originalImage");
+    console.log("📏 Original image preview:", designData.customization.originalImage?.substring(0, 100) || 'none');
     formData.append("customization", JSON.stringify(designData.customization));
   }
   
-  // Add design file (required)
+  // Add design file
   formData.append("designFile", designFile);
+  console.log("📁 Design file:", designFile.name, designFile.size, "bytes");
   
-  // Handle thumbnail
+  // Add thumbnail if provided
   if (thumbnailFile) {
     formData.append("thumbnail", thumbnailFile);
-  } else if (designData.thumbnail && designData.thumbnail.startsWith('data:image/')) {
-    // Convert thumbnail data URL to blob if not provided as file
-    const thumbnailBlob = dataURLtoBlob(designData.thumbnail);
-    const thumbnailFilename = `thumbnail-${Date.now()}.png`;
-    const thumbnailFileFromBlob = new File([thumbnailBlob], thumbnailFilename, { type: 'image/png' });
-    formData.append("thumbnail", thumbnailFileFromBlob);
+    console.log("🖼️ Thumbnail file:", thumbnailFile.name, thumbnailFile.size, "bytes");
   }
   
   if (designData.tags && designData.tags.length > 0) {
@@ -219,55 +150,64 @@ export const saveDesign = async (
       headers: { 
         "Content-Type": "multipart/form-data",
       },
+      // Increase timeout for large data URLs
+      timeout: 30000,
     });
     
-    console.log("✅ Design saved successfully!", response.data);
+    console.log("✅ Design saved successfully!");
+    console.log("📦 Response:", {
+      id: response.data._id,
+      name: response.data.name,
+      hasCustomization: !!response.data.customization,
+      hasOriginalImage: !!response.data.customization?.originalImage
+    });
     
     const savedDesign = response.data;
     
-    // Ensure the saved design has a thumbnail URL
-    if (!savedDesign.thumbnailUrl) {
-      savedDesign.thumbnailUrl = getThumbnailUrl(savedDesign);
-    }
+    // Set thumbnail URL
+    savedDesign.thumbnailUrl = getThumbnailUrl(savedDesign);
     
     return savedDesign;
   } catch (error: any) {
     console.error("❌ ERROR SAVING DESIGN:", error);
     
     if (error.response) {
-      console.error("Backend response:", error.response.data);
+      console.error("Backend response status:", error.response.status);
+      console.error("Backend response data:", error.response.data);
+      
+      if (error.response.status === 500) {
+        throw new Error("Server error: " + (error.response.data.message || "Please try again"));
+      }
+    } else if (error.code === 'ECONNABORTED') {
+      throw new Error("Request timeout. The image might be too large. Try a smaller image.");
     }
     
     throw error;
   }
 };
 
-// Get all designs for current user
 export const getMyDesigns = async (): Promise<SavedDesign[]> => {
   try {
     const response = await api.get("/saved-designs");
     const designs = response.data;
     
-    console.log("📦 Raw designs from API:", designs.map((d: SavedDesign) => ({
-      name: d.name,
-      productType: d.productType,
-      hasDesignFile: !!d.designFile?.fileId,
-      thumbnailType: typeof d.thumbnail,
-      thumbnail: typeof d.thumbnail === 'string' ? d.thumbnail.substring(0, 50) : 'Object',
-      customization: !!d.customization?.originalImage
-    })));
+    console.log(`📦 Received ${designs.length} designs from API`);
     
-    // Process designs to ensure they have proper thumbnail URLs
+    // Debug each design
+    designs.forEach((design: SavedDesign, index: number) => {
+      console.log(`${index + 1}. ${design.name} (${design.productType})`, {
+        hasOriginalImage: !!design.customization?.originalImage,
+        originalImageLength: design.customization?.originalImage?.length || 0,
+        designFile: design.designFile?.fileId ? 'Yes' : 'No',
+        thumbnailUrl: getThumbnailUrl(design)
+      });
+    });
+    
+    // Process designs
     const processedDesigns = designs.map((design: SavedDesign) => {
-      const processedDesign = { ...design };
-      
-      // Get thumbnail URL using our enhanced resolver
-      const thumbnailUrl = getThumbnailUrl(processedDesign);
-      if (thumbnailUrl) {
-        processedDesign.thumbnailUrl = thumbnailUrl;
-      }
-      
-      return processedDesign;
+      const processed = { ...design };
+      processed.thumbnailUrl = getThumbnailUrl(processed);
+      return processed;
     });
     
     return processedDesigns;
@@ -277,19 +217,13 @@ export const getMyDesigns = async (): Promise<SavedDesign[]> => {
   }
 };
 
-// Get single design by ID
 export const getDesignById = async (id: string): Promise<SavedDesign> => {
   const response = await api.get(`/saved-designs/${id}`);
   const design = response.data;
-  
-  if (!design.thumbnailUrl) {
-    design.thumbnailUrl = getThumbnailUrl(design);
-  }
-  
+  design.thumbnailUrl = getThumbnailUrl(design);
   return design;
 };
 
-// Update design metadata
 export const updateDesign = async (
   id: string, 
   data: { name?: string; tags?: string[] }
@@ -298,13 +232,11 @@ export const updateDesign = async (
   return response.data;
 };
 
-// Delete design
 export const deleteDesign = async (id: string): Promise<{ message: string }> => {
   const response = await api.delete(`/saved-designs/${id}`);
   return response.data;
 };
 
-// Download design image
 export const downloadDesignImage = async (id: string): Promise<string> => {
   const response = await api.get(`/saved-designs/${id}/image`, {
     responseType: "blob",
@@ -313,7 +245,6 @@ export const downloadDesignImage = async (id: string): Promise<string> => {
   return URL.createObjectURL(response.data);
 };
 
-// Convert design to order
 export const convertDesignToOrder = async (
   id: string, 
   data: { serviceId: string; quantity: number; notes?: string }
