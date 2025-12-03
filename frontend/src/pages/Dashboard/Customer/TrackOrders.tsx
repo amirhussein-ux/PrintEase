@@ -358,7 +358,7 @@ export default function TrackOrders() {
                     const qs = params.toString();
                     navigate(`/dashboard/my-orders${qs ? `?${qs}` : ''}`, { replace: false });
                   }}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${
+                  className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${
                     active
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-500/25'
                       : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-md dark:bg-gray-800/50 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700/60 dark:hover:border-gray-500'
