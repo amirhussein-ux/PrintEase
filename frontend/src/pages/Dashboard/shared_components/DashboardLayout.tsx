@@ -81,7 +81,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ role, children }) => 
         <div className="relative flex min-h-screen w-full bg-transparent">
         <AppSidebar isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode((prev) => !prev)} />
         <SidebarInset className="relative flex min-h-screen flex-1 flex-col overflow-x-hidden bg-transparent p-0">
-          <div aria-hidden className={`absolute inset-0 -z-10 pointer-events-none transition-colors duration-500 ${isDarkMode ? 'bg-slate-950' : 'bg-neutral-100'}`} />
+          <div aria-hidden className={`absolute inset-0 -z-10 pointer-events-none ${isDarkMode ? 'bg-slate-950' : 'bg-neutral-100'}`} />
           <div className="relative z-10 flex min-h-screen flex-col px-0">
             <DashboardHeader
               role={role}
