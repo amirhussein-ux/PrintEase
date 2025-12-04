@@ -578,6 +578,13 @@ const OwnerChat: React.FC = () => {
     return `${message.chatId || 'chat'}-${message.createdAt}-${payloadLabel}-${unique}`;
   }, []);
 
+  const handleSelectParticipant = React.useCallback((p: Participant) => {
+    setSelectedParticipant(p);
+    setMessages([]);
+    setParticipants(prev => prev.map(x => x.chatId === p.chatId ? { ...x, unreadCount: 0 } : x));
+    setIsMobileChatView(true);
+  }, []);
+
   const registerStoreMembers = React.useCallback((entries: Array<{ id?: string | null; name?: string | null }>) => {
     if (!entries?.length) return;
     setStoreMemberDirectory(prev => {
@@ -605,13 +612,6 @@ const OwnerChat: React.FC = () => {
     const fallbackName = user?.fullName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You';
     registerStoreMembers([{ id: currentUserId, name: fallbackName }]);
   }, [currentUserId, user?.fullName, user?.firstName, user?.lastName, registerStoreMembers]);
-
-  const handleSelectParticipant = React.useCallback((p: Participant) => {
-    setSelectedParticipant(p);
-    setMessages([]);
-    setParticipants(prev => prev.map(x => x.chatId === p.chatId ? { ...x, unreadCount: 0 } : x));
-    setIsMobileChatView(true);
-  }, []);
 
   React.useEffect(() => {
     if (!pendingChatFocus) return;
