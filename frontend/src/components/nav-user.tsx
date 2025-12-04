@@ -80,8 +80,8 @@ export function NavUser({
     ? "hover:bg-white/10 hover:text-white active:bg-white/10 active:text-white active:border-white/20"
     : "hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 active:text-gray-900 active:border-gray-300"
   const navUserThemeClasses = isDarkMode
-    ? "bg-gray-900 text-white border border-gray-700 focus-visible:ring-white/70 focus-visible:ring-offset-gray-900 transition-colors"
-    : "bg-white text-gray-900 border border-gray-200 focus-visible:ring-blue-500 focus-visible:ring-offset-white transition-colors"
+    ? "bg-gray-900 text-white border border-gray-700 focus-visible:ring-white/70 focus-visible:ring-offset-gray-900"
+    : "bg-white text-gray-900 border border-gray-200 focus-visible:ring-blue-500 focus-visible:ring-offset-white"
   const navUserOpenStateClasses = isDarkMode
     ? "data-[state=open]:bg-white/10 data-[state=open]:text-white data-[state=open]:border-white/20 data-[state=open]:hover:bg-white/10 data-[state=open]:hover:text-white data-[state=open]:font-semibold"
     : "data-[state=open]:bg-gray-200 data-[state=open]:text-gray-900 data-[state=open]:border-gray-300 data-[state=open]:hover:bg-gray-200 data-[state=open]:hover:text-gray-900 data-[state=open]:font-semibold"

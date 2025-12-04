@@ -14,13 +14,13 @@ import { toast } from "react-toastify";
 // Theme Variables for consistent dark/light mode - WHITE THEME
 const PANEL_SURFACE = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 const SOFT_PANEL = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white";
-const INPUT_SURFACE = "rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400";
+const INPUT_SURFACE = "rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400";
 const MUTED_TEXT = "text-gray-600 dark:text-gray-300";
 const MUTED_TEXT_LIGHT = "text-gray-500 dark:text-gray-400";
-const BACKGROUND_GRADIENT = "bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800";
+const BACKGROUND_GRADIENT = "bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white";
 const CARD_BACKGROUND = "bg-white dark:bg-gray-800";
 const CARD_BORDER = "border border-gray-200 dark:border-gray-700";
-const CARD_HOVER = "hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xl transition-all duration-300";
+const CARD_HOVER = "hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xl";
 const BUTTON_PRIMARY = "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700";
 const BUTTON_SECONDARY = "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-500";
 const BUTTON_FILTER_ACTIVE = "bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700";
@@ -300,7 +300,7 @@ function Product2DPreview({
 
         {decalImage && (
           <div
-            className="absolute border-2 border-blue-400/50 rounded-lg overflow-hidden transition-all duration-200"
+            className="absolute border-2 border-blue-400/50 rounded-lg overflow-hidden"
             style={{
               width: imageWidth,
               height: imageHeight,
@@ -430,7 +430,7 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
           >
             <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -483,7 +483,7 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
               <div className="flex items-center gap-4">
                 <button
                   onClick={handleRotateLeft}
-                  className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
+                  className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl"
                 >
                   <svg className="w-5 h-5 text-gray-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
@@ -503,7 +503,7 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
                 
                 <button
                   onClick={handleRotateRight}
-                  className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
+                  className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl"
                 >
                   <svg className="w-5 h-5 text-gray-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
@@ -521,14 +521,14 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
         <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 font-semibold text-gray-700 dark:text-white transition-colors"
+            className="px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 font-semibold text-gray-700 dark:text-white"
           >
             Cancel
           </button>
           <button
             onClick={handleApplyCrop}
             disabled={isProcessing}
-            className={`${BUTTON_PRIMARY} px-6 py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
+            className={`${BUTTON_PRIMARY} px-6 py-3 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
           >
             {isProcessing ? (
               <>
@@ -678,25 +678,25 @@ function DraggablePositionControl({ position, onChange, productType, productName
 
         <div className="absolute top-1/4 left-1/4">
           <div 
-            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
+            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer transform transition-transform duration-200 hover:scale-150"
             onClick={() => handleDotClick([0.25, 0.75])}
           />
         </div>
         <div className="absolute top-1/4 left-3/4">
           <div 
-            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
+            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer transform transition-transform duration-200 hover:scale-150"
             onClick={() => handleDotClick([0.75, 0.75])}
           />
         </div>
         <div className="absolute top-3/4 left-1/4">
           <div 
-            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
+            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer transform transition-transform duration-200 hover:scale-150"
             onClick={() => handleDotClick([0.25, 0.25])}
           />
         </div>
         <div className="absolute top-3/4 left-3/4">
           <div 
-            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
+            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer transform transition-transform duration-200 hover:scale-150"
             onClick={() => handleDotClick([0.75, 0.25])}
           />
         </div>
@@ -1110,14 +1110,14 @@ const Customize: React.FC = () => {
             </div>
 
             <div className="mt-6 flex justify-center">
-              <div className="inline-flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-700">
+              <div className="inline-flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-700 gap-2">
                 <button
                   onClick={() => {
                     setActiveTab('3d');
                     setSelectedProduct(null);
                     setSelectedColor(null);
                   }}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  className={`px-6 py-3 rounded-lg font-medium ${
                     activeTab === '3d'
                       ? `${BUTTON_PRIMARY} shadow-lg`
                       : `${BUTTON_FILTER_INACTIVE}`
@@ -1136,7 +1136,7 @@ const Customize: React.FC = () => {
                     setSelectedProduct(null);
                     setSelectedColor(null);
                   }}
-                  className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  className={`px-6 py-3 rounded-lg font-medium ${
                     activeTab === '2d'
                       ? `${BUTTON_PRIMARY} shadow-lg`
                       : `${BUTTON_FILTER_INACTIVE}`
@@ -1171,7 +1171,7 @@ const Customize: React.FC = () => {
                       id="product-select" 
                       value={selectedProduct || ""} 
                       onChange={(e) => handleProductSelect(e.target.value)}
-                      className={`${INPUT_SURFACE} w-full p-3 font-medium transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-600`}
+                      className={`${INPUT_SURFACE} w-full p-3 font-medium hover:bg-gray-50 dark:hover:bg-gray-600`}
                     >
                       <option value="" disabled className="text-gray-400">Choose a product...</option>
                       {activeTab === '3d' 
@@ -1193,7 +1193,7 @@ const Customize: React.FC = () => {
                           onDragOver={handleDragOver}
                           onDragLeave={handleDragLeave}
                           onDrop={handleDrop}
-                          className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${
+                          className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer ${
                             isDraggingOver 
                               ? `${DROPZONE_ACTIVE} scale-[1.02]` 
                               : `${DROPZONE_BORDER} ${DROPZONE_HOVER} hover:bg-gray-50 dark:hover:bg-gray-700/50`
@@ -1254,7 +1254,7 @@ const Customize: React.FC = () => {
                               <button 
                                 key={colorName} 
                                 onClick={() => handleColorSelect(colorName)}
-                                className={`w-10 h-10 rounded-xl border-3 transition-all duration-200 transform hover:scale-110 shadow-lg ${
+                                className={`w-10 h-10 rounded-xl border-3 transform transition-transform duration-200 hover:scale-110 shadow-lg ${
                                   selectedColor === colorName 
                                     ? 'border-blue-400 scale-110 ring-2 ring-blue-400/30' 
                                     : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400'
@@ -1333,7 +1333,7 @@ const Customize: React.FC = () => {
                       <button 
                         type="button" 
                         onClick={handleReset} 
-                        className={`${BUTTON_FILTER_INACTIVE} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2`}
+                        className={`${BUTTON_FILTER_INACTIVE} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-sm hover:shadow-md flex items-center justify-center gap-2`}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1344,7 +1344,7 @@ const Customize: React.FC = () => {
                         type="button" 
                         onClick={handleBuy} 
                         disabled={!selectedProduct}
-                        className={`${BUTTON_PRIMARY} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                        className={`${BUTTON_PRIMARY} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -1359,7 +1359,7 @@ const Customize: React.FC = () => {
               <main className="flex-1 flex items-start justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-2xl border border-gray-300 dark:border-gray-700 p-6 shadow-2xl relative">
                 {selectedProduct && currentProductInfo && currentProductInfo.type === '3d' && (
                   <div className="absolute top-4 right-4 z-10">
-                    <label className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all duration-200">
+                    <label className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={autoRotate}
@@ -1472,12 +1472,12 @@ const Customize: React.FC = () => {
 
       {(showModal || modalClosing) && createPortal(
         <div 
-          className={`fixed inset-0 ${MODAL_OVERLAY} backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300 ${
+          className={`fixed inset-0 ${MODAL_OVERLAY} backdrop-blur-sm flex items-center justify-center z-50 ${
             modalClosing ? 'opacity-0' : 'opacity-100'
           }`}
         >
           <div 
-            className={`${PANEL_SURFACE} w-full max-w-md mx-4 transform transition-all duration-300 ${
+            className={`${PANEL_SURFACE} w-full max-w-md mx-4 transform ${
               modalClosing 
                 ? 'scale-95 opacity-0 translate-y-4' 
                 : 'scale-100 opacity-100 translate-y-0'
@@ -1498,7 +1498,7 @@ const Customize: React.FC = () => {
                 </div>
                 <button 
                   onClick={handleCloseModal}
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg duration-200"
                 >
                   <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1582,7 +1582,7 @@ const Customize: React.FC = () => {
               <div className="flex gap-3">
                 <button 
                   onClick={handleCloseModal}
-                  className={`${BUTTON_FILTER_INACTIVE} flex-1 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2`}
+                  className={`${BUTTON_FILTER_INACTIVE} flex-1 py-3 rounded-xl font-medium text-sm flex items-center justify-center gap-2`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1592,7 +1592,7 @@ const Customize: React.FC = () => {
                 <button 
                   onClick={handleSaveAndProceed}
                   disabled={isSaving}
-                  className={`${BUTTON_PRIMARY} flex-1 py-3 rounded-xl font-medium text-sm shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                  className={`${BUTTON_PRIMARY} flex-1 py-3 rounded-xl font-medium text-sm shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {isSaving ? (
                     <>

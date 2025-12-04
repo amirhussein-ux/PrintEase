@@ -110,11 +110,18 @@ exports.getCustomerChatMessages = async (req, res) => {
 exports.addCustomerChatMessage = async (req, res) => {
   try {
     const { chatId } = req.params;
-    const { senderId, text, fileUrl, fileName } = req.body;
+    const { senderId, text, fileUrl, fileName, payloadType, payload } = req.body;
     if (!chatId || !senderId) return res.status(400).json({ message: "chatId and senderId required" });
     const chat = await CustomerChat.findById(chatId);
     if (!chat) return res.status(404).json({ message: "Chat not found" });
-    const message = await chat.appendMessage({ senderId, text: text || "", fileUrl: fileUrl || null, fileName: fileName || null });
+    const message = await chat.appendMessage({
+      senderId,
+      text: text || "",
+      fileUrl: fileUrl || null,
+      fileName: fileName || null,
+      payloadType: payloadType || undefined,
+      payload: payload || undefined,
+    });
 
     // AUDIT LOG: Chat Message Sent
     await logAudit(req, { _id: chat.storeId }, 'message', 'chat', chatId, {

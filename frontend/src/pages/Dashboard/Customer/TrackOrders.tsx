@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import type { ChangeEvent, DragEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
 import DashboardLayout from '../../Dashboard/shared_components/DashboardLayout';
 import jsPDF from 'jspdf';
 import logoDark from '../../../assets/PrintEase-logo-dark.png';
 import { useSocket } from '../../../context/SocketContext';
+import { useAuth } from '../../../context/AuthContext';
 import api from '../../../lib/api';
 
 type OrderStatus = 'pending' | 'processing' | 'ready' | 'completed' | 'cancelled';
+type FilterValue = 'all' | OrderStatus | 'return_refund';
 
 type SelectedOption = { label: string; optionIndex?: number; optionName?: string; priceDelta?: number };
 type OrderItem = {
@@ -21,6 +24,24 @@ type OrderItem = {
   selectedOptions?: SelectedOption[];
 };
 type OrderFile = { fileId: string; filename?: string; mimeType?: string; size?: number };
+type ReturnRequestChatForward = {
+  chatId?: string;
+  anchorId?: string;
+  messageId?: string;
+  forwardedAt?: string;
+};
+
+type ReturnRequest = {
+  reason: string;
+  details?: string;
+  status: 'pending' | 'approved' | 'denied';
+  submittedAt?: string;
+  reviewedAt?: string;
+  reviewer?: string;
+  reviewNotes?: string;
+  evidence?: OrderFile[];
+  chatForward?: ReturnRequestChatForward;
+};
 type Order = {
   _id: string;
   user: string;
@@ -50,14 +71,17 @@ type Order = {
     ready?: string;
     completed?: string;
   };
+  returnRequest?: ReturnRequest;
+  storeName?: string;
 };
 
-const FILTERS: { label: string; value: 'all' | OrderStatus }[] = [
+const FILTERS: { label: string; value: FilterValue }[] = [
   { label: 'All Orders', value: 'all' },
   { label: 'Pending', value: 'pending' },
   { label: 'Processing', value: 'processing' },
   { label: 'Ready For Pick-up', value: 'ready' },
   { label: 'Completed', value: 'completed' },
+  { label: 'Return / Refund', value: 'return_refund' },
   { label: 'Cancelled', value: 'cancelled' },
 ];
 
@@ -115,15 +139,33 @@ const TRACK_FILTER_BAR = 'flex flex-wrap gap-3 rounded-2xl p-3 shadow-lg border 
 const TRACK_CARD = 'rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl dark:border-slate-700 dark:bg-slate-900/70 dark:text-white';
 const TRACK_SUBCARD = 'rounded-xl border border-gray-200 bg-gray-50 text-gray-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200';
 const TRACK_PILL_MUTED = 'text-xs px-2 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-600 dark:border-gray-500 dark:bg-gray-800/60 dark:text-gray-300';
-const TRACK_INPUT_BUTTON = 'px-4 py-2.5 rounded-xl text-sm font-medium border transition-all duration-200';
+const TRACK_INPUT_BUTTON = 'px-4 py-2.5 rounded-xl text-sm font-medium border';
 const TRACK_QR_SECTION = 'p-6 rounded-xl border border-indigo-100 bg-indigo-50 text-gray-800 shadow-inner dark:border-indigo-500/40 dark:bg-slate-950/80 dark:text-white';
 const TRACK_QR_MESSAGE = 'flex items-center gap-3 text-sm text-indigo-700 dark:text-indigo-100';
+const MAX_RETURN_EVIDENCE = 6;
+const RETURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+type ReturnWindowState = { expired: boolean; expiresAt: Date | null; completedAt: Date | null };
+
+function resolveCompletionTimestamp(order: Order): string | undefined {
+  return order.stageTimestamps?.completed || order.updatedAt || order.stageTimestamps?.ready || order.createdAt;
+}
+
+function getReturnWindowState(order: Order): ReturnWindowState {
+  if (order.status !== 'completed') return { expired: false, expiresAt: null, completedAt: null };
+  const completedIso = resolveCompletionTimestamp(order);
+  if (!completedIso) return { expired: false, expiresAt: null, completedAt: null };
+  const completedAt = new Date(completedIso);
+  if (Number.isNaN(completedAt.getTime())) return { expired: false, expiresAt: null, completedAt: null };
+  const expiresAt = new Date(completedAt.getTime() + RETURN_WINDOW_MS);
+  return { expired: Date.now() > expiresAt.getTime(), expiresAt, completedAt };
+}
 
 export default function TrackOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState<'all' | OrderStatus>('all');
+  const [activeFilter, setActiveFilter] = useState<FilterValue>('all');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelTargetId, setCancelTargetId] = useState<string | null>(null);
@@ -132,11 +174,23 @@ export default function TrackOrders() {
   const [openQR, setOpenQR] = useState<Record<string, boolean>>({});
   // Keep refs to QR canvases for download/fullscreen
   const qrCanvasRefs = useRef<Record<string, HTMLCanvasElement | null>>({});
+  const returnEvidenceInputRef = useRef<HTMLInputElement | null>(null);
   // Which order's QR is enlarged in a modal (null = none)
   const [enlargeQrFor, setEnlargeQrFor] = useState<string | null>(null);
   // Receipt modal
   const [showReceiptFor, setShowReceiptFor] = useState<string | null>(null);
+  const [returnRequestFor, setReturnRequestFor] = useState<string | null>(null);
+  const [viewReturnRequestFor, setViewReturnRequestFor] = useState<string | null>(null);
+  const [returnReason, setReturnReason] = useState('');
+  const [returnDetails, setReturnDetails] = useState('');
+  const [returnEvidenceFiles, setReturnEvidenceFiles] = useState<File[]>([]);
+  const [isReturnDropActive, setIsReturnDropActive] = useState(false);
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [evidencePreview, setEvidencePreview] = useState<{ open: boolean; loading: boolean; fileName?: string; mime?: string; url?: string; error?: string }>({ open: false, loading: false });
+  const evidencePreviewUrlRef = useRef<string | null>(null);
   const { socket } = useSocket();
+  const { user } = useAuth();
+  const [contactingReturnId, setContactingReturnId] = useState<string | null>(null);
   const [storeCache, setStoreCache] = useState<Record<string, { name: string; addressLine?: string; city?: string; state?: string; country?: string; postal?: string; mobile?: string }>>({});
   const location = useLocation();
   const navigate = useNavigate();
@@ -186,8 +240,8 @@ export default function TrackOrders() {
       setActiveFilter('all');
       return;
     }
-    if (['pending','processing','ready','completed','cancelled'].includes(status)) {
-      setActiveFilter(status as OrderStatus);
+    if (['pending','processing','ready','completed','cancelled','return_refund'].includes(status)) {
+      setActiveFilter(status as FilterValue);
     } else if (status === 'all') {
       setActiveFilter('all');
     }
@@ -243,15 +297,36 @@ export default function TrackOrders() {
   }, [showReceiptFor, orders, getStoreInfo]);
 
   const counts = useMemo(() => {
-    const map: Record<string, number> = { all: orders.length, pending: 0, processing: 0, ready: 0, completed: 0, cancelled: 0 };
+    const map: Record<FilterValue, number> = {
+      all: orders.length,
+      pending: 0,
+      processing: 0,
+      ready: 0,
+      completed: 0,
+      cancelled: 0,
+      return_refund: 0,
+    };
     for (const o of orders) {
-      map[o.status] = (map[o.status] || 0) + 1;
+      const hasReturnRequest = Boolean(o.returnRequest);
+      if (!(o.status === 'completed' && hasReturnRequest)) {
+        map[o.status] = (map[o.status] || 0) + 1;
+      }
+      if (o.paymentStatus === 'refunded' || hasReturnRequest) {
+        map.return_refund += 1;
+      }
     }
-    return map as Record<'all' | OrderStatus, number>;
+    return map;
   }, [orders]);
 
   const filtered = useMemo(() => {
     if (activeFilter === 'all') return orders;
+    if (activeFilter === 'return_refund') {
+      const list = orders.filter((o) => o.paymentStatus === 'refunded' || Boolean(o.returnRequest));
+      return sortReturnRefundOrders(list);
+    }
+    if (activeFilter === 'completed') {
+      return orders.filter((o) => o.status === 'completed' && !o.returnRequest);
+    }
     return orders.filter((o) => o.status === activeFilter);
   }, [orders, activeFilter]);
 
@@ -288,6 +363,255 @@ export default function TrackOrders() {
     setShowCancelModal(true);
   }
 
+  const openReturnModal = (orderId: string) => {
+    setReturnRequestFor(orderId);
+    setReturnReason('');
+    setReturnDetails('');
+    setReturnEvidenceFiles([]);
+    if (returnEvidenceInputRef.current) returnEvidenceInputRef.current.value = '';
+  };
+
+  const closeReturnModal = () => {
+    setReturnRequestFor(null);
+    setReturnReason('');
+    setReturnDetails('');
+    setReturnEvidenceFiles([]);
+    setIsReturnDropActive(false);
+    if (returnEvidenceInputRef.current) returnEvidenceInputRef.current.value = '';
+    setReturnSubmitting(false);
+  };
+
+  const revokeEvidencePreviewUrl = () => {
+    if (evidencePreviewUrlRef.current) {
+      URL.revokeObjectURL(evidencePreviewUrlRef.current);
+      evidencePreviewUrlRef.current = null;
+    }
+  };
+
+  const closeEvidencePreview = () => {
+    revokeEvidencePreviewUrl();
+    setEvidencePreview({ open: false, loading: false });
+  };
+
+  const previewEvidenceFile = async (orderId: string, file: OrderFile) => {
+    if (!file?.fileId) return;
+    revokeEvidencePreviewUrl();
+    setEvidencePreview({
+      open: true,
+      loading: true,
+      fileName: file.filename || 'Attachment',
+      mime: file.mimeType,
+      url: undefined,
+      error: undefined,
+    });
+    try {
+      const res = await api.get(`/orders/${orderId}/return-request/evidence/${file.fileId}`, { responseType: 'blob' });
+      const blob: Blob = res.data instanceof Blob
+        ? res.data
+        : new Blob([res.data], { type: res.headers['content-type'] || file.mimeType || 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      evidencePreviewUrlRef.current = url;
+      setEvidencePreview(prev => ({ ...prev, loading: false, url, mime: blob.type || prev.mime }));
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setEvidencePreview(prev => ({ ...prev, loading: false, error: e?.response?.data?.message || e?.message || 'Failed to preview file' }));
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      revokeEvidencePreviewUrl();
+    };
+  }, []);
+
+  const handleSubmitReturn = async () => {
+    if (!returnRequestFor || !returnReason.trim()) {
+      setToast({ type: 'error', message: 'Please select a reason for your return/refund request.' });
+      return;
+    }
+
+    if (!returnDetails.trim()) {
+      setToast({ type: 'error', message: 'Please provide details so we can review the request.' });
+      return;
+    }
+
+    if (!returnEvidenceFiles.length) {
+      setToast({ type: 'error', message: 'Please attach at least one photo or video.' });
+      return;
+    }
+    try {
+      setReturnSubmitting(true);
+      const payload = new FormData();
+      payload.append('reason', returnReason.trim());
+      if (returnDetails.trim()) payload.append('details', returnDetails.trim());
+      returnEvidenceFiles.forEach((file) => {
+        payload.append('evidence', file);
+      });
+      const res = await api.post(`/orders/${returnRequestFor}/return-request`, payload);
+      if (res?.data?._id) {
+        setOrders((prev) => prev.map((order) => (order._id === res.data._id ? res.data : order)));
+      }
+      setActiveFilter('return_refund');
+      setToast({ type: 'success', message: 'Return/refund request sent. We will reach out shortly.' });
+      closeReturnModal();
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setToast({ type: 'error', message: e?.response?.data?.message || e?.message || 'Unable to submit return request' });
+      setReturnSubmitting(false);
+    }
+  };
+
+  const openReturnRequestChat = (order: Order, override?: { chatId?: string; anchorId?: string }) => {
+    const existingForward = order.returnRequest?.chatForward;
+    const chatId = override?.chatId || existingForward?.chatId;
+    if (!chatId) {
+      setToast({ type: 'error', message: 'We could not find the chat thread for this return request yet.' });
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selectedStoreId', order.store);
+    }
+    const params = new URLSearchParams();
+    params.set('chatId', chatId);
+    params.set('focusOrder', order._id);
+    const anchorId = override?.anchorId || existingForward?.anchorId;
+    if (anchorId) params.set('focusAnchor', anchorId);
+    setViewReturnRequestFor(null);
+    navigate(`/dashboard/chat-customer?${params.toString()}`);
+  };
+
+  const forwardReturnRequestToChat = async (order: Order, options?: { redirectToChat?: boolean }) => {
+    if (!user?._id) {
+      setToast({ type: 'error', message: 'Please sign in again to contact the store.' });
+      return;
+    }
+    if (!socket) {
+      setToast({ type: 'error', message: 'Chat service is currently unavailable. Please try again shortly.' });
+      return;
+    }
+    if (!order.returnRequest) {
+      setToast({ type: 'error', message: 'There is no return/refund request linked to this order.' });
+      return;
+    }
+    try {
+      setContactingReturnId(order._id);
+      const chatRes = await api.post('/customer-chat/create', { customerId: user._id, storeId: order.store });
+      const chatSummary = chatRes.data as { _id?: string; chatId?: string };
+      const chatId = chatSummary?._id || chatSummary?.chatId;
+      if (!chatId) throw new Error('Unable to resolve chat session.');
+      const storeInfo = await getStoreInfo(order.store);
+      const anchorId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const payload = {
+        orderId: order._id,
+        orderShortId: shortId(order._id),
+        status: order.returnRequest.status,
+        reason: order.returnRequest.reason,
+        details: order.returnRequest.details,
+        submittedAt: order.returnRequest.submittedAt,
+        evidenceCount: order.returnRequest.evidence?.length ?? 0,
+        storeName: storeInfo?.name,
+        anchorId,
+        evidence: (order.returnRequest.evidence || []).map((file) => ({
+          fileId: String(file.fileId),
+          filename: file.filename,
+          mimeType: file.mimeType,
+          size: file.size,
+        })),
+      };
+      const fallbackText = `Shared return/refund request for ${payload.orderShortId || 'your order'}.`;
+      socket.emit('sendCustomerMessage', {
+        chatId,
+        senderId: user._id,
+        text: fallbackText,
+        payloadType: 'return_request',
+        payload,
+      });
+      try {
+        const markRes = await api.patch(`/orders/${order._id}/return-request/chat-forward`, { chatId, anchorId });
+        const updatedOrder: Order | undefined = markRes?.data?._id ? markRes.data : undefined;
+        if (updatedOrder) {
+          setOrders((prev) => prev.map((o) => (o._id === updatedOrder._id ? updatedOrder : o)));
+        } else {
+          setOrders((prev) => prev.map((o) => (o._id === order._id ? {
+            ...o,
+            returnRequest: o.returnRequest
+              ? { ...o.returnRequest, chatForward: { chatId, anchorId, forwardedAt: new Date().toISOString() } }
+              : o.returnRequest,
+          } : o)));
+        }
+      } catch (markErr) {
+        console.warn('Failed to record chat forwarding metadata', markErr);
+      }
+      setToast({ type: 'success', message: 'Return request forwarded to the store chat.' });
+      if (options?.redirectToChat) {
+        openReturnRequestChat(order, { chatId, anchorId });
+      }
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setToast({ type: 'error', message: e?.response?.data?.message || e?.message || 'Failed to contact store.' });
+    } finally {
+      setContactingReturnId(null);
+    }
+  };
+
+  const handleReturnEvidenceSelect = (files: FileList | null) => {
+    if (!files?.length) return;
+
+    const acceptedFiles = Array.from(files).filter((file) => {
+      const isSupportedType = file.type.startsWith('image/') || file.type.startsWith('video/');
+      const isUnderSizeLimit = file.size <= 10 * 1024 * 1024; // 10MB per file
+      return isSupportedType && isUnderSizeLimit;
+    });
+
+    if (!acceptedFiles.length) return;
+
+    setReturnEvidenceFiles((prev) => {
+      const availableSlots = Math.max(0, MAX_RETURN_EVIDENCE - prev.length);
+      return [...prev, ...acceptedFiles.slice(0, availableSlots)];
+    });
+
+    if (returnEvidenceInputRef.current) {
+      returnEvidenceInputRef.current.value = '';
+    }
+  };
+
+  const handleReturnEvidenceInputChange = (event: ChangeEvent<HTMLInputElement>) => {
+    handleReturnEvidenceSelect(event.target.files);
+  };
+
+  const handleReturnEvidenceDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsReturnDropActive(false);
+    handleReturnEvidenceSelect(event.dataTransfer.files);
+  };
+
+  const handleReturnEvidenceDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!isReturnDropActive) setIsReturnDropActive(true);
+  };
+
+  const handleReturnEvidenceDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (isReturnDropActive) setIsReturnDropActive(false);
+  };
+
+  const handleRemoveReturnEvidenceFile = (index: number) => {
+    setReturnEvidenceFiles((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const formatEvidenceSize = (size: number) => {
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isReturnFormValid = returnReason.trim().length > 0 && returnDetails.trim().length > 0 && returnEvidenceFiles.length > 0;
+
   async function confirmCancel() {
     const id = cancelTargetId;
     if (!id) return;
@@ -322,7 +646,7 @@ export default function TrackOrders() {
       <div className={TRACK_PAGE_WRAPPER}>
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-20 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform transition-all duration-300
+        <div className={`fixed top-20 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform
             ${toast.type === 'error' ? 'bg-gradient-to-r from-red-600/90 to-red-700/90 border-red-400/50 text-white' : 'bg-gradient-to-r from-emerald-600/90 to-emerald-700/90 border-emerald-400/50 text-white'}`}>
           <div className="flex-shrink-0">
             {toast.type === 'error' ? (
@@ -358,7 +682,7 @@ export default function TrackOrders() {
                     const qs = params.toString();
                     navigate(`/dashboard/my-orders${qs ? `?${qs}` : ''}`, { replace: false });
                   }}
-                  className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${
+                  className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border-2 ${
                     active
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-500/25'
                       : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-md dark:bg-gray-800/50 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700/60 dark:hover:border-gray-500'
@@ -412,8 +736,10 @@ export default function TrackOrders() {
             const first = o.items[0];
             const total = o.subtotal ?? first?.totalPrice ?? 0;
             const currency = o.currency || first?.currency || 'PHP';
+            const returnWindow = getReturnWindowState(o);
+            const canRequestReturn = o.status === 'completed' && !o.returnRequest && o.paymentStatus !== 'refunded';
             return (
-              <div key={o._id} className={`${TRACK_CARD} p-6 shadow-xl hover:shadow-2xl transition-all duration-300`}>
+              <div key={o._id} className={`${TRACK_CARD} p-6 shadow-xl hover:shadow-2xl`}>
                 <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                   {/* Left Content */}
                   <div className="flex-1 min-w-0 space-y-4">
@@ -421,13 +747,18 @@ export default function TrackOrders() {
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                       <div className="flex items-center gap-3">
                         <div className="text-gray-900 font-bold text-lg tracking-wide dark:text-white">{shortId(o._id)}</div>
-                        <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${statusBadgeClasses(o.status)}`}>
+                          <span className={`text-xs font-semibold px-3 py-1.5 rounded-full border ${statusBadgeClasses(o.status)}`}>
                           {o.status === 'pending' && 'Not yet Started'}
                           {o.status === 'processing' && 'In Progress'}
                           {o.status === 'ready' && 'Ready For Pick-up'}
                           {o.status === 'completed' && 'Completed'}
                           {o.status === 'cancelled' && 'Cancelled'}
                         </span>
+                          {o.returnRequest && (
+                            <span className={`ml-2 text-[11px] px-2 py-1 rounded-full border ${returnRequestStatusBadge(o.returnRequest.status)}`}>
+                              {returnRequestStatusLabel(o.returnRequest.status)}
+                            </span>
+                          )}
                       </div>
                       <div className="text-xs text-gray-500 font-mono tabular-nums bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200 dark:text-gray-400 dark:bg-gray-900/50 dark:border-gray-700">
                         {formatDateUTC(o.createdAt)}
@@ -492,7 +823,7 @@ export default function TrackOrders() {
                         <button
                           disabled={updatingId === o._id}
                           onClick={() => cancelOrder(o._id)}
-                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200 ${
+                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border ${
                             updatingId === o._id 
                               ? 'bg-gray-200 border-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:border-gray-600 dark:text-gray-400' 
                               : 'bg-red-600 border-red-600 text-white hover:bg-red-500 hover:shadow-lg hover:shadow-red-500/25'
@@ -507,10 +838,45 @@ export default function TrackOrders() {
                         </button>
                       )}
                       
+                      {canRequestReturn && (
+                        <div className="space-y-1">
+                          <button
+                            onClick={() => {
+                              if (returnWindow.expired) return;
+                              openReturnModal(o._id);
+                            }}
+                            disabled={returnWindow.expired}
+                            className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border ${
+                              returnWindow.expired
+                                ? 'border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'
+                                : 'border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:shadow-md dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-100'
+                            }`}
+                          >
+                            {returnWindow.expired ? 'Return Window Closed' : 'Return / Refund'}
+                          </button>
+                          {returnWindow.expiresAt && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {returnWindow.expired
+                                ? `Return window expired on ${formatDateUTC(returnWindow.expiresAt.toISOString())}.`
+                                : `Return window ends on ${formatDateUTC(returnWindow.expiresAt.toISOString())}.`}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {o.returnRequest && (
+                        <button
+                          onClick={() => setViewReturnRequestFor(o._id)}
+                          className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-600/60 bg-white text-amber-700 hover:bg-amber-50 hover:shadow-md dark:border-amber-300/60 dark:bg-slate-800 dark:text-amber-100"
+                        >
+                          View Return Request
+                        </button>
+                      )}
+
                       {o.status === 'completed' && o.paymentStatus === 'paid' && (
                         <button
                           onClick={() => setShowReceiptFor(o._id)}
-                          className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-green-600 bg-green-600 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/25 transition-all duration-200"
+                          className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-green-600 bg-green-600 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/25"
                         >
                           View Receipt
                         </button>
@@ -552,7 +918,7 @@ export default function TrackOrders() {
                                   alert(e2?.response?.data?.message || e2?.message || 'Download failed');
                                 }
                               }}
-                              className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-500 transition-colors group dark:text-blue-300 dark:hover:text-blue-200"
+                              className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-500 group dark:text-blue-300 dark:hover:text-blue-200"
                               title={f.filename || 'file'}
                             >
                               <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -585,7 +951,7 @@ export default function TrackOrders() {
                         </div>
                         <button
                           onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: true }))}
-                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/25 transition-all duration-200 flex items-center gap-2"
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/25 flex items-center gap-2"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
@@ -627,7 +993,7 @@ export default function TrackOrders() {
                                 alert('Download failed.');
                               }
                             }}
-                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md transition-all duration-200 flex items-center gap-2"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md flex items-center gap-2"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -636,7 +1002,7 @@ export default function TrackOrders() {
                           </button>
                           <button
                             onClick={() => setEnlargeQrFor(o._id)}
-                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md transition-all duration-200 flex items-center gap-2"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md flex items-center gap-2"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
@@ -645,7 +1011,7 @@ export default function TrackOrders() {
                           </button>
                           <button
                             onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: false }))}
-                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-all duration-200 dark:border-gray-600 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white"
                           >
                             Hide
                           </button>
@@ -696,6 +1062,347 @@ export default function TrackOrders() {
         );
       })()}
 
+      {returnRequestFor && (() => {
+        const ord = orders.find((o) => o._id === returnRequestFor);
+        return (
+          <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={closeReturnModal}>
+            <div className={`${TRACK_CARD} relative p-6 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center dark:bg-amber-500/20 dark:text-amber-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Return / Refund Request</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Order {ord ? <span className="font-mono text-blue-600 dark:text-blue-300">{shortId(ord._id)}</span> : ''}</p>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide dark:text-gray-300">Reason</label>
+                  <select
+                    value={returnReason}
+                    onChange={(e) => setReturnReason(e.target.value)}
+                    className={`${TRACK_INPUT_BUTTON} w-full mt-1 bg-white text-gray-900 border-gray-200 dark:bg-slate-900 dark:text-white dark:border-gray-700`}
+                  >
+                    <option value="">Select a reason</option>
+                    <option value="wrong-item">Received wrong item</option>
+                    <option value="damaged">Item damaged / defective</option>
+                    <option value="quality">Quality issues</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide dark:text-gray-300">Details</label>
+                  <textarea
+                    value={returnDetails}
+                    onChange={(e) => setReturnDetails(e.target.value)}
+                    rows={4}
+                    placeholder="Share details that can help us review your request"
+                    className={`${TRACK_INPUT_BUTTON} w-full mt-1 bg-white text-gray-900 border-gray-200 dark:bg-slate-900 dark:text-white dark:border-gray-700`}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide dark:text-gray-300">Photos/Videos</label>
+                  <div
+                    onDragOver={handleReturnEvidenceDragOver}
+                    onDragLeave={handleReturnEvidenceDragLeave}
+                    onDrop={handleReturnEvidenceDrop}
+                    onClick={() => returnEvidenceInputRef.current?.click()}
+                    className={`mt-1 rounded-2xl border-2 border-dashed p-4 text-center transition-colors duration-200 cursor-pointer dark:text-gray-200 ${isReturnDropActive ? 'border-amber-400 bg-amber-50/60 dark:border-amber-300 dark:bg-amber-400/10' : 'border-gray-300 hover:border-amber-300 hover:bg-amber-50/40 dark:border-gray-600 dark:hover:border-amber-300 dark:hover:bg-slate-800/60'}`}
+                  >
+                    <input
+                      ref={returnEvidenceInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,video/*"
+                      onChange={handleReturnEvidenceInputChange}
+                      className="hidden"
+                    />
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="w-12 h-12 rounded-full bg-white/70 text-amber-600 flex items-center justify-center shadow-sm dark:bg-slate-800/80">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1M4 12l6-6m0 0l6 6m-6-6v12" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Drag & drop files</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">or click to browse up to {MAX_RETURN_EVIDENCE} images/videos (10MB each)</p>
+                      </div>
+                    </div>
+                  </div>
+                  {returnEvidenceFiles.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {returnEvidenceFiles.length} of {MAX_RETURN_EVIDENCE} attachments selected
+                      </p>
+                      <ul className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {returnEvidenceFiles.map((file, index) => (
+                          <li key={`${file.name}-${index}`} className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white/80 px-3 py-2 text-left text-sm dark:border-gray-700 dark:bg-slate-800/60">
+                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-amber-50 text-amber-600 dark:bg-amber-400/20">
+                              {file.type.startsWith('video') ? (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.868v4.264a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                </svg>
+                              ) : (
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4-4a2 2 0 012.828 0L16 17m-2-2l1-1a2 2 0 012.828 0L20 16m-6-11h4a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h4" />
+                                </svg>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{file.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{file.type || 'File'} · {formatEvidenceSize(file.size)}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleRemoveReturnEvidenceFile(index);
+                              }}
+                              className="text-xs font-semibold text-red-600 hover:text-red-500 dark:text-red-300"
+                              aria-label="Remove file"
+                            >
+                              Remove
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 flex items-center gap-3">
+                <button
+                  onClick={closeReturnModal}
+                  className={`flex-1 ${TRACK_INPUT_BUTTON} bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-slate-700`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => void handleSubmitReturn()}
+                  disabled={returnSubmitting || !isReturnFormValid}
+                  className={`flex-1 px-4 py-2 rounded-xl text-white font-semibold ${returnSubmitting || !isReturnFormValid ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:text-gray-300' : 'bg-amber-500 hover:bg-amber-400'}`}
+                >
+                  {returnSubmitting ? 'Sending...' : 'Submit Request'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {viewReturnRequestFor && (() => {
+        const ord = orders.find((o) => o._id === viewReturnRequestFor);
+        const request = ord?.returnRequest;
+        if (!ord || !request) return null;
+        return (
+          <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => setViewReturnRequestFor(null)}>
+            <div className={`${TRACK_CARD} relative p-6 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center dark:bg-amber-500/20 dark:text-amber-200">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                  </svg>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Return / Refund Details</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Order <span className="font-mono text-blue-600 dark:text-blue-300">{shortId(ord._id)}</span></p>
+                </div>
+                <button
+                  onClick={() => setViewReturnRequestFor(null)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="mt-5 space-y-4 text-sm">
+                <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-slate-900/40">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</p>
+                    <p className="text-base font-semibold text-gray-900 dark:text-white">{returnRequestStatusLabel(request.status)}</p>
+                  </div>
+                  <span className={`px-3 py-1 text-xs font-semibold rounded-full border ${returnRequestStatusBadge(request.status)}`}>
+                    {returnRequestStatusLabel(request.status)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-gray-200 bg-white/80 p-4 dark:border-gray-700 dark:bg-slate-900/40">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Reason</p>
+                    <p className="mt-1 font-semibold text-gray-900 dark:text-white">{request.reason}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-white/80 p-4 dark:border-gray-700 dark:bg-slate-900/40">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Submitted</p>
+                    <p className="mt-1 font-semibold text-gray-900 dark:text-white">{formatDateUTC(request.submittedAt)}</p>
+                  </div>
+                </div>
+
+                {request.details && (
+                  <div className="rounded-xl border border-gray-200 bg-white/90 p-4 dark:border-gray-700 dark:bg-slate-900/40">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Details</p>
+                    <p className="mt-2 whitespace-pre-line text-gray-800 dark:text-gray-200">{request.details}</p>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-gray-200 bg-white/80 p-4 dark:border-gray-700 dark:bg-slate-900/40">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Photos/Videos</p>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">{request.evidence?.length || 0} file(s)</span>
+                  </div>
+                  {request.evidence && request.evidence.length > 0 ? (
+                    <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {request.evidence.map((file, idx) => (
+                        <li key={`${String(file.fileId)}-${idx}`}>
+                          <button
+                            type="button"
+                            onClick={() => previewEvidenceFile(ord._id, file)}
+                            className="flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-left transition hover:border-amber-300 hover:bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:border-gray-600 dark:bg-slate-800 dark:hover:border-amber-300 dark:hover:bg-slate-800/80"
+                          >
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-400/20">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+                              </svg>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="truncate font-medium text-gray-900 dark:text-white">{file.filename || 'Attachment'}</p>
+                              <p className="text-[11px] text-gray-500 dark:text-gray-400">{file.mimeType || 'file'} · {file.size ? formatEvidenceSize(file.size) : '—'}</p>
+                            </div>
+                            <span className="text-[10px] font-semibold uppercase text-amber-600 dark:text-amber-200">Preview</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">No files were attached.</p>
+                  )}
+                </div>
+
+                {request.status === 'denied' && (
+                  <div className="rounded-xl border border-red-200 bg-red-50/90 p-4 text-red-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
+                    <p className="text-xs uppercase tracking-wide font-semibold text-red-700 dark:text-red-200">Store's Reason</p>
+                    <p className="mt-2 text-sm font-medium whitespace-pre-line">
+                      {request.reviewNotes?.trim() || 'The store declined your request but did not include additional details.'}
+                    </p>
+                    {request.reviewedAt && (
+                      <p className="mt-2 text-xs text-red-700/80 dark:text-red-200/80">Updated {formatDateUTC(request.reviewedAt)}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-6 space-y-3">
+                {request.status === 'pending' && !request.chatForward?.chatId && (
+                  <button
+                    onClick={() => forwardReturnRequestToChat(ord, { redirectToChat: true })}
+                    disabled={contactingReturnId === ord._id}
+                    className={`${TRACK_INPUT_BUTTON} w-full flex items-center justify-center gap-2 bg-amber-500 text-white border-amber-500 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    {contactingReturnId === ord._id ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Forwarding to chat...
+                      </>
+                    ) : (
+                      'Contact Store'
+                    )}
+                  </button>
+                )}
+                {request.chatForward?.chatId && (
+                  <button
+                    onClick={() => openReturnRequestChat(ord)}
+                    className={`${TRACK_INPUT_BUTTON} w-full flex items-center justify-center gap-2 bg-blue-600 text-white border-blue-600 hover:bg-blue-500`}
+                  >
+                    View in Chat
+                  </button>
+                )}
+                <button
+                  onClick={() => setViewReturnRequestFor(null)}
+                  className={`${TRACK_INPUT_BUTTON} w-full bg-gray-900 text-white border-gray-900 hover:bg-gray-800 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-white`}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {evidencePreview.open && (
+        <div className="fixed inset-0 z-[65] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={closeEvidencePreview}>
+          <div className={`${TRACK_CARD} relative w-full max-w-3xl`} onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={closeEvidencePreview}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Close preview"
+            >
+              ✕
+            </button>
+            <div className="space-y-4 p-2 sm:p-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{evidencePreview.fileName || 'Attachment preview'}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-300">{evidencePreview.mime || 'Attachment'}</p>
+              </div>
+              <div className="min-h-[240px] rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center p-4 dark:border-gray-700 dark:bg-slate-900/60">
+                {evidencePreview.loading ? (
+                  <div className="flex flex-col items-center gap-3 text-gray-500 dark:text-gray-300">
+                    <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-sm">Loading preview…</p>
+                  </div>
+                ) : evidencePreview.error ? (
+                  <p className="text-sm text-red-600 dark:text-red-300">{evidencePreview.error}</p>
+                ) : evidencePreview.url ? (
+                  evidencePreview.mime?.startsWith('video/') ? (
+                    <video controls src={evidencePreview.url} className="max-h-[60vh] w-full rounded-lg" />
+                  ) : evidencePreview.mime?.startsWith('image/') ? (
+                    <img src={evidencePreview.url} alt={evidencePreview.fileName || 'Evidence'} className="max-h-[60vh] w-full object-contain rounded-lg" />
+                  ) : evidencePreview.mime === 'application/pdf' ? (
+                    <iframe title="Attachment preview" src={evidencePreview.url} className="w-full h-[60vh] rounded-lg" />
+                  ) : (
+                    <div className="text-center text-sm text-gray-600 dark:text-gray-300">
+                      Preview unavailable.{' '}
+                      <a className="text-amber-600 underline dark:text-amber-300" href={evidencePreview.url} target="_blank" rel="noreferrer">
+                        Open in new tab
+                      </a>
+                    </div>
+                  )
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-300">No preview available.</p>
+                )}
+              </div>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={closeEvidencePreview}
+                  className={`${TRACK_INPUT_BUTTON} bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-gray-200 dark:border-gray-600`}
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    if (!evidencePreview.url) return;
+                    const a = document.createElement('a');
+                    a.href = evidencePreview.url;
+                    a.download = evidencePreview.fileName || 'attachment';
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                  }}
+                  disabled={!evidencePreview.url || evidencePreview.loading}
+                  className={`${TRACK_INPUT_BUTTON} bg-amber-500 text-white border-amber-500 hover:bg-amber-400 disabled:opacity-60 disabled:cursor-not-allowed`}
+                >
+                  Download
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* QR Modal */}
       {enlargeQrFor && (
         <div
@@ -709,7 +1416,7 @@ export default function TrackOrders() {
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer transition-all duration-200 hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
+              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
               onClick={() => setEnlargeQrFor(null)}
               aria-label="Close"
             >
@@ -756,7 +1463,7 @@ export default function TrackOrders() {
                       console.warn('QR download failed', e);
                     }
                   }}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md transition-all duration-200 flex items-center gap-2"
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -778,7 +1485,7 @@ export default function TrackOrders() {
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal>
             <div className={`${TRACK_CARD} relative p-6 w-[92vw] max-w-md`}>
               <button
-                className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer transition-all duration-200 hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
+                className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
                 onClick={() => setShowReceiptFor(null)}
                 aria-label="Close"
               >
@@ -865,7 +1572,7 @@ export default function TrackOrders() {
                       console.error('PDF receipt failed', err);
                     }
                   }}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-200"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold hover:shadow-lg hover:shadow-blue-500/25"
                 >
                   Download PDF
                 </button>
@@ -877,4 +1584,47 @@ export default function TrackOrders() {
       </div>
     </DashboardLayout>
   );
+}
+
+function returnRequestStatusBadge(status: ReturnRequest['status']) {
+  switch (status) {
+    case 'approved':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-400/40 dark:bg-emerald-400/10 dark:text-emerald-200';
+    case 'denied':
+      return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-200';
+    default:
+      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-200';
+  }
+}
+
+function returnRequestStatusLabel(status: ReturnRequest['status']) {
+  if (status === 'approved') return 'Return Request Approved';
+  if (status === 'denied') return 'Return Request Denied';
+  return 'Return Request Pending';
+}
+
+function returnRefundPriority(order: Order): number {
+  const normalizedStatus = order.returnRequest?.status ? order.returnRequest.status.toLowerCase() : undefined;
+  if (normalizedStatus === 'pending') return 0;
+  if (normalizedStatus === 'approved' || normalizedStatus === 'denied') return 2;
+  if (order.paymentStatus === 'refunded' || normalizedStatus) return 3;
+  return 4;
+}
+
+function sortReturnRefundOrders(list: Order[]): Order[] {
+  return [...list].sort((a, b) => {
+    const diff = returnRefundPriority(a) - returnRefundPriority(b);
+    if (diff !== 0) return diff;
+    const timeA = a.returnRequest?.submittedAt
+      ? new Date(a.returnRequest.submittedAt).getTime()
+      : a.createdAt
+      ? new Date(a.createdAt).getTime()
+      : 0;
+    const timeB = b.returnRequest?.submittedAt
+      ? new Date(b.returnRequest.submittedAt).getTime()
+      : b.createdAt
+      ? new Date(b.createdAt).getTime()
+      : 0;
+    return timeB - timeA;
+  });
 }

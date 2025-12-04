@@ -55,7 +55,7 @@ const StatCard = ({ value, label, icon: Icon, trend }: { value: string; label: s
   const trendColor = trend && trend > 0 ? "text-green-500" : trend && trend < 0 ? "text-red-500" : "text-gray-500 dark:text-gray-400"
   
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 border border-gray-100 dark:border-gray-700 hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-300 group">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 border border-gray-100 dark:border-gray-700 hover:shadow-xl dark:hover:shadow-gray-900/50 group">
       <div className="flex justify-between items-start">
         <div className="flex-1">
           <p className="text-sm font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-2">{label}</p>
@@ -68,7 +68,7 @@ const StatCard = ({ value, label, icon: Icon, trend }: { value: string; label: s
           )}
         </div>
         {Icon && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 ">
             <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           </div>
         )}
@@ -99,7 +99,7 @@ const ProductButtons = ({
       <button
         key="ALL"
         onClick={() => set("ALL")}
-        className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 text-left border-2 ${
+        className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-left border-2 ${
           selected === "ALL"
             ? "bg-blue-600 dark:bg-blue-700 text-white border-blue-600 dark:border-blue-700 shadow-lg"
             : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-md"
@@ -111,7 +111,7 @@ const ProductButtons = ({
         <button
           key={svc._id}
           onClick={() => set(svc._id)}
-          className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 text-left border-2 ${
+          className={`w-full rounded-xl px-4 py-3 text-sm font-semibold text-left border-2 ${
             selected === svc._id
               ? "bg-blue-600 dark:bg-blue-700 text-white border-blue-600 dark:border-blue-700 shadow-lg"
               : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-md"
@@ -139,7 +139,7 @@ const YearSelector = ({ selected, set }: { selected: number; set: (y: number) =>
         <button
           key={y}
           onClick={() => set(y)}
-          className={`w-full rounded-xl py-3 px-4 text-sm font-semibold transition-all duration-200 ${
+          className={`w-full rounded-xl py-3 px-4 text-sm font-semibold ${
             selected === y
               ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-lg"
               : "bg-blue-500 dark:bg-blue-600 text-white hover:bg-blue-400 dark:hover:bg-blue-500"
@@ -164,10 +164,10 @@ const CategoryAccordion = ({
   open: boolean;
   onToggle: () => void;
 }) => (
-  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-300">
+  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl dark:hover:shadow-gray-900/50">
     <button
       onClick={onToggle}
-      className="w-full flex justify-between items-center px-6 py-4 font-bold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+      className="w-full flex justify-between items-center px-6 py-4 font-bold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
       aria-expanded={open}
       aria-controls={`cat-${category}`}
     >
@@ -222,7 +222,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
   const percentage = totalExpected > 0 ? Math.round((totalCurrent / totalExpected) * 100) : 0
 
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col items-center border-2 transition-all duration-300 hover:shadow-xl dark:hover:shadow-gray-900/50 ${
+    <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col items-center border-2 hover:shadow-xl dark:hover:shadow-gray-900/50 ${
       restock 
         ? "border-red-500 dark:border-red-400 animate-pulse bg-red-50 dark:bg-red-900/20" 
         : "border-gray-100 dark:border-gray-700"
@@ -1132,7 +1132,7 @@ const OwnerDashboardContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 max-w-full px-4 sm:px-6 lg:px-8 pt-8 pb-12 text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen max-w-full px-4 sm:px-6 lg:px-8 pt-8 pb-12 text-gray-900 dark:text-gray-100">
       <div className="w-full space-y-8 px-0 sm:px-0 pt-0">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
@@ -1143,7 +1143,7 @@ const OwnerDashboardContent: React.FC = () => {
           <div className="flex gap-3 items-center">
             <button
               onClick={() => setShowAuditTrail(!showAuditTrail)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg dark:shadow-gray-900/30 hover:shadow-xl dark:hover:shadow-gray-900/50 ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold shadow-lg dark:shadow-gray-900/30 hover:shadow-xl dark:hover:shadow-gray-900/50 ${
                 showAuditTrail 
                   ? "bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white" 
                   : "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
@@ -1154,7 +1154,7 @@ const OwnerDashboardContent: React.FC = () => {
             </button>
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg dark:shadow-gray-900/30 hover:shadow-xl dark:hover:shadow-gray-900/50"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg dark:shadow-gray-900/30 hover:shadow-xl dark:hover:shadow-gray-900/50"
             >
               <DocumentChartBarIcon className="w-5 h-5" />
               Generate Report

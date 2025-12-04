@@ -37,6 +37,27 @@ const fileRefSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const returnRequestSchema = new mongoose.Schema(
+  {
+    reason: { type: String, required: true },
+    details: { type: String },
+    status: { type: String, enum: ['pending', 'approved', 'denied'], default: 'pending' },
+    submittedAt: { type: Date, default: Date.now },
+    reviewedAt: { type: Date },
+    reviewer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    evidence: { type: [fileRefSchema], default: [] },
+    reviewNotes: { type: String },
+    chatForward: {
+      chatId: { type: String },
+      anchorId: { type: String },
+      messageId: { type: String },
+      forwardedAt: { type: Date },
+      forwarder: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    },
+  },
+  { _id: false }
+);
+
 const orderSchema = new mongoose.Schema(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // optional for guest
@@ -85,6 +106,7 @@ const orderSchema = new mongoose.Schema(
     ready: { type: Date },
     completed: { type: Date },
   },
+  returnRequest: { type: returnRequestSchema },
   },
   { timestamps: true }
 );
