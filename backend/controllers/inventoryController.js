@@ -1,5 +1,6 @@
 const InventoryItem = require('../models/inventoryItemModel');
 const DeletedInventoryItem = require('../models/deletedInventoryItemModel'); 
+const Service = require('../models/serviceModel'); // Add Service import
 const { getManagedStore, AccessError } = require('../utils/storeAccess');
 
 const STORE_STAFF_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
@@ -10,6 +11,198 @@ const handleError = (res, err) => {
     return res.status(err.statusCode).json({ message: err.message });
   }
   res.status(500).json({ message: err.message });
+};
+
+// ✅ NEW FUNCTION: Get inventory stock for services in a store (public access)
+exports.getStockForServices = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    const { serviceIds } = req.query;
+
+    if (!storeId) {
+      return res.status(400).json({ message: 'storeId is required' });
+    }
+
+    // Get all services for the store
+    const services = await Service.find({ store: storeId, active: true });
+    
+    // If specific service IDs are requested, filter them
+    let filteredServices = services;
+    if (serviceIds) {
+      const idsArray = serviceIds.split(',').map(id => id.trim());
+      filteredServices = services.filter(service => 
+        idsArray.includes(service._id.toString())
+      );
+    }
+
+    // Get inventory stock for each service
+    const stockInfo = await Promise.all(
+      filteredServices.map(async (service) => {
+        let availableStock = null;
+        let stockItemName = null;
+        let stockItemId = null;
+
+        // Check if service has required inventory
+        if (service.requiredInventory) {
+          const inventoryItem = await InventoryItem.findById(service.requiredInventory);
+          if (inventoryItem) {
+            availableStock = Math.floor(inventoryItem.amount / (service.inventoryQuantityPerUnit || 1));
+            stockItemName = inventoryItem.name;
+            stockItemId = inventoryItem._id;
+          }
+        } else {
+          // Fallback: try to find inventory by service name
+          const inventoryItem = await InventoryItem.findOne({ 
+            store: storeId, 
+            name: service.name 
+          });
+          if (inventoryItem) {
+            availableStock = Math.floor(inventoryItem.amount / (service.inventoryQuantityPerUnit || 1));
+            stockItemName = inventoryItem.name;
+            stockItemId = inventoryItem._id;
+          }
+        }
+
+        // Check service variants for inventory-linked options
+        const variantStockInfo = [];
+        if (service.variants && service.variants.length > 0) {
+          for (const variant of service.variants) {
+            for (const option of variant.options) {
+              if (option.linkedInventoryId) {
+                const invItem = await InventoryItem.findById(option.linkedInventoryId);
+                if (invItem) {
+                  variantStockInfo.push({
+                    variantLabel: variant.label,
+                    optionName: option.name,
+                    availableStock: invItem.amount,
+                    stockItemName: invItem.name,
+                    stockItemId: invItem._id
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        return {
+          serviceId: service._id,
+          serviceName: service.name,
+          availableStock: availableStock !== null ? Math.max(0, availableStock) : null, // Ensure non-negative
+          stockItemName,
+          stockItemId,
+          hasStockLimit: availableStock !== null,
+          variantStockInfo: variantStockInfo.length > 0 ? variantStockInfo : undefined,
+          inventoryQuantityPerUnit: service.inventoryQuantityPerUnit || 1
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      storeId,
+      stockInfo
+    });
+  } catch (err) {
+    console.error('Error getting stock for services:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ✅ NEW FUNCTION: Check stock availability before ordering
+exports.checkStockAvailability = async (req, res) => {
+  try {
+    const { storeId, serviceId, quantity, selectedOptions } = req.body;
+
+    if (!storeId || !serviceId || !quantity) {
+      return res.status(400).json({ 
+        message: 'storeId, serviceId, and quantity are required' 
+      });
+    }
+
+    const service = await Service.findById(serviceId);
+    if (!service || String(service.store) !== String(storeId)) {
+      return res.status(404).json({ message: 'Service not found in store' });
+    }
+
+    let availableStock = null;
+    let stockItemName = null;
+    let requiredQuantity = quantity;
+
+    // Calculate required quantity based on inventory per unit
+    const inventoryPerUnit = service.inventoryQuantityPerUnit || 1;
+    requiredQuantity = quantity * inventoryPerUnit;
+
+    // Check if service has required inventory
+    if (service.requiredInventory) {
+      const inventoryItem = await InventoryItem.findById(service.requiredInventory);
+      if (inventoryItem) {
+        availableStock = inventoryItem.amount;
+        stockItemName = inventoryItem.name;
+      }
+    } else {
+      // Fallback: try to find inventory by service name
+      const inventoryItem = await InventoryItem.findOne({ 
+        store: storeId, 
+        name: service.name 
+      });
+      if (inventoryItem) {
+        availableStock = inventoryItem.amount;
+        stockItemName = inventoryItem.name;
+      }
+    }
+
+    // Check variant options for inventory
+    let variantStockIssues = [];
+    if (selectedOptions && selectedOptions.length > 0 && service.variants) {
+      for (const option of selectedOptions) {
+        const variant = service.variants.find(v => v.label === option.label);
+        if (variant && variant.options[option.optionIndex]) {
+          const variantOption = variant.options[option.optionIndex];
+          if (variantOption.linkedInventoryId) {
+            const invItem = await InventoryItem.findById(variantOption.linkedInventoryId);
+            if (invItem) {
+              const requiredForOption = quantity * (variantOption.inventoryQuantity || 1);
+              if (invItem.amount < requiredForOption) {
+                variantStockIssues.push({
+                  variant: variant.label,
+                  option: variantOption.name,
+                  required: requiredForOption,
+                  available: invItem.amount,
+                  stockItemName: invItem.name
+                });
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const canFulfill = availableStock !== null ? availableStock >= requiredQuantity : true;
+    const hasVariantStockIssues = variantStockIssues.length > 0;
+
+    res.json({
+      success: true,
+      canFulfill: canFulfill && !hasVariantStockIssues,
+      serviceId,
+      serviceName: service.name,
+      requestedQuantity: quantity,
+      requiredInventoryQuantity: requiredQuantity,
+      availableStock,
+      stockItemName,
+      hasStockLimit: availableStock !== null,
+      maxAllowed: availableStock !== null ? Math.floor(availableStock / inventoryPerUnit) : null,
+      inventoryPerUnit,
+      variantStockIssues: hasVariantStockIssues ? variantStockIssues : undefined,
+      message: canFulfill && !hasVariantStockIssues 
+        ? 'Stock is available' 
+        : !canFulfill 
+          ? `Insufficient stock. Available: ${Math.floor(availableStock / inventoryPerUnit)} units` 
+          : 'Some variant options have insufficient stock'
+    });
+  } catch (err) {
+    console.error('Error checking stock availability:', err);
+    res.status(500).json({ message: err.message });
+  }
 };
 
 exports.listMyInventory = async (req, res) => {

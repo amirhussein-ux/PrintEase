@@ -3,7 +3,12 @@ import api from "../../../lib/api"
 import "@fontsource/crimson-pro/400.css"
 import "@fontsource/crimson-pro/700.css"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { ExclamationTriangleIcon, ChartBarIcon, CubeIcon, DocumentChartBarIcon } from '@heroicons/react/24/outline'
+import { 
+  ExclamationTriangleIcon, 
+  ChartBarIcon, 
+  CubeIcon, 
+  DocumentChartBarIcon
+} from '@heroicons/react/24/outline'
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
 import logo from "/src/assets/PrintEase-Logo-Dark.png"
@@ -37,23 +42,24 @@ interface AuditLog {
 
 // Constants
 const YEARS = [2025, 2024, 2023, 2022, 2021, 2020]
-const COLORS = ["#1e3a8a", "#60a5fa", "#d1d5db"]
+const COLORS_LIGHT = ["#1e3a8a", "#60a5fa", "#d1d5db"]
+const COLORS_DARK = ["#3b82f6", "#60a5fa", "#93c5fd"]
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
 const FULL_MONTHS: Record<string,string> = {
   Jan: "January", Feb: "February", Mar: "March", Apr: "April", May: "May", Jun: "June",
   Jul: "July", Aug: "August", Sep: "September", Oct: "October", Nov: "November", Dec: "December"
 }
 
-// Enhanced StatCard with modern design
+// Enhanced StatCard with dark mode support
 const StatCard = ({ value, label, icon: Icon, trend }: { value: string; label: string; icon?: React.ComponentType<any>; trend?: number }) => {
-  const trendColor = trend && trend > 0 ? "text-green-500" : trend && trend < 0 ? "text-red-500" : "text-gray-500"
+  const trendColor = trend && trend > 0 ? "text-green-500" : trend && trend < 0 ? "text-red-500" : "text-gray-500 dark:text-gray-400"
   
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all duration-300 group">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 border border-gray-100 dark:border-gray-700 hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-300 group">
       <div className="flex justify-between items-start">
         <div className="flex-1">
-          <p className="text-sm font-medium text-gray-600 uppercase tracking-wide mb-2">{label}</p>
-          <p className="text-2xl font-bold text-gray-900 mb-1">{value}</p>
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-2">{label}</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-white mb-1">{value}</p>
           {trend !== undefined && (
             <div className={`flex items-center text-sm ${trendColor}`}>
               <span>{trend > 0 ? '↑' : trend < 0 ? '↓' : '→'}</span>
@@ -62,8 +68,8 @@ const StatCard = ({ value, label, icon: Icon, trend }: { value: string; label: s
           )}
         </div>
         {Icon && (
-          <div className="p-3 bg-blue-50 rounded-xl group-hover:bg-blue-100 transition-colors">
-            <Icon className="w-6 h-6 text-blue-600" />
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl group-hover:bg-blue-100 dark:group-hover:bg-blue-900/30 transition-colors">
+            <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
           </div>
         )}
       </div>
@@ -73,7 +79,7 @@ const StatCard = ({ value, label, icon: Icon, trend }: { value: string; label: s
 
 type ServiceLite = { _id: string; name: string; active?: boolean }
 
-// Modern Product Selector
+// Modern Product Selector with dark mode
 const ProductButtons = ({
   services,
   selected,
@@ -84,9 +90,9 @@ const ProductButtons = ({
   set: (id: string) => void
 }) => (
   <div className="flex flex-col gap-3 w-full lg:w-64">
-    <div className="bg-blue-600 rounded-2xl p-4 text-white">
+    <div className="bg-blue-600 dark:bg-blue-700 rounded-2xl p-4 text-white">
       <h3 className="font-bold text-lg mb-2">Products</h3>
-      <p className="text-blue-100 text-sm">Filter sales data by service</p>
+      <p className="text-blue-100 dark:text-blue-200 text-sm">Filter sales data by service</p>
     </div>
     
     <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
@@ -95,8 +101,8 @@ const ProductButtons = ({
         onClick={() => set("ALL")}
         className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 text-left border-2 ${
           selected === "ALL"
-            ? "bg-blue-600 text-white border-blue-600 shadow-lg"
-            : "bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:shadow-md"
+            ? "bg-blue-600 dark:bg-blue-700 text-white border-blue-600 dark:border-blue-700 shadow-lg"
+            : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-md"
         }`}
       >
         📊 All Services
@@ -107,8 +113,8 @@ const ProductButtons = ({
           onClick={() => set(svc._id)}
           className={`w-full rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 text-left border-2 ${
             selected === svc._id
-              ? "bg-blue-600 text-white border-blue-600 shadow-lg"
-              : "bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:shadow-md"
+              ? "bg-blue-600 dark:bg-blue-700 text-white border-blue-600 dark:border-blue-700 shadow-lg"
+              : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-500 hover:shadow-md"
           }`}
           title={svc.name}
         >
@@ -119,13 +125,13 @@ const ProductButtons = ({
   </div>
 )
 
-// Modern Year Selector
+// Modern Year Selector with dark mode
 const YearSelector = ({ selected, set }: { selected: number; set: (y: number) => void }) => (
-  <div className="bg-blue-600 rounded-2xl shadow-lg p-6 h-full flex flex-col">
+  <div className="bg-blue-600 dark:bg-blue-700 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 h-full flex flex-col">
     <div className="text-white mb-4">
       <ChartBarIcon className="w-8 h-8 mb-2" />
       <h3 className="text-lg font-bold">Year</h3>
-      <p className="text-blue-100 text-sm">Select reporting period</p>
+      <p className="text-blue-100 dark:text-blue-200 text-sm">Select reporting period</p>
     </div>
     
     <div className="space-y-2 flex-1 overflow-y-auto">
@@ -135,8 +141,8 @@ const YearSelector = ({ selected, set }: { selected: number; set: (y: number) =>
           onClick={() => set(y)}
           className={`w-full rounded-xl py-3 px-4 text-sm font-semibold transition-all duration-200 ${
             selected === y
-              ? "bg-white text-blue-600 shadow-lg"
-              : "bg-blue-500 text-white hover:bg-blue-400"
+              ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-lg"
+              : "bg-blue-500 dark:bg-blue-600 text-white hover:bg-blue-400 dark:hover:bg-blue-500"
           }`}
         >
           {y}
@@ -146,7 +152,7 @@ const YearSelector = ({ selected, set }: { selected: number; set: (y: number) =>
   </div>
 )
 
-// Enhanced Category Accordion
+// Enhanced Category Accordion with dark mode
 const CategoryAccordion = ({
   category,
   items,
@@ -158,25 +164,25 @@ const CategoryAccordion = ({
   open: boolean;
   onToggle: () => void;
 }) => (
-  <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300">
+  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl dark:hover:shadow-gray-900/50 transition-all duration-300">
     <button
       onClick={onToggle}
-      className="w-full flex justify-between items-center px-6 py-4 font-bold text-gray-800 hover:bg-gray-50 transition-colors"
+      className="w-full flex justify-between items-center px-6 py-4 font-bold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
       aria-expanded={open}
       aria-controls={`cat-${category}`}
     >
       <div className="flex items-center gap-3">
-        <CubeIcon className="w-5 h-5 text-blue-600" />
+        <CubeIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
         <span className="text-lg">{category}</span>
-        <span className="bg-blue-100 text-blue-600 text-xs px-2 py-1 rounded-full">
+        <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs px-2 py-1 rounded-full">
           {items.length} items
         </span>
       </div>
-      <span className={`text-2xl transition-transform duration-300 ${open ? 'rotate-180' : ''}`}>▼</span>
+      <span className={`text-2xl transition-transform duration-300 ${open ? 'rotate-180' : ''} text-gray-600 dark:text-gray-400`}>▼</span>
     </button>
     
     {open && (
-      <div id={`cat-${category}`} className="p-6 bg-gray-50 border-t border-gray-200">
+      <div id={`cat-${category}`} className="p-6 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
           {items.map(it => (
             <InventoryPie
@@ -192,11 +198,19 @@ const CategoryAccordion = ({
   </div>
 )
 
-// Enhanced InventoryPie with better visuals
+// Enhanced InventoryPie with dark mode
 const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; currentStock: number; minAmount?: number }[]; type: string; unit: string }) => {
   const totalExpected = items.reduce((s, i) => s + Math.max(i.expectedStock, 0), 0)
   const totalCurrent = items.reduce((s, i) => s + Math.max(i.currentStock, 0), 0)
   const decreased = Math.max(totalExpected - totalCurrent, 0)
+  const [colors, setColors] = useState(COLORS_LIGHT)
+  
+  useEffect(() => {
+    // Check if dark mode is active
+    const isDark = document.documentElement.classList.contains('dark')
+    setColors(isDark ? COLORS_DARK : COLORS_LIGHT)
+  }, [])
+  
   const pieData = [
     { name: "Remaining", value: totalCurrent },
     { name: "Buffer", value: Math.max(totalExpected - totalCurrent - decreased, 0) },
@@ -208,12 +222,12 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
   const percentage = totalExpected > 0 ? Math.round((totalCurrent / totalExpected) * 100) : 0
 
   return (
-    <div className={`bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center border-2 transition-all duration-300 hover:shadow-xl ${
+    <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col items-center border-2 transition-all duration-300 hover:shadow-xl dark:hover:shadow-gray-900/50 ${
       restock 
-        ? "border-red-500 animate-pulse bg-red-50" 
-        : "border-gray-100"
+        ? "border-red-500 dark:border-red-400 animate-pulse bg-red-50 dark:bg-red-900/20" 
+        : "border-gray-100 dark:border-gray-700"
     }`}>
-      <h3 className="text-sm font-bold uppercase mb-3 text-gray-700 tracking-wide">{type}</h3>
+      <h3 className="text-sm font-bold uppercase mb-3 text-gray-700 dark:text-gray-300 tracking-wide">{type}</h3>
       
       <div className="relative w-full h-48 mb-3">
         <ResponsiveContainer width="100%" height="100%">
@@ -228,7 +242,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
               labelLine={false}
             >
               {pieData.map((_, i) => (
-                <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                <Cell key={i} fill={colors[i % colors.length]} />
               ))}
             </Pie>
           </PieChart>
@@ -236,26 +250,26 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
         
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <div className="text-2xl font-bold text-gray-900">{percentage}%</div>
-            <div className="text-xs text-gray-500">Available</div>
+            <div className="text-2xl font-bold text-gray-900 dark:text-white">{percentage}%</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Available</div>
           </div>
         </div>
       </div>
       
       <div className="text-center space-y-2">
-        <p className="text-sm text-gray-600">
-          <span className="font-semibold text-gray-900">{totalCurrent}</span> / {totalExpected} {unit}
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          <span className="font-semibold text-gray-900 dark:text-white">{totalCurrent}</span> / {totalExpected} {unit}
         </p>
         
         {restock && (
-          <div className="flex items-center gap-2 text-red-600 font-semibold text-sm bg-red-100 px-3 py-1 rounded-full">
+          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 font-semibold text-sm bg-red-100 dark:bg-red-900/30 px-3 py-1 rounded-full">
             <ExclamationTriangleIcon className="w-4 h-4" />
             <span>LOW STOCK</span>
           </div>
         )}
         
         {!restock && totalCurrent > 0 && (
-          <div className="text-green-600 text-sm font-medium bg-green-100 px-3 py-1 rounded-full">
+          <div className="text-green-600 dark:text-green-400 text-sm font-medium bg-green-100 dark:bg-green-900/30 px-3 py-1 rounded-full">
             ✓ In Stock
           </div>
         )}
@@ -264,197 +278,196 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
   )
 }
 
+// Audit Trail Component with dark mode
+const AuditTrailSection = ({ 
+  logs, 
+  loading 
+}: { 
+  logs: AuditLog[]; 
+  loading: boolean; 
+}) => {
+  const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
-// Audit Trail Component
-  const AuditTrailSection = ({ 
-    logs, 
-    loading 
-  }: { 
-    logs: AuditLog[]; 
-    loading: boolean; 
-  }) => {
-    const [expandedLog, setExpandedLog] = useState<string | null>(null);
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
+  };
 
-    const formatDate = (dateString: string) => {
-      return new Date(dateString).toLocaleString();
+  const getActionColor = (action: string) => {
+    const colors: Record<string, string> = {
+      create: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      update: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      delete: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      login: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+      logout: "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700",
+      download: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+      register: "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800",
+      guest_login: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
+      create_service: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      update_service: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      delete_service: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      restore_service: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
+      create_employee: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      update_employee: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800", 
+      delete_employee: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      restore_employee: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
+      purge_employee: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      create_store: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      update_store: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      update_profile: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800"
     };
+    return colors[action.toLowerCase()] || "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700";
+  };
 
-    const getActionColor = (action: string) => {
-      const colors: Record<string, string> = {
-        create: "bg-green-100 text-green-800 border-green-200",
-        update: "bg-blue-100 text-blue-800 border-blue-200",
-        delete: "bg-red-100 text-red-800 border-red-200",
-        login: "bg-purple-100 text-purple-800 border-purple-200",
-        logout: "bg-gray-100 text-gray-800 border-gray-200",
-        download: "bg-orange-100 text-orange-800 border-orange-200",
-        register: "bg-teal-100 text-teal-800 border-teal-200",
-        guest_login: "bg-indigo-100 text-indigo-800 border-indigo-200",
-        create_service: "bg-green-100 text-green-800 border-green-200",
-        update_service: "bg-blue-100 text-blue-800 border-blue-200",
-        delete_service: "bg-red-100 text-red-800 border-red-200",
-        restore_service: "bg-yellow-100 text-yellow-800 border-yellow-200",
-        create_employee: "bg-green-100 text-green-800 border-green-200",
-        update_employee: "bg-blue-100 text-blue-800 border-blue-200", 
-        delete_employee: "bg-red-100 text-red-800 border-red-200",
-        restore_employee: "bg-yellow-100 text-yellow-800 border-yellow-200",
-        purge_employee: "bg-red-100 text-red-800 border-red-200",
-        create_store: "bg-green-100 text-green-800 border-green-200",
-        update_store: "bg-blue-100 text-blue-800 border-blue-200",
-        update_profile: "bg-blue-100 text-blue-800 border-blue-200"
-      };
-      return colors[action.toLowerCase()] || "bg-gray-100 text-gray-800 border-gray-200";
+  const capitalizeFirst = (str: string) => {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  };
+
+  const getRoleColor = (role: string) => {
+    const colors: Record<string, string> = {
+      owner: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-800 font-bold",
+      employee: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800 font-medium",
+      customer: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-300 dark:border-green-800",
+      guest: "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-700",
     };
+    return colors[role.toLowerCase()] || "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700";
+  };
 
-    const capitalizeFirst = (str: string) => {
-      return str.charAt(0).toUpperCase() + str.slice(1);
+  const getActionIcon = (action: string) => {
+    const icons: Record<string, string> = {
+      // Authentication
+      login: "🔐",
+      logout: "📤",
+      register: "👤", 
+      guest_login: "👥",
+      
+      // Generic actions  
+      create: "🆕",
+      update: "✏️",
+      delete: "🗑️",
+      download: "📥",
+      restore: "🔄",
+      purge: "💥",
+      
+      // Service actions
+      create_service: "📋",
+      update_service: "✏️",
+      delete_service: "🗑️",
+      restore_service: "🔄",
+      
+      // Employee actions  
+      create_employee: "👨‍💼",
+      update_employee: "✏️",
+      delete_employee: "🗑️",
+      restore_employee: "🔄",
+      purge_employee: "💥",
+      
+      // Store actions
+      create_store: "🏪",
+      update_store: "✏️",
+      
+      // Profile actions
+      update_profile: "👤"
     };
+    return icons[action.toLowerCase()] || "📋";
+  };
 
-    const getRoleColor = (role: string) => {
-      const colors: Record<string, string> = {
-        owner: "bg-yellow-100 text-yellow-800 border-yellow-300 font-bold",
-        employee: "bg-blue-100 text-blue-800 border-blue-300 font-medium",
-        customer: "bg-green-100 text-green-800 border-green-300",
-        guest: "bg-gray-100 text-gray-800 border-gray-300",
-      };
-      return colors[role.toLowerCase()] || "bg-gray-100 text-gray-800 border-gray-200";
-    };
-
-    const getActionIcon = (action: string) => {
-      const icons: Record<string, string> = {
-        // Authentication
-        login: "🔐",
-        logout: "📤",
-        register: "👤", 
-        guest_login: "👥",
-        
-        // Generic actions  
-        create: "🆕",
-        update: "✏️",
-        delete: "🗑️",
-        download: "📥",
-        restore: "🔄",
-        purge: "💥",
-        
-        // Service actions
-        create_service: "📋",
-        update_service: "✏️",
-        delete_service: "🗑️",
-        restore_service: "🔄",
-        
-        // Employee actions  
-        create_employee: "👨‍💼",
-        update_employee: "✏️",
-        delete_employee: "🗑️",
-        restore_employee: "🔄",
-        purge_employee: "💥",
-        
-        // Store actions
-        create_store: "🏪",
-        update_store: "✏️",
-        
-        // Profile actions
-        update_profile: "👤"
-      };
-      return icons[action.toLowerCase()] || "📋";
-    };
-
-    if (loading) {
-      return (
-        <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-          <div className="animate-pulse space-y-4">
-            <div className="h-6 w-48 bg-gray-200 rounded"></div>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center space-x-4">
-                <div className="h-4 w-4 bg-gray-200 rounded-full"></div>
-                <div className="h-4 flex-1 bg-gray-200 rounded"></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
+  if (loading) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Audit Trail</h3>
-            <p className="text-gray-600 mt-1">Recent system activities and changes</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm text-gray-500">Live</span>
-          </div>
-        </div>
-
-        <div className="space-y-4 max-h-96 overflow-y-auto">
-          {logs.length === 0 ? (
-            <div className="text-center py-8">
-              <DocumentChartBarIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No audit logs available</p>
-              <p className="text-gray-400 text-sm mt-2">Login or perform actions to see audit logs</p>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 border border-gray-100 dark:border-gray-700">
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 w-48 bg-gray-200 dark:bg-gray-700 rounded"></div>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center space-x-4">
+              <div className="h-4 w-4 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
+              <div className="h-4 flex-1 bg-gray-200 dark:bg-gray-700 rounded"></div>
             </div>
-          ) : (
-            logs.map((log) => (
-              <div
-                key={log._id}
-                className="border border-gray-200 rounded-xl p-4 hover:border-blue-300 transition-all duration-200 bg-white"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3 flex-1">
-                    <div className="text-lg mt-1">{getActionIcon(log.action)}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getActionColor(log.action)}`}>
-                          {log.action.toUpperCase()}
-                        </div>
-                        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(log.userRole)}`}>
-                          {capitalizeFirst(log.userRole)}
-                        </div>
-                      </div>
-                      <p className="text-sm font-medium text-gray-900">
-                        {log.resource}
-                      </p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        By <span className="font-semibold">{log.user}</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">
-                      {formatDate(log.timestamp)}
-                    </p>
-                    <button
-                      onClick={() => setExpandedLog(expandedLog === log._id ? null : log._id)}
-                      className="text-blue-600 hover:text-blue-800 text-xs font-medium mt-1"
-                    >
-                      {expandedLog === log._id ? "Hide" : "Details"}
-                    </button>
-                  </div>
-                </div>
-
-                {expandedLog === log._id && log.details && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <pre className="text-xs text-gray-700 whitespace-pre-wrap">
-                      {JSON.stringify(log.details, null, 2)}
-                    </pre>
-                    {log.ipAddress && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        IP: {log.ipAddress}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))
-          )}
+          ))}
         </div>
       </div>
     );
-  };
+  }
 
-  // Main dashboard with modern UI
-  const OwnerDashboardContent: React.FC = () => {
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 border border-gray-100 dark:border-gray-700">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Audit Trail</h3>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">Recent system activities and changes</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Live</span>
+        </div>
+      </div>
+
+      <div className="space-y-4 max-h-96 overflow-y-auto">
+        {logs.length === 0 ? (
+          <div className="text-center py-8">
+            <DocumentChartBarIcon className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+            <p className="text-gray-500 dark:text-gray-400">No audit logs available</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Login or perform actions to see audit logs</p>
+          </div>
+        ) : (
+          logs.map((log) => (
+            <div
+              key={log._id}
+              className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 bg-white dark:bg-gray-800"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start space-x-3 flex-1">
+                  <div className="text-lg mt-1">{getActionIcon(log.action)}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getActionColor(log.action)}`}>
+                        {log.action.toUpperCase()}
+                      </div>
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(log.userRole)}`}>
+                        {capitalizeFirst(log.userRole)}
+                      </div>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      {log.resource}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                      By <span className="font-semibold">{log.user}</span>
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    {formatDate(log.timestamp)}
+                  </p>
+                  <button
+                    onClick={() => setExpandedLog(expandedLog === log._id ? null : log._id)}
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs font-medium mt-1"
+                  >
+                    {expandedLog === log._id ? "Hide" : "Details"}
+                  </button>
+                </div>
+              </div>
+
+              {expandedLog === log._id && log.details && (
+                <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                    {JSON.stringify(log.details, null, 2)}
+                  </pre>
+                  {log.ipAddress && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      IP: {log.ipAddress}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Main dashboard with modern UI and proper dark mode
+const OwnerDashboardContent: React.FC = () => {
   const [year, setYear] = useState(2025)
   const [selectedServiceId, setSelectedServiceId] = useState<string>('ALL')
   const [showModal, setShowModal] = useState(false)
@@ -478,11 +491,36 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
     subtotal?: number
   }>>([])
   const [services, setServices] = useState<ServiceLite[]>([])
+  
+  // Read-only state to detect if dark mode is active (for Charts JS logic)
+  // We do not set the class here anymore, we just read it.
+  const [darkMode, setDarkMode] = useState(false)
 
   // Audit Trail State
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [showAuditTrail, setShowAuditTrail] = useState(false);
+
+  // Initialize and Listen for Dark Mode changes from Sidebar/Global
+  useEffect(() => {
+    // Initial check
+    const isDark = document.documentElement.classList.contains('dark')
+    setDarkMode(isDark)
+
+    // Create an observer to watch for class changes on the <html> element
+    // This ensures Charts update color when Sidebar toggles the theme
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          setDarkMode(document.documentElement.classList.contains('dark'))
+        }
+      })
+    })
+
+    observer.observe(document.documentElement, { attributes: true })
+
+    return () => observer.disconnect()
+  }, [])
 
   // Compute monthly sales for the selected service/year based on backend orders
   const salesData = useMemo(() => {
@@ -654,33 +692,6 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
     };
   }, [showAuditTrail]);
 
-  // Mock data generator for demonstration
-  const generateMockAuditLogs = (): AuditLog[] => {
-    const actions = ['create', 'update', 'delete', 'login', 'download'];
-    const resources = ['Order', 'Inventory', 'Service', 'User', 'Report'];
-    const users = ['john_doe', 'jane_smith', 'admin_user', 'manager_1'];
-    const roles = ['Owner', 'Manager', 'Staff'];
-    
-    return Array.from({ length: 8 }, (_, i) => ({
-      _id: `log-${i + 1}`,
-      action: actions[Math.floor(Math.random() * actions.length)],
-      resource: resources[Math.floor(Math.random() * resources.length)],
-      resourceId: `res-${Math.floor(Math.random() * 1000)}`,
-      user: users[Math.floor(Math.random() * users.length)],
-      userRole: roles[Math.floor(Math.random() * roles.length)],
-      timestamp: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      details: {
-        changes: {
-          field: 'status',
-          from: 'pending',
-          to: 'completed'
-        },
-        notes: 'Automated system update'
-      },
-      ipAddress: `192.168.1.${Math.floor(Math.random() * 255)}`
-    }));
-  };
-
   // Crossfade skeleton -> content when loading completes
   useEffect(() => {
     if (loading) {
@@ -828,21 +839,21 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-gray-100 font-crimson px-0 sm:px-0 pb-6">
-      <div className="w-full space-y-8 px-4 sm:px-6 pt-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 max-w-full px-4 sm:px-6 lg:px-8 pt-8 pb-12 text-gray-900 dark:text-gray-100">
+      <div className="w-full space-y-8 px-0 sm:px-0 pt-0">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard Overview</h1>
-            <p className="text-gray-600 mt-2">Welcome back! Here's your business performance summary.</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Dashboard Overview</h1>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Welcome back! Here's your business performance summary.</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 items-center">
             <button
               onClick={() => setShowAuditTrail(!showAuditTrail)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg dark:shadow-gray-900/30 hover:shadow-xl dark:hover:shadow-gray-900/50 ${
                 showAuditTrail 
-                  ? "bg-gray-600 hover:bg-gray-700 text-white" 
-                  : "bg-white hover:bg-gray-50 text-gray-700 border border-gray-200"
+                  ? "bg-gray-600 hover:bg-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 text-white" 
+                  : "bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
               }`}
             >
               <DocumentChartBarIcon className="w-5 h-5" />
@@ -850,7 +861,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
             </button>
             <button
               onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg dark:shadow-gray-900/30 hover:shadow-xl dark:hover:shadow-gray-900/50"
             >
               <DocumentChartBarIcon className="w-5 h-5" />
               Generate Report
@@ -886,14 +897,14 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
 
             {/* Sales Analytics Section */}
             <div className="flex flex-col lg:flex-row gap-8">
-              <div className="flex-1 bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+              <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 border border-gray-100 dark:border-gray-700">
                 <div className="flex flex-col lg:flex-row gap-6">
                   <div className="flex-1">
                     <div className="flex justify-between items-center mb-6">
-                      <h2 className="text-xl font-bold text-gray-900">
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                         Sales Performance {selectedServiceId !== 'ALL' && `- ${services.find((s) => s._id === selectedServiceId)?.name || ''}`}
                       </h2>
-                      <span className="bg-blue-100 text-blue-600 text-sm px-3 py-1 rounded-full font-medium">
+                      <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-sm px-3 py-1 rounded-full font-medium">
                         {year}
                       </span>
                     </div>
@@ -901,16 +912,22 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
                     <div className="cursor-pointer" onClick={() => setShowModal(true)}>
                       <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={salesData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                          <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                          <YAxis allowDecimals={false} axisLine={false} tickLine={false} />
+                          <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#f0f0f0"} />
+                          <XAxis dataKey="month" axisLine={false} tickLine={false} stroke={darkMode ? "#9ca3af" : "#374151"} />
+                          <YAxis allowDecimals={false} axisLine={false} tickLine={false} stroke={darkMode ? "#9ca3af" : "#374151"} />
                           <Tooltip 
                             formatter={(v: number) => ["₱"+v,"Sales"]}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                            contentStyle={{ 
+                              borderRadius: '12px', 
+                              border: 'none', 
+                              boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                              backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+                              color: darkMode ? '#f9fafb' : '#1f2937'
+                            }}
                           />
                           <Bar 
                             dataKey="sales" 
-                            fill="#1e3a8a" 
+                            fill={darkMode ? "#3b82f6" : "#1e3a8a"} 
                             radius={[8, 8, 0, 0]}
                             className="hover:opacity-80 transition-opacity"
                           />
@@ -929,24 +946,24 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
             </div>
 
             {/* Inventory Overview */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 border border-gray-100 dark:border-gray-700">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">Inventory Overview</h2>
-                  <p className="text-gray-600">Monitor stock levels and restock alerts</p>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Inventory Overview</h2>
+                  <p className="text-gray-600 dark:text-gray-300">Monitor stock levels and restock alerts</p>
                 </div>
                 <div className="flex gap-6">
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-[#1e3a8a] rounded"></div>
-                    <span className="text-sm text-gray-600">Remaining</span>
+                    <div className="w-4 h-4 bg-[#1e3a8a] dark:bg-[#3b82f6] rounded"></div>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Remaining</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 bg-[#60a5fa] rounded"></div>
-                    <span className="text-sm text-gray-600">Buffer</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Buffer</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-[#d1d5db] rounded"></div>
-                    <span className="text-sm text-gray-600">Used</span>
+                    <div className="w-4 h-4 bg-[#d1d5db] dark:bg-[#93c5fd] rounded"></div>
+                    <span className="text-sm text-gray-600 dark:text-gray-300">Used</span>
                   </div>
                 </div>
               </div>
@@ -954,9 +971,9 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
               <div className="space-y-4">
                 {inventoryCategories.length === 0 ? (
                   <div className="text-center py-12">
-                    <CubeIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                    <p className="text-gray-500 text-lg">No inventory items yet.</p>
-                    <p className="text-gray-400 text-sm mt-2">Add inventory items to start tracking stock levels.</p>
+                    <CubeIcon className="w-16 h-16 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400 text-lg">No inventory items yet.</p>
+                    <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Add inventory items to start tracking stock levels.</p>
                   </div>
                 ) : (
                   inventoryCategories.map((cat, idx) => (
@@ -973,21 +990,21 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
             </div>
           </div>
 
-          {/* Skeleton overlay */}
+          {/* Skeleton overlay with dark mode */}
           {showSkeleton && (
             <div aria-busy="true" className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${contentReady ? 'opacity-0' : 'opacity-100'}`}>
               <div className="space-y-8">
                 {/* Stats skeleton */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
+                    <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 animate-pulse">
                       <div className="flex justify-between">
                         <div className="space-y-3 flex-1">
-                          <div className="h-4 w-24 bg-gray-200 rounded"></div>
-                          <div className="h-8 w-32 bg-gray-300 rounded"></div>
-                          <div className="h-3 w-20 bg-gray-200 rounded"></div>
+                          <div className="h-4 w-24 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                          <div className="h-8 w-32 bg-gray-300 dark:bg-gray-600 rounded"></div>
+                          <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded"></div>
                         </div>
-                        <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+                        <div className="w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
                       </div>
                     </div>
                   ))}
@@ -995,45 +1012,45 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
 
                 {/* Sales skeleton */}
                 <div className="flex flex-col lg:flex-row gap-8">
-                  <div className="flex-1 bg-white rounded-2xl shadow-lg p-6 animate-pulse">
+                  <div className="flex-1 bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 animate-pulse">
                     <div className="flex flex-col lg:flex-row gap-6">
                       <div className="flex-1 space-y-4">
                         <div className="flex justify-between">
-                          <div className="h-6 w-48 bg-gray-300 rounded"></div>
-                          <div className="h-6 w-16 bg-gray-200 rounded-full"></div>
+                          <div className="h-6 w-48 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                          <div className="h-6 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
                         </div>
-                        <div className="h-[300px] w-full bg-gray-200 rounded-xl"></div>
+                        <div className="h-[300px] w-full bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
                       </div>
                       <div className="w-full lg:w-64 space-y-4">
-                        <div className="h-20 bg-gray-200 rounded-2xl"></div>
+                        <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded-2xl"></div>
                         {Array.from({ length: 4 }).map((_, i) => (
-                          <div key={i} className="h-14 bg-gray-200 rounded-xl"></div>
+                          <div key={i} className="h-14 bg-gray-200 dark:bg-gray-700 rounded-xl"></div>
                         ))}
                       </div>
                     </div>
                   </div>
-                  <div className="w-full lg:w-64 h-80 bg-gray-200 rounded-2xl animate-pulse"></div>
+                  <div className="w-full lg:w-64 h-80 bg-gray-200 dark:bg-gray-700 rounded-2xl animate-pulse"></div>
                 </div>
 
                 {/* Inventory skeleton */}
-                <div className="bg-white rounded-2xl shadow-lg p-6 animate-pulse">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 animate-pulse">
                   <div className="flex flex-col md:flex-row justify-between mb-6">
                     <div className="space-y-2">
-                      <div className="h-6 w-48 bg-gray-300 rounded"></div>
-                      <div className="h-4 w-64 bg-gray-200 rounded"></div>
+                      <div className="h-6 w-48 bg-gray-300 dark:bg-gray-700 rounded"></div>
+                      <div className="h-4 w-64 bg-gray-200 dark:bg-gray-700 rounded"></div>
                     </div>
                     <div className="flex gap-6 mt-4 md:mt-0">
                       {Array.from({ length: 3 }).map((_, i) => (
                         <div key={i} className="flex items-center gap-2">
-                          <div className="w-4 h-4 bg-gray-200 rounded"></div>
-                          <div className="h-3 w-16 bg-gray-200 rounded"></div>
+                          <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                          <div className="h-3 w-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
                         </div>
                       ))}
                     </div>
                   </div>
                   <div className="space-y-4">
                     {Array.from({ length: 2 }).map((_, i) => (
-                      <div key={i} className="h-16 bg-gray-200 rounded-2xl"></div>
+                      <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded-2xl"></div>
                     ))}
                   </div>
                 </div>
@@ -1042,7 +1059,6 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
           )}
         </div>
 
-        
         {/* Audit Trail Section */}
         {showAuditTrail && (
           <AuditTrailSection 
@@ -1051,39 +1067,45 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
           />
         )}
 
-        {/* Modal */}
+        {/* Modal with dark mode */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-6 relative">
+          <div className="fixed inset-0 bg-black/70 dark:bg-black/80 flex items-center justify-center z-50 p-4 transition-colors duration-300">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-4xl p-6 relative transition-colors duration-300">
               <button 
-                className="absolute top-4 right-4 cursor-pointer text-gray-400 hover:text-gray-600 transition-colors"
+                className="absolute top-4 right-4 cursor-pointer text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"
                 onClick={() => setShowModal(false)}
               >
-                <div className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100">
+                <div className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
                   ✕
                 </div>
               </button>
               
               <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">PrintEase Analytics</h2>
-                <p className="text-gray-600 mt-2">Annual Sales Performance Analysis Report ({year})</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">PrintEase Analytics</h2>
+                <p className="text-gray-600 dark:text-gray-300 mt-2">Annual Sales Performance Analysis Report ({year})</p>
               </div>
               
-              <div ref={reportRef} className={`w-full h-[400px] rounded-xl border-2 border-dashed border-gray-200 p-4 ${
+              <div ref={reportRef} className={`w-full h-[400px] rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 p-4 transition-colors duration-300 ${
                 downloading ? "pointer-events-none opacity-50" : ""
               }`}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={salesData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                    <YAxis axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#f0f0f0"} />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} stroke={darkMode ? "#9ca3af" : "#374151"} />
+                    <YAxis axisLine={false} tickLine={false} stroke={darkMode ? "#9ca3af" : "#374151"} />
                     <Tooltip 
                       formatter={(v: number) => ["₱" + v, "Sales"]}
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                      contentStyle={{ 
+                        borderRadius: '12px', 
+                        border: 'none', 
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                        backgroundColor: darkMode ? '#1f2937' : '#ffffff',
+                        color: darkMode ? '#f9fafb' : '#1f2937'
+                      }}
                     />
                     <Bar 
                       dataKey="sales" 
-                      fill="#1e3a8a" 
+                      fill={darkMode ? "#3b82f6" : "#1e3a8a"} 
                       radius={[6, 6, 0, 0]}
                     />
                   </BarChart>
@@ -1094,10 +1116,10 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
                 <button 
                   onClick={handleDownloadPDF} 
                   disabled={downloading}
-                  className={`px-8 py-3 rounded-xl font-semibold shadow-lg transition-all duration-200 flex items-center gap-2 ${
+                  className={`px-8 py-3 rounded-xl font-semibold shadow-lg dark:shadow-gray-900/30 transition-all duration-200 flex items-center gap-2 ${
                     downloading 
-                      ? "bg-gray-400 text-gray-700 cursor-not-allowed" 
-                      : "bg-blue-600 text-white hover:bg-blue-700 hover:shadow-xl"
+                      ? "bg-gray-400 dark:bg-gray-700 text-gray-700 dark:text-gray-300 cursor-not-allowed" 
+                      : "bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600 hover:shadow-xl dark:hover:shadow-gray-900/50"
                   }`}
                 >
                   <DocumentChartBarIcon className="w-5 h-5" />
@@ -1105,7 +1127,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
                 </button>
                 
                 {downloading && (
-                  <p className="text-sm text-gray-500 text-center">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
                     Please wait, your professional report is being generated...
                   </p>
                 )}
@@ -1117,6 +1139,5 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
     </div>
   )
 }
-
 
 export default OwnerDashboardContent

@@ -1097,361 +1097,363 @@ const Customize: React.FC = () => {
 
   return (
     <DashboardLayout role="customer">
-      <div className={`${BACKGROUND_GRADIENT} min-h-screen`}>
-        <div className="w-full max-w-7xl mx-auto">
-          <div className="mt-6 text-center">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-wide">
-              Customize your Product
-            </h1>
-            <p className={`${MUTED_TEXT} mt-2 text-sm md:text-base`}>
-              Design your perfect product with real-time {activeTab === '3d' ? '3D' : '2D'} preview
-            </p>
-          </div>
-
-          <div className="mt-6 flex justify-center">
-            <div className="inline-flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-700">
-              <button
-                onClick={() => {
-                  setActiveTab('3d');
-                  setSelectedProduct(null);
-                  setSelectedColor(null);
-                }}
-                className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                  activeTab === '3d'
-                    ? `${BUTTON_PRIMARY} shadow-lg`
-                    : `${BUTTON_FILTER_INACTIVE}`
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-                  </svg>
-                  3D Products
-                </span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('2d');
-                  setSelectedProduct(null);
-                  setSelectedColor(null);
-                }}
-                className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                  activeTab === '2d'
-                    ? `${BUTTON_PRIMARY} shadow-lg`
-                    : `${BUTTON_FILTER_INACTIVE}`
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  2D Products
-                </span>
-              </button>
+      <div className="min-h-screen">
+        <div className={`${BACKGROUND_GRADIENT} py-8`}>
+          <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mt-6 text-center">
+              <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-wide">
+                Customize your Product
+              </h1>
+              <p className={`${MUTED_TEXT} mt-2 text-sm md:text-base`}>
+                Design your perfect product with real-time {activeTab === '3d' ? '3D' : '2D'} preview
+              </p>
             </div>
-          </div>
 
-          <div className={`mt-8 flex flex-col lg:flex-row gap-6 rounded-2xl ${PANEL_SURFACE} p-6`}>
-            
-            <aside 
-              ref={sidebarRef}
-              className={`${SOFT_PANEL} w-full lg:w-96 backdrop-blur-sm p-6 flex flex-col shadow-lg`}
-              style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}
-            >
-              <div className="flex flex-col gap-6">
-                <div className="space-y-2">
-                  <label htmlFor="product-select" className={`block text-sm font-semibold ${MUTED_TEXT} flex items-center gap-2`}>
+            <div className="mt-6 flex justify-center">
+              <div className="inline-flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-700">
+                <button
+                  onClick={() => {
+                    setActiveTab('3d');
+                    setSelectedProduct(null);
+                    setSelectedColor(null);
+                  }}
+                  className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                    activeTab === '3d'
+                      ? `${BUTTON_PRIMARY} shadow-lg`
+                      : `${BUTTON_FILTER_INACTIVE}`
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
                     </svg>
-                    SELECT PRODUCT
-                  </label>
-                  <select 
-                    id="product-select" 
-                    value={selectedProduct || ""} 
-                    onChange={(e) => handleProductSelect(e.target.value)}
-                    className={`${INPUT_SURFACE} w-full p-3 font-medium transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-600`}
-                  >
-                    <option value="" disabled className="text-gray-400">Choose a product...</option>
-                    {activeTab === '3d' 
-                      ? available3DProducts.map((product) => (
-                          <option key={product} value={product} className="bg-white dark:bg-gray-800">{product}</option>
-                        ))
-                      : available2DProducts.map((product) => (
-                          <option key={product} value={product} className="bg-white dark:bg-gray-800">{product}</option>
-                        ))
-                    }
-                  </select>
-                </div>
-
-                {selectedProduct && currentProductInfo && (
-                  <>
-                    <div className="space-y-4">
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
-                        className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${
-                          isDraggingOver 
-                            ? `${DROPZONE_ACTIVE} scale-[1.02]` 
-                            : `${DROPZONE_BORDER} ${DROPZONE_HOVER} hover:bg-gray-50 dark:hover:bg-gray-700/50`
-                        }`}
-                      >
-                        <div className="flex flex-col items-center gap-3 pointer-events-none">
-                          <div className="p-3 bg-blue-500/10 rounded-full">
-                            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                            </svg>
-                          </div>
-                          <div>
-                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 block">Upload Your Design</span>
-                            <span className={`text-xs ${MUTED_TEXT} mt-1 block`}>PNG or JPG • Drag & Drop</span>
-                          </div>
-                        </div>
-                        <input type="file" accept="image/png, image/jpeg, image/jpg" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                      </div>
-
-                      {preview && (
-                        <div className={`${SOFT_PANEL} p-4`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Image Preview</span>
-                            <button 
-                              onClick={handleEditCrop}
-                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
-                            >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              Edit Crop
-                            </button>
-                          </div>
-                          <div className="relative h-32 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
-                            <img 
-                              src={preview} 
-                              alt="Design Preview" 
-                              className="w-full h-full object-contain bg-gray-50 dark:bg-gray-800"
-                            />
-                          </div>
-                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
-                            Click "Edit Crop" to adjust rotation and position
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-6 pt-4 border-t border-gray-300 dark:border-gray-700">
-                      <div>
-                        <label className={`block text-sm font-semibold ${MUTED_TEXT} mb-3 flex items-center gap-2`}>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
-                          </svg>
-                          PRODUCT COLOR
-                        </label>
-                        <div className="flex gap-2 flex-wrap"> 
-                          {Object.entries(currentProductInfo.variations).map(([colorName, colorData]: [string, any]) => (
-                            <button 
-                              key={colorName} 
-                              onClick={() => handleColorSelect(colorName)}
-                              className={`w-10 h-10 rounded-xl border-3 transition-all duration-200 transform hover:scale-110 shadow-lg ${
-                                selectedColor === colorName 
-                                  ? 'border-blue-400 scale-110 ring-2 ring-blue-400/30' 
-                                  : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400'
-                              }`}
-                              style={{ backgroundColor: colorData.colorCode }} 
-                              title={colorName} 
-                            />
-                          ))}
-                        </div>
-                      </div>
-
-                      {preview && (
-                        <div className="space-y-4">
-                          <div>
-                            <div className="flex justify-between items-center mb-2">
-                              <label className={`block text-sm font-semibold ${MUTED_TEXT}`}>DESIGN SCALE</label>
-                              <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-blue-600 dark:text-blue-300">
-                                {currentProductInfo.type === '3d' ? decal3DScale.toFixed(2) : decal2DScale.toFixed(2)}
-                              </span>
-                            </div>
-                            <input 
-                              type="range" 
-                              min={decalScaleRange.minScale} 
-                              max={decalScaleRange.maxScale} 
-                              step="0.01" 
-                              value={currentProductInfo.type === '3d' ? decal3DScale : decal2DScale}
-                              onChange={(e) => {
-                                const value = parseFloat(e.target.value);
-                                if (currentProductInfo.type === '3d') {
-                                  setDecal3DScale(value);
-                                } else {
-                                  setDecal2DScale(value);
-                                }
-                              }} 
-                              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
-                            />
-                          </div>
-
-                          <div>
-                            <label className={`block text-sm font-semibold ${MUTED_TEXT} mb-3`}>DESIGN POSITION</label>
-                            {currentProductInfo.type === '3d' ? (
-                              <DraggablePositionControl
-                                position={draggablePosition}
-                                onChange={handleDraggablePositionChange}
-                                productType="3d"
-                                productName={selectedProduct}
-                              />
-                            ) : (
-                              <DraggablePositionControl
-                                position={decal2DPosition}
-                                onChange={handleDecal2DPositionChange}
-                                productType="2d"
-                                productName={selectedProduct}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {notification && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="text-red-600 dark:text-red-400 text-sm font-medium flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {notification}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mt-6 pt-4 border-t border-gray-300 dark:border-gray-700">
-                  <div className="flex gap-3">
-                    <button 
-                      type="button" 
-                      onClick={handleReset} 
-                      className={`${BUTTON_FILTER_INACTIVE} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      Reset
-                    </button>
-                    <button 
-                      type="button" 
-                      onClick={handleBuy} 
-                      disabled={!selectedProduct}
-                      className={`${BUTTON_PRIMARY} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                      </svg>
-                      Buy Now
-                    </button>
-                  </div>
-                </div>
+                    3D Products
+                  </span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('2d');
+                    setSelectedProduct(null);
+                    setSelectedColor(null);
+                  }}
+                  className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                    activeTab === '2d'
+                      ? `${BUTTON_PRIMARY} shadow-lg`
+                      : `${BUTTON_FILTER_INACTIVE}`
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    2D Products
+                  </span>
+                </button>
               </div>
-            </aside>
+            </div>
 
-            <main className="flex-1 flex items-start justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-2xl border border-gray-300 dark:border-gray-700 p-6 shadow-2xl relative">
-              {selectedProduct && currentProductInfo && currentProductInfo.type === '3d' && (
-                <div className="absolute top-4 right-4 z-10">
-                  <label className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all duration-200">
-                    <input
-                      type="checkbox"
-                      checked={autoRotate}
-                      onChange={(e) => setAutoRotate(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 dark:text-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-600 focus:ring-offset-white dark:focus:ring-offset-gray-800 focus:ring-2 focus:ring-offset-2 cursor-pointer"
-                    />
-                    <div className="flex items-center gap-2">
-                      <svg className={`w-4 h-4 ${autoRotate ? 'text-blue-600 dark:text-blue-400 animate-spin' : 'text-gray-600 dark:text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                      <span className={`text-sm font-medium ${autoRotate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
-                        Rotate
-                      </span>
-                    </div>
-                  </label>
-                </div>
-              )}
+            <div className={`mt-8 flex flex-col lg:flex-row gap-6 rounded-2xl ${PANEL_SURFACE} p-6`}>
               
-              <div 
-                ref={canvasRef}
-                className="w-full h-[600px] rounded-xl border-2 border-gray-300 dark:border-gray-700 overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-inner"
+              <aside 
+                ref={sidebarRef}
+                className={`${SOFT_PANEL} w-full lg:w-96 backdrop-blur-sm p-6 flex flex-col shadow-lg`}
+                style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}
               >
-                <ErrorBoundary>
-                  {selectedProduct && selectedColor && currentVariation ? (
-                    currentProductInfo.type === '3d' ? (
-                      <div 
-                        id={`preview-canvas-${selectedProduct}-${selectedColor}`}
-                        className="w-full h-full"
-                      >
-                        <Canvas 
-                          key={`${currentVariation.path}-${selectedColor}`} 
-                          camera={{ position: [0, 0, 5], fov: 50 }}
-                          onPointerDown={() => setIsDragging(true)} 
-                          onPointerUp={() => setIsDragging(false)}
-                          onCreated={({ gl }) => {
-                            gl.domElement.addEventListener('webglcontextlost', (e) => {
-                              console.error('WebGL context lost');
-                              e.preventDefault();
-                            }, false);
-                          }}
-                        >
-                          <ambientLight intensity={0.8} />
-                          <Environment preset="city" />
-                          <Suspense fallback={<Loader />}>
-                            <ProductModel3D 
-                              decalTexture={texture} 
-                              decalPosition={decal3DPosition} 
-                              decalScale={decal3DScale} 
-                              modelPath={currentVariation.path}
-                              scale={currentVariation.scale} 
-                              position={currentVariation.position} 
-                              rotation={currentVariation.rotation}
-                              targetMeshName={currentVariation.targetMeshName} 
-                              baseColor={currentVariation.colorCode} 
-                            />
-                          </Suspense>
-                          <OrbitControls 
-                            enablePan={false} 
-                            minDistance={2} 
-                            maxDistance={10} 
-                            autoRotate={autoRotate && !isDragging} 
-                            autoRotateSpeed={1.5} 
-                          />
-                        </Canvas>
-                      </div>
-                    ) : (
-                      <div 
-                        id={`2d-preview-${selectedProduct}-${selectedColor}`}
-                        className="w-full h-full"
-                      >
-                        <Product2DPreview
-                          decalImage={preview}
-                          position={decal2DPosition}
-                          scale={decal2DScale}
-                          dimensions={currentProductInfo.dimensions}
-                          backgroundColor={currentVariation.colorCode}
-                        />
-                      </div>
-                    )
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
-                      <svg className="w-16 h-16 mb-4 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                <div className="flex flex-col gap-6">
+                  <div className="space-y-2">
+                    <label htmlFor="product-select" className={`block text-sm font-semibold ${MUTED_TEXT} flex items-center gap-2`}>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                       </svg>
-                      <p className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">Ready to Create?</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm">
-                        Select a {activeTab === '3d' ? '3D' : '2D'} product and start customizing with your own design
-                      </p>
+                      SELECT PRODUCT
+                    </label>
+                    <select 
+                      id="product-select" 
+                      value={selectedProduct || ""} 
+                      onChange={(e) => handleProductSelect(e.target.value)}
+                      className={`${INPUT_SURFACE} w-full p-3 font-medium transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-600`}
+                    >
+                      <option value="" disabled className="text-gray-400">Choose a product...</option>
+                      {activeTab === '3d' 
+                        ? available3DProducts.map((product) => (
+                            <option key={product} value={product} className="bg-white dark:bg-gray-800">{product}</option>
+                          ))
+                        : available2DProducts.map((product) => (
+                            <option key={product} value={product} className="bg-white dark:bg-gray-800">{product}</option>
+                          ))
+                      }
+                    </select>
+                  </div>
+
+                  {selectedProduct && currentProductInfo && (
+                    <>
+                      <div className="space-y-4">
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
+                          onDragOver={handleDragOver}
+                          onDragLeave={handleDragLeave}
+                          onDrop={handleDrop}
+                          className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${
+                            isDraggingOver 
+                              ? `${DROPZONE_ACTIVE} scale-[1.02]` 
+                              : `${DROPZONE_BORDER} ${DROPZONE_HOVER} hover:bg-gray-50 dark:hover:bg-gray-700/50`
+                          }`}
+                        >
+                          <div className="flex flex-col items-center gap-3 pointer-events-none">
+                            <div className="p-3 bg-blue-500/10 rounded-full">
+                              <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                              </svg>
+                            </div>
+                            <div>
+                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 block">Upload Your Design</span>
+                              <span className={`text-xs ${MUTED_TEXT} mt-1 block`}>PNG or JPG • Drag & Drop</span>
+                            </div>
+                          </div>
+                          <input type="file" accept="image/png, image/jpeg, image/jpg" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                        </div>
+
+                        {preview && (
+                          <div className={`${SOFT_PANEL} p-4`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Image Preview</span>
+                              <button 
+                                onClick={handleEditCrop}
+                                className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Edit Crop
+                              </button>
+                            </div>
+                            <div className="relative h-32 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
+                              <img 
+                                src={preview} 
+                                alt="Design Preview" 
+                                className="w-full h-full object-contain bg-gray-50 dark:bg-gray-800"
+                              />
+                            </div>
+                            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+                              Click "Edit Crop" to adjust rotation and position
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-6 pt-4 border-t border-gray-300 dark:border-gray-700">
+                        <div>
+                          <label className={`block text-sm font-semibold ${MUTED_TEXT} mb-3 flex items-center gap-2`}>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
+                            </svg>
+                            PRODUCT COLOR
+                          </label>
+                          <div className="flex gap-2 flex-wrap"> 
+                            {Object.entries(currentProductInfo.variations).map(([colorName, colorData]: [string, any]) => (
+                              <button 
+                                key={colorName} 
+                                onClick={() => handleColorSelect(colorName)}
+                                className={`w-10 h-10 rounded-xl border-3 transition-all duration-200 transform hover:scale-110 shadow-lg ${
+                                  selectedColor === colorName 
+                                    ? 'border-blue-400 scale-110 ring-2 ring-blue-400/30' 
+                                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400'
+                                }`}
+                                style={{ backgroundColor: colorData.colorCode }} 
+                                title={colorName} 
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        {preview && (
+                          <div className="space-y-4">
+                            <div>
+                              <div className="flex justify-between items-center mb-2">
+                                <label className={`block text-sm font-semibold ${MUTED_TEXT}`}>DESIGN SCALE</label>
+                                <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-blue-600 dark:text-blue-300">
+                                  {currentProductInfo.type === '3d' ? decal3DScale.toFixed(2) : decal2DScale.toFixed(2)}
+                                </span>
+                              </div>
+                              <input 
+                                type="range" 
+                                min={decalScaleRange.minScale} 
+                                max={decalScaleRange.maxScale} 
+                                step="0.01" 
+                                value={currentProductInfo.type === '3d' ? decal3DScale : decal2DScale}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value);
+                                  if (currentProductInfo.type === '3d') {
+                                    setDecal3DScale(value);
+                                  } else {
+                                    setDecal2DScale(value);
+                                  }
+                                }} 
+                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                              />
+                            </div>
+
+                            <div>
+                              <label className={`block text-sm font-semibold ${MUTED_TEXT} mb-3`}>DESIGN POSITION</label>
+                              {currentProductInfo.type === '3d' ? (
+                                <DraggablePositionControl
+                                  position={draggablePosition}
+                                  onChange={handleDraggablePositionChange}
+                                  productType="3d"
+                                  productName={selectedProduct}
+                                />
+                              ) : (
+                                <DraggablePositionControl
+                                  position={decal2DPosition}
+                                  onChange={handleDecal2DPositionChange}
+                                  productType="2d"
+                                  productName={selectedProduct}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+
+                  {notification && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="text-red-600 dark:text-red-400 text-sm font-medium flex items-center gap-2">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        {notification}
+                      </div>
                     </div>
                   )}
-                </ErrorBoundary>
-              </div>
-            </main>
+
+                  <div className="mt-6 pt-4 border-t border-gray-300 dark:border-gray-700">
+                    <div className="flex gap-3">
+                      <button 
+                        type="button" 
+                        onClick={handleReset} 
+                        className={`${BUTTON_FILTER_INACTIVE} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Reset
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={handleBuy} 
+                        disabled={!selectedProduct}
+                        className={`${BUTTON_PRIMARY} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                        Buy Now
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </aside>
+
+              <main className="flex-1 flex items-start justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-2xl border border-gray-300 dark:border-gray-700 p-6 shadow-2xl relative">
+                {selectedProduct && currentProductInfo && currentProductInfo.type === '3d' && (
+                  <div className="absolute top-4 right-4 z-10">
+                    <label className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all duration-200">
+                      <input
+                        type="checkbox"
+                        checked={autoRotate}
+                        onChange={(e) => setAutoRotate(e.target.checked)}
+                        className="w-4 h-4 text-blue-600 dark:text-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-600 focus:ring-offset-white dark:focus:ring-offset-gray-800 focus:ring-2 focus:ring-offset-2 cursor-pointer"
+                      />
+                      <div className="flex items-center gap-2">
+                        <svg className={`w-4 h-4 ${autoRotate ? 'text-blue-600 dark:text-blue-400 animate-spin' : 'text-gray-600 dark:text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span className={`text-sm font-medium ${autoRotate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                          Rotate
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+                )}
+                
+                <div 
+                  ref={canvasRef}
+                  className="w-full h-[600px] rounded-xl border-2 border-gray-300 dark:border-gray-700 overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-inner"
+                >
+                  <ErrorBoundary>
+                    {selectedProduct && selectedColor && currentVariation ? (
+                      currentProductInfo.type === '3d' ? (
+                        <div 
+                          id={`preview-canvas-${selectedProduct}-${selectedColor}`}
+                          className="w-full h-full"
+                        >
+                          <Canvas 
+                            key={`${currentVariation.path}-${selectedColor}`} 
+                            camera={{ position: [0, 0, 5], fov: 50 }}
+                            onPointerDown={() => setIsDragging(true)} 
+                            onPointerUp={() => setIsDragging(false)}
+                            onCreated={({ gl }) => {
+                              gl.domElement.addEventListener('webglcontextlost', (e) => {
+                                console.error('WebGL context lost');
+                                e.preventDefault();
+                              }, false);
+                            }}
+                          >
+                            <ambientLight intensity={0.8} />
+                            <Environment preset="city" />
+                            <Suspense fallback={<Loader />}>
+                              <ProductModel3D 
+                                decalTexture={texture} 
+                                decalPosition={decal3DPosition} 
+                                decalScale={decal3DScale} 
+                                modelPath={currentVariation.path}
+                                scale={currentVariation.scale} 
+                                position={currentVariation.position} 
+                                rotation={currentVariation.rotation}
+                                targetMeshName={currentVariation.targetMeshName} 
+                                baseColor={currentVariation.colorCode} 
+                              />
+                            </Suspense>
+                            <OrbitControls 
+                              enablePan={false} 
+                              minDistance={2} 
+                              maxDistance={10} 
+                              autoRotate={autoRotate && !isDragging} 
+                              autoRotateSpeed={1.5} 
+                            />
+                          </Canvas>
+                        </div>
+                      ) : (
+                        <div 
+                          id={`2d-preview-${selectedProduct}-${selectedColor}`}
+                          className="w-full h-full"
+                        >
+                          <Product2DPreview
+                            decalImage={preview}
+                            position={decal2DPosition}
+                            scale={decal2DScale}
+                            dimensions={currentProductInfo.dimensions}
+                            backgroundColor={currentVariation.colorCode}
+                          />
+                        </div>
+                      )
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                        <svg className="w-16 h-16 mb-4 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                        <p className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">Ready to Create?</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm">
+                          Select a {activeTab === '3d' ? '3D' : '2D'} product and start customizing with your own design
+                        </p>
+                      </div>
+                    )}
+                  </ErrorBoundary>
+                </div>
+              </main>
+            </div>
           </div>
         </div>
       </div>

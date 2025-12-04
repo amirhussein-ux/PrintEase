@@ -5,6 +5,7 @@ import { FunnelIcon, ShoppingCartIcon, TrashIcon, XMarkIcon, NoSymbolIcon } from
 import { Link, useLocation, useParams } from 'react-router-dom';
 import api from '../../../lib/api';
 import { QRCodeCanvas } from 'qrcode.react';
+import { getServiceStockInfo, getStockForService, checkStockAvailability, getMaxAllowedQuantity } from '../../../lib/inventoryApi';
 
 // Theme Variables for consistent dark/light mode - WHITE THEME
 const PANEL_SURFACE = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:text-white";
@@ -35,7 +36,7 @@ type Service = {
     unit: 'per page' | 'per sq ft' | 'per item' | string;
     currency?: string;
     imageFileId?: unknown;
-    active?: boolean; // Added active status
+    active?: boolean;
     createdAt?: string;
     variants?: Array<{
         label: string;
@@ -49,8 +50,18 @@ type Service = {
     attributes?: Array<{ productId: string; quantity?: number; productPrice?: number; sizeName?: string }>;
 };
 
+type ServiceWithStock = Service & {
+  stockInfo?: {
+    hasStockLimit: boolean;
+    availableStock: number | null;
+    maxAllowedQuantity: number;
+    inventoryItemName: string | null;
+    inventoryPerUnit: number;
+  };
+};
+
 type CartItem = {
-    service: Service;
+    service: ServiceWithStock;
     quantity: number;
     selectedOptions: Array<{ variantLabel: string; optionName: string }>;
     files: Array<{ file: File; preview: string }>;
@@ -71,12 +82,45 @@ const formatMoney = (n: number | undefined | null, code: string = 'PHP') => {
     }
 };
 
+// ✅ UPDATED: Get stock badge class with proper dark mode support
+const getStockBadgeClass = (availableStock: number | null, hasStockLimit: boolean) => {
+  if (!hasStockLimit || availableStock === null) {
+    return "bg-green-100 dark:bg-green-900/60 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700";
+  }
+  
+  if (availableStock === 0) {
+    return "bg-red-100 dark:bg-red-900/60 text-red-800 dark:text-red-200 border-red-300 dark:border-red-700";
+  }
+  
+  if (availableStock <= 10) {
+    return "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700";
+  }
+  
+  return "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700";
+};
+
+// ✅ UPDATED: Format stock display with dark mode support
+const formatStockDisplay = (availableStock: number | null, hasStockLimit: boolean) => {
+  if (!hasStockLimit || availableStock === null) {
+    return <span className="text-green-700 dark:text-green-300 font-medium">Unlimited Stock</span>;
+  }
+  
+  if (availableStock === 0) {
+    return <span className="text-red-700 dark:text-red-300 font-medium">Out of Stock</span>;
+  }
+  
+  if (availableStock <= 10) {
+    return <span className="text-amber-700 dark:text-amber-300 font-medium">Low Stock: {availableStock}</span>;
+  }
+  
+  return <span className="text-emerald-700 dark:text-emerald-300 font-medium">In Stock: {availableStock}</span>;
+};
+
 export default function OrderPage() {
     const { token, continueAsGuest } = useAuth();
     const location = useLocation() as { state: LocationState };
     const params = useParams<{ storeId?: string }>();
 
-    // Resolve storeId
     const derivedStoreId = useMemo(() => {
         return (
             location?.state?.storeId ||
@@ -85,80 +129,54 @@ export default function OrderPage() {
         );
     }, [location?.state?.storeId, params.storeId]);
 
-    // Persist storeId
     useEffect(() => {
         if (derivedStoreId && typeof window !== 'undefined') {
             localStorage.setItem('selectedStoreId', derivedStoreId);
         }
     }, [derivedStoreId]);
 
-    const [services, setServices] = useState<Service[]>([]);
+    const [services, setServices] = useState<ServiceWithStock[]>([]);
     const [bestSellingIds, setBestSellingIds] = useState<Set<string>>(new Set());
     const [bestSellingNames, setBestSellingNames] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(false);
+    const [loadingStock, setLoadingStock] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [query, setQuery] = useState('');
     
-    // Filters
     const [showFilters, setShowFilters] = useState(false);
     const filterAnchorRef = useRef<HTMLDivElement | null>(null);
     const [filterPos, setFilterPos] = useState<{ top: number; left: number } | null>(null);
     const [sortKey, setSortKey] = useState<'name' | 'price'>('name');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
-    // Modal state
-    const [selected, setSelected] = useState<Service | null>(null);
+    const [selected, setSelected] = useState<ServiceWithStock | null>(null);
     const [variantChoices, setVariantChoices] = useState<Record<string, number>>({});
     const [quantity, setQuantity] = useState<number>(1);
+    const [maxQuantity, setMaxQuantity] = useState<number>(9999);
     const [files, setFiles] = useState<Array<{ file: File; preview?: string }>>([]);
     const [notes, setNotes] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
-    // Cart state
     const [cart, setCart] = useState<CartItem[]>([]);
     const [showCart, setShowCart] = useState(false);
     
-    // Payment confirmation state
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentOrderId, setPaymentOrderId] = useState<string | null>(null);
     const [paymentStatus, setPaymentStatus] = useState<'pending' | 'processing' | 'completed' | 'failed'>('pending');
     const [watchedOrderStatus, setWatchedOrderStatus] = useState<OrderStatusLocal | null>(null);
     const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
-    // Down payment modal state for bulk orders
+    
     const [showDownPaymentModal, setShowDownPaymentModal] = useState(false);
     const [dpMethod, setDpMethod] = useState<'gcash' | 'bank_transfer' | 'other'>('gcash');
     const [dpReceiptFile, setDpReceiptFile] = useState<File | null>(null);
     const [dpReceiptPreview, setDpReceiptPreview] = useState<string | null>(null);
-
-    // Manage receipt preview URL lifecycle
-    function handleDpFile(file: File | null) {
-        // revoke previous preview
-        if (dpReceiptPreview) {
-            try { URL.revokeObjectURL(dpReceiptPreview); } catch { /* ignore */ }
-            setDpReceiptPreview(null);
-        }
-        setDpReceiptFile(file);
-        if (file && file.type && file.type.startsWith('image/')) {
-            try {
-                const url = URL.createObjectURL(file);
-                setDpReceiptPreview(url);
-            } catch {
-                setDpReceiptPreview(null);
-            }
-        } else {
-            setDpReceiptPreview(null);
-        }
-    }
     const [dpReference, setDpReference] = useState('');
 
-    // Inventory cache for sizes
     const [inventoryCache, setInventoryCache] = useState<Record<string, any>>({});
     const [sizeChoice, setSizeChoice] = useState<Record<string, string>>({});
 
-    // Notification state
     const [notif, setNotif] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
 
-    // Pricing
     const unitPrice = useMemo(() => {
         if (!selected) return 0;
         const base = selected.basePrice || 0;
@@ -170,9 +188,65 @@ export default function OrderPage() {
         return base + deltas;
     }, [selected, variantChoices]);
 
-    const safeQty = Math.min(9999, Math.max(1, quantity || 0));
+    const safeQty = useMemo(() => {
+        if (!selected) return 1;
+        const qty = quantity || 1;
+        return Math.min(maxQuantity, Math.max(1, qty));
+    }, [quantity, maxQuantity, selected]);
 
-    // Fetch services and best sellers
+    const fetchStockInfo = async (storeId: string, serviceList: Service[]) => {
+        try {
+            setLoadingStock(true);
+            const stockData = await getServiceStockInfo(storeId);
+            
+            if (stockData.success && stockData.stockInfo) {
+                const enrichedServices = serviceList.map(service => {
+                    const stockInfo = stockData.stockInfo.find(
+                        (stock: any) => stock.serviceId === service._id
+                    );
+                    
+                    return {
+                        ...service,
+                        stockInfo: stockInfo ? {
+                            hasStockLimit: stockInfo.hasStockLimit,
+                            availableStock: stockInfo.availableStock,
+                            maxAllowedQuantity: Math.max(0, stockInfo.maxAllowedQuantity),
+                            inventoryItemName: stockInfo.inventoryItemName,
+                            inventoryPerUnit: stockInfo.inventoryPerUnit || 1
+                        } : undefined
+                    };
+                });
+                
+                setServices(enrichedServices);
+            }
+        } catch (error) {
+            console.error('Error fetching stock info:', error);
+            setServices(serviceList);
+        } finally {
+            setLoadingStock(false);
+        }
+    };
+
+    useEffect(() => {
+        const checkSelectedServiceStock = async () => {
+            if (!selected || !derivedStoreId) return;
+            
+            try {
+                const maxQty = await getMaxAllowedQuantity(derivedStoreId, selected._id);
+                setMaxQuantity(maxQty);
+                
+                if (quantity > maxQty) {
+                    setQuantity(maxQty);
+                }
+            } catch (error) {
+                console.error('Error checking service stock:', error);
+                setMaxQuantity(9999);
+            }
+        };
+        
+        checkSelectedServiceStock();
+    }, [selected, derivedStoreId, quantity]);
+
     useEffect(() => {
         let active = true;
         const fetchBestSelling = async (storeId: string) => {
@@ -200,7 +274,12 @@ export default function OrderPage() {
             try {
                 const res = await api.get(`/services/store/${derivedStoreId}`);
                 if (!active) return;
-                setServices(res.data || []);
+                
+                const serviceList = res.data || [];
+                setServices(serviceList);
+                
+                await fetchStockInfo(derivedStoreId, serviceList);
+                
                 if (derivedStoreId) await fetchBestSelling(derivedStoreId);
             } catch (e: unknown) {
                 if (!active) return;
@@ -218,6 +297,9 @@ export default function OrderPage() {
         const onVisibility = () => {
             if (document.visibilityState === 'visible' && derivedStoreId) {
                 fetchBestSelling(derivedStoreId);
+                api.get(`/services/store/${derivedStoreId}`)
+                    .then(res => fetchStockInfo(derivedStoreId, res.data || []))
+                    .catch(console.error);
             }
         };
         
@@ -228,7 +310,6 @@ export default function OrderPage() {
         };
     }, [derivedStoreId]);
 
-    // Filter dropdown positioning
     useEffect(() => {
         if (!showFilters) return;
         const calc = () => {
@@ -252,9 +333,44 @@ export default function OrderPage() {
         };
     }, [showFilters]);
 
-    // Cart functions
-    const addToCart = () => {
+    const validateStockBeforeAdd = async (service: ServiceWithStock, qty: number, selectedOptions: any[]) => {
+        if (!derivedStoreId) return true;
+        
+        try {
+            const stockCheck = await checkStockAvailability({
+                storeId: derivedStoreId,
+                serviceId: service._id,
+                quantity: qty,
+                selectedOptions: selectedOptions.map(opt => ({
+                    label: opt.variantLabel,
+                    optionIndex: service.variants?.find(v => v.label === opt.variantLabel)?.options.findIndex(o => o.name === opt.optionName) || 0
+                }))
+            });
+            
+            return stockCheck.canFulfill;
+        } catch (error) {
+            console.error('Stock validation error:', error);
+            return false;
+        }
+    };
+
+    const addToCart = async () => {
         if (!selected) return;
+
+        const isActive = selected.active !== false;
+        const hasStock = !selected.stockInfo?.hasStockLimit || 
+                        (selected.stockInfo?.availableStock !== null && 
+                         selected.stockInfo.availableStock > 0);
+        
+        if (!isActive || (selected.stockInfo?.hasStockLimit && !hasStock)) {
+            setNotif({ 
+                type: 'error', 
+                message: selected.stockInfo?.availableStock === 0 
+                    ? 'This item is out of stock.' 
+                    : 'This item is not available.' 
+            });
+            return;
+        }
 
         const hasSizeVariant = (selected.variants || []).some(v => v.label.toLowerCase() === 'size');
         let selectedSizes: Array<{ productId: string; sizeName: string }> | undefined;
@@ -283,9 +399,18 @@ export default function OrderPage() {
             optionName: variant.options[variantChoices[variant.label] || 0]?.name || ''
         }));
 
+        const canAddToCart = await validateStockBeforeAdd(selected, quantity, selectedOptions);
+        if (!canAddToCart) {
+            setNotif({ 
+                type: 'error', 
+                message: `Cannot add to cart: Insufficient stock. Maximum allowed: ${maxQuantity}` 
+            });
+            return;
+        }
+
         const cartItem: CartItem = {
             service: selected,
-            quantity,
+            quantity: safeQty,
             selectedOptions,
             files: files.map(f => ({ file: f.file, preview: f.preview || '' })),
             notes,
@@ -300,6 +425,14 @@ export default function OrderPage() {
         setNotes('');
         setSizeChoice({});
         setNotif({ type: 'success', message: 'Item added to cart!' });
+        
+        if (derivedStoreId) {
+            setTimeout(() => {
+                api.get(`/services/store/${derivedStoreId}`)
+                    .then(res => fetchStockInfo(derivedStoreId, res.data || []))
+                    .catch(console.error);
+            }, 500);
+        }
     };
 
     const removeFromCart = (index: number) => {
@@ -311,6 +444,19 @@ export default function OrderPage() {
             removeFromCart(index);
             return;
         }
+        
+        const item = cart[index];
+        if (item.service.stockInfo?.hasStockLimit) {
+            const maxAllowed = item.service.stockInfo.maxAllowedQuantity;
+            if (newQuantity > maxAllowed) {
+                setNotif({ 
+                    type: 'error', 
+                    message: `Maximum allowed quantity is ${maxAllowed}` 
+                });
+                newQuantity = maxAllowed;
+            }
+        }
+        
         setCart(prev => prev.map((item, i) => 
             i === index ? { ...item, quantity: newQuantity } : item
         ));
@@ -320,7 +466,6 @@ export default function OrderPage() {
         setCart([]);
     };
 
-    // Payment status monitoring
     useEffect(() => {
         if (!showPaymentModal || !paymentOrderId) return;
 
@@ -405,7 +550,6 @@ export default function OrderPage() {
         }, 0);
     }, [cart]);
 
-    // Helper to submit orders; accepts optional downpayment payload
     async function submitOrders(downPayment?: { required?: boolean; amount?: number; method?: string; reference?: string; receipt?: File | null }) {
         if (!derivedStoreId) return;
         try {
@@ -478,9 +622,32 @@ export default function OrderPage() {
                 setReceiptUrl(null);
                 setPaymentStatus('pending');
             }
-        } catch (e) {
+            
+            if (derivedStoreId) {
+                setTimeout(() => {
+                    api.get(`/services/store/${derivedStoreId}`)
+                        .then(res => fetchStockInfo(derivedStoreId, res.data || []))
+                        .catch(console.error);
+                }, 1000);
+            }
+        } catch (e: any) {
             console.error('submitOrders error', e);
-            setNotif({ type: 'error', message: 'Failed to place order(s).' });
+            const errorMessage = e.response?.data?.message || 'Failed to place order(s).';
+            
+            if (errorMessage.includes('stock') || errorMessage.includes('available') || errorMessage.includes('quantity')) {
+                setNotif({ 
+                    type: 'error', 
+                    message: `Order failed: ${errorMessage}. Please adjust quantities and try again.` 
+                });
+                
+                if (derivedStoreId) {
+                    api.get(`/services/store/${derivedStoreId}`)
+                        .then(res => fetchStockInfo(derivedStoreId, res.data || []))
+                        .catch(console.error);
+                }
+            } else {
+                setNotif({ type: 'error', message: errorMessage });
+            }
         } finally {
             setSubmitting(false);
         }
@@ -494,7 +661,6 @@ export default function OrderPage() {
                 .some((t) => String(t).toLowerCase().includes(q))
         );
 
-        // Sorting: best-selling first, then by selected sort key
         items = [...items].sort((a, b) => {
             const aBest = bestSellingIds.has(String(a._id)) || bestSellingNames.has((a.name || '').toLowerCase());
             const bBest = bestSellingIds.has(String(b._id)) || bestSellingNames.has((b.name || '').toLowerCase());
@@ -513,7 +679,6 @@ export default function OrderPage() {
         return items;
     }, [query, services, sortKey, sortDir, bestSellingIds, bestSellingNames]);
 
-    // Notification auto-hide
     useEffect(() => {
         if (notif) {
             const timer = setTimeout(() => setNotif(null), 3500);
@@ -523,7 +688,6 @@ export default function OrderPage() {
 
     return (
         <div className={`${BACKGROUND_GRADIENT} min-h-screen`}>
-            {/* Fixed Notification with higher z-index */}
             {notif && (
                 <div className={`fixed top-24 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform transition-all duration-300 animate-slide-in-right
                     ${notif.type === 'error' 
@@ -545,7 +709,6 @@ export default function OrderPage() {
                 </div>
             )}
 
-            {/* Enhanced Header */}
             <div className="pt-8 pb-6 relative z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="text-center mb-8">
@@ -557,7 +720,6 @@ export default function OrderPage() {
                         </p>
                     </div>
 
-                    {/* Enhanced Search and Filters */}
                     <div className="max-w-4xl mx-auto">
                         <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
                             <div className="relative flex-1 max-w-2xl">
@@ -589,7 +751,6 @@ export default function OrderPage() {
                                     </button>
                                 </div>
 
-                                {/* Enhanced Cart Button */}
                                 <button
                                     onClick={() => setShowCart(true)}
                                     className={`relative inline-flex items-center justify-center gap-3 px-6 h-14 rounded-2xl ${BUTTON_PRIMARY} border border-blue-500 dark:border-blue-600 transition-all duration-200 shadow-lg hover:shadow-xl group`}
@@ -613,7 +774,6 @@ export default function OrderPage() {
                         </div>
                     </div>
 
-                    {/* Enhanced Filter Dropdown */}
                     {showFilters && filterPos && createPortal(
                         <div
                             className={`w-80 rounded-2xl border border-gray-300 dark:border-gray-600 ${PANEL_SURFACE} backdrop-blur-sm p-6 z-[1000] shadow-2xl animate-fade-in`}
@@ -695,7 +855,6 @@ export default function OrderPage() {
                 </div>
             </div>
 
-            {/* Enhanced Content */}
             <div className="pb-16">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {!derivedStoreId && (
@@ -770,15 +929,18 @@ export default function OrderPage() {
                                                 const imgSrc = hasImage ? `${api.defaults.baseURL}/services/${svc._id}/image` : undefined;
                                                 const isBest = bestSellingIds.has(String(svc._id)) || bestSellingNames.has((svc.name || '').toLowerCase());
                                                 
-                                                // Check if active (default to true if undefined to be safe, or false if strictly required)
-                                                const isActive = svc.active !== false; 
+                                                const isActive = svc.active !== false;
+                                                const hasStock = !svc.stockInfo?.hasStockLimit || 
+                                                                (svc.stockInfo?.availableStock !== null && 
+                                                                 svc.stockInfo.availableStock > 0);
+                                                const canOrder = isActive && hasStock;
 
                                                 return (
                                                     <div 
                                                         key={svc._id} 
-                                                        className={`group cursor-pointer transition-all duration-300 h-full flex flex-col ${isActive ? 'hover:scale-[1.02]' : 'opacity-75 grayscale'}`}
+                                                        className={`group cursor-pointer transition-all duration-300 h-full flex flex-col ${canOrder ? 'hover:scale-[1.02]' : 'opacity-75 grayscale'}`}
                                                         onClick={() => {
-                                                            if (!isActive) return; // Prevent click if disabled
+                                                            if (!canOrder) return;
                                                             if (showFilters) setShowFilters(false);
                                                             setSelected(svc);
                                                             const init: Record<string, number> = {};
@@ -790,13 +952,12 @@ export default function OrderPage() {
                                                         }}
                                                     >
                                                         <div className={`${CARD_BACKGROUND} rounded-2xl ${CARD_BORDER} overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 h-full flex flex-col group-hover:border-blue-300 dark:group-hover:border-blue-600`}>
-                                                            {/* Enhanced Image Section */}
                                                             <div className={`relative aspect-[4/3] ${IMAGE_BACKGROUND} overflow-hidden`}>
                                                                 {imgSrc ? (
                                                                     <img 
                                                                         src={imgSrc} 
                                                                         alt={`${svc.name} image`} 
-                                                                        className={`w-full h-full object-cover transition-transform duration-500 ${isActive ? 'group-hover:scale-110' : ''}`}
+                                                                        className={`w-full h-full object-cover transition-transform duration-500 ${canOrder ? 'group-hover:scale-110' : ''}`}
                                                                     />
                                                                 ) : (
                                                                     <div className="w-full h-full flex items-center justify-center">
@@ -806,17 +967,15 @@ export default function OrderPage() {
                                                                     </div>
                                                                 )}
                                                                 
-                                                                {/* UNAVAILABLE OVERLAY */}
-                                                                {!isActive && (
+                                                                {!canOrder && (
                                                                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-[2px]">
                                                                         <span className="px-4 py-2 bg-gray-800/90 dark:bg-gray-900/90 text-gray-300 dark:text-gray-400 rounded-lg font-bold border border-gray-600 dark:border-gray-700">
-                                                                            UNAVAILABLE
+                                                                            {!isActive ? 'UNAVAILABLE' : 'OUT OF STOCK'}
                                                                         </span>
                                                                     </div>
                                                                 )}
 
-                                                                {/* Enhanced Best Seller Badge */}
-                                                                {isActive && isBest && (
+                                                                {canOrder && isBest && (
                                                                     <div className="absolute top-3 left-3">
                                                                         <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white text-xs font-bold shadow-lg backdrop-blur-sm">
                                                                             <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -827,7 +986,6 @@ export default function OrderPage() {
                                                                     </div>
                                                                 )}
                                                                 
-                                                                {/* Enhanced Price Overlay */}
                                                                 <div className="absolute bottom-3 right-3">
                                                                     <div className="bg-black/80 backdrop-blur-sm rounded-xl px-3 py-2 border border-white/20 shadow-lg">
                                                                         <div className="text-lg font-bold text-white">
@@ -838,13 +996,46 @@ export default function OrderPage() {
                                                                         )}
                                                                     </div>
                                                                 </div>
+                                                                
+                                                                {svc.stockInfo?.hasStockLimit && (
+                                                                    <div className="absolute top-3 right-3">
+                                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-sm border ${getStockBadgeClass(svc.stockInfo.availableStock, svc.stockInfo.hasStockLimit)}`}>
+                                                                            {svc.stockInfo.availableStock === 0 ? (
+                                                                                <NoSymbolIcon className="w-3 h-3" />
+                                                                            ) : (
+                                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                                </svg>
+                                                                            )}
+                                                                            {svc.stockInfo.availableStock === 0 ? 'SOLD OUT' : 
+                                                                             svc.stockInfo.availableStock && svc.stockInfo.availableStock <= 10 ? `LOW: ${svc.stockInfo.availableStock}` : 
+                                                                             svc.stockInfo.availableStock ? `STOCK: ${svc.stockInfo.availableStock}` : ''}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
                                                             </div>
 
-                                                            {/* Enhanced Content Section */}
                                                             <div className="p-5 flex-1 flex flex-col">
                                                                 <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{svc.name}</h3>
                                                                 {svc.description && (
                                                                     <p className={`${MUTED_TEXT} text-sm line-clamp-3 mb-4 flex-1`}>{svc.description}</p>
+                                                                )}
+                                                                
+                                                                {svc.stockInfo && (
+                                                                    <div className="mb-3">
+                                                                        <div className={`text-sm ${svc.stockInfo.hasStockLimit ? 
+                                                                            (svc.stockInfo.availableStock === 0 ? 'text-red-700 dark:text-red-300' : 
+                                                                             svc.stockInfo.availableStock && svc.stockInfo.availableStock <= 10 ? 'text-amber-700 dark:text-amber-300' : 
+                                                                             'text-emerald-700 dark:text-emerald-300') : 
+                                                                            'text-green-700 dark:text-green-300'}`}>
+                                                                            {formatStockDisplay(svc.stockInfo.availableStock, svc.stockInfo.hasStockLimit)}
+                                                                            {svc.stockInfo.inventoryItemName && (
+                                                                                <span className={`text-xs ${MUTED_TEXT_LIGHT} ml-1`}>
+                                                                                    ({svc.stockInfo.inventoryItemName})
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
                                                                 )}
                                                                 
                                                                 {svc.variants && svc.variants.length > 0 && (
@@ -861,14 +1052,15 @@ export default function OrderPage() {
                                                                 
                                                                 <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
                                                                     <button 
-                                                                        disabled={!isActive}
+                                                                        disabled={!canOrder}
                                                                         className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg ${
-                                                                            isActive 
+                                                                            canOrder 
                                                                             ? `${BUTTON_PRIMARY} hover:shadow-xl transform hover:scale-105` 
                                                                             : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-300 dark:border-gray-600'
                                                                         }`}
                                                                     >
-                                                                        {isActive ? 'Customize & Order' : 'Out of Stock'}
+                                                                        {canOrder ? 'Customize & Order' : 
+                                                                         !isActive ? 'Unavailable' : 'Out of Stock'}
                                                                     </button>
                                                                 </div>
                                                             </div>
@@ -885,12 +1077,10 @@ export default function OrderPage() {
                 </div>
             </div>
 
-            {/* Enhanced Order Modal */}
             {selected && (
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
                     <div className={`absolute inset-0 ${MODAL_OVERLAY} backdrop-blur-sm`} onClick={() => setSelected(null)} />
                     <div className={`relative z-10 mx-auto max-w-4xl w-[95%] rounded-3xl ${PANEL_SURFACE} shadow-2xl overflow-hidden`}>
-                        {/* Enhanced Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 backdrop-blur-sm">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
@@ -912,9 +1102,7 @@ export default function OrderPage() {
                             </button>
                         </div>
 
-                        {/* Enhanced Body */}
                         <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
-                            {/* Enhanced Product Summary */}
                             <div className={`flex items-start gap-6 p-5 rounded-2xl ${SOFT_PANEL} backdrop-blur-sm`}>
                                 <div className="w-24 h-24 rounded-xl overflow-hidden border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0 shadow-lg">
                                     {(() => {
@@ -946,6 +1134,29 @@ export default function OrderPage() {
                                             {selected.description && (
                                                 <p className={`${MUTED_TEXT_LIGHT} text-sm mt-2`}>{selected.description}</p>
                                             )}
+                                            
+                                            {selected.stockInfo && (
+                                                <div className="mt-3">
+                                                    <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium ${getStockBadgeClass(selected.stockInfo.availableStock, selected.stockInfo.hasStockLimit)}`}>
+                                                                        {selected.stockInfo.availableStock === 0 ? (
+                                                                            <NoSymbolIcon className="w-3.5 h-3.5" />
+                                                                        ) : (
+                                                                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                                                            </svg>
+                                                                        )}
+                                                                        {formatStockDisplay(selected.stockInfo.availableStock, selected.stockInfo.hasStockLimit)}
+                                                                        {selected.stockInfo.inventoryItemName && (
+                                                                            <span className="text-xs ml-1 dark:text-gray-300">({selected.stockInfo.inventoryItemName})</span>
+                                                                        )}
+                                                                    </div>
+                                                    {selected.stockInfo.hasStockLimit && selected.stockInfo.availableStock !== null && selected.stockInfo.availableStock > 0 && (
+                                                        <div className={`text-xs ${MUTED_TEXT_LIGHT} mt-1`}>
+                                                            Maximum order quantity: {selected.stockInfo.maxAllowedQuantity}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                         <div className="text-right">
                                             <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
@@ -959,7 +1170,6 @@ export default function OrderPage() {
                                 </div>
                             </div>
 
-                            {/* Enhanced Variants */}
                             {(selected.variants || []).length > 0 && (
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Customization Options</h3>
@@ -984,15 +1194,22 @@ export default function OrderPage() {
                                 </div>
                             )}
 
-                            {/* Enhanced Quantity */}
                             <div className="space-y-3">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Quantity</label>
+                                <div className="flex items-center justify-between">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Quantity</label>
+                                    {selected.stockInfo?.hasStockLimit && selected.stockInfo.availableStock !== null && (
+                                        <div className={`text-sm ${selected.stockInfo.availableStock <= 10 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                                            Available: {selected.stockInfo.maxAllowedQuantity}
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-4">
                                     <div className="inline-flex items-stretch rounded-xl border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 overflow-hidden shadow-lg">
                                         <button
                                             type="button"
                                             className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-40 transition-colors"
                                             onClick={() => setQuantity((q) => Math.max(1, (q || 1) - 1))}
+                                            disabled={quantity <= 1}
                                             aria-label="Decrease quantity"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1002,15 +1219,18 @@ export default function OrderPage() {
                                         <input
                                             type="number"
                                             min={1}
-                                            max={9999}
+                                            max={maxQuantity}
                                             value={quantity}
                                             onChange={(e) => {
                                                 const val = Number(e.target.value);
-                                                setQuantity(Number.isFinite(val) ? val : 1);
+                                                const max = selected.stockInfo?.maxAllowedQuantity || 9999;
+                                                const clamped = Math.min(max, Math.max(1, Number.isFinite(val) ? val : 1));
+                                                setQuantity(clamped);
                                             }}
                                             onBlur={(e) => {
                                                 const val = Number(e.target.value);
-                                                const clamped = Math.min(9999, Math.max(1, Number.isFinite(val) ? val : 1));
+                                                const max = selected.stockInfo?.maxAllowedQuantity || 9999;
+                                                const clamped = Math.min(max, Math.max(1, Number.isFinite(val) ? val : 1));
                                                 setQuantity(clamped);
                                             }}
                                             className="no-spinner w-20 text-center bg-transparent focus:outline-none font-medium text-lg text-gray-900 dark:text-white"
@@ -1018,8 +1238,12 @@ export default function OrderPage() {
                                         />
                                         <button
                                             type="button"
-                                            className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                                            onClick={() => setQuantity((q) => Math.min(9999, (q || 1) + 1))}
+                                            className="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-40 transition-colors"
+                                            onClick={() => setQuantity((q) => {
+                                                const max = selected.stockInfo?.maxAllowedQuantity || 9999;
+                                                return Math.min(max, (q || 1) + 1);
+                                            })}
+                                            disabled={quantity >= maxQuantity}
                                             aria-label="Increase quantity"
                                         >
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1031,9 +1255,13 @@ export default function OrderPage() {
                                         Total: <span className="text-emerald-600 dark:text-emerald-400">{formatMoney(unitPrice * safeQty, selected?.currency || 'PHP')}</span>
                                     </div>
                                 </div>
+                                {selected.stockInfo?.hasStockLimit && quantity >= maxQuantity && maxQuantity > 0 && (
+                                    <div className={`text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-lg border border-amber-200 dark:border-amber-800`}>
+                                        Maximum quantity reached ({maxQuantity}). You cannot order more than available stock.
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Enhanced File Upload */}
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Upload Files</label>
                                 <div
@@ -1113,7 +1341,6 @@ export default function OrderPage() {
                                 )}
                             </div>
 
-                            {/* Enhanced Notes */}
                             <div className="space-y-3">
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-200">Additional Notes</label>
                                 <textarea
@@ -1125,7 +1352,6 @@ export default function OrderPage() {
                                 />
                             </div>
 
-                            {/* Enhanced Actions */}
                             <div className="flex items-center justify-end gap-4 pt-4">
                                 <button
                                     type="button"
@@ -1137,7 +1363,7 @@ export default function OrderPage() {
                                 <button
                                     type="button"
                                     className={`px-8 py-3 rounded-xl ${BUTTON_PRIMARY} font-semibold disabled:opacity-60 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 transform hover:scale-105`}
-                                    disabled={submitting}
+                                    disabled={submitting || (selected.stockInfo?.hasStockLimit && selected.stockInfo.availableStock === 0)}
                                     onClick={addToCart}
                                 >
                                     {submitting ? (
@@ -1150,7 +1376,9 @@ export default function OrderPage() {
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                             </svg>
-                                            Add to Cart
+                                            {selected.stockInfo?.hasStockLimit && selected.stockInfo.availableStock === 0 
+                                                ? 'Out of Stock' 
+                                                : 'Add to Cart'}
                                         </>
                                     )}
                                 </button>
@@ -1160,12 +1388,10 @@ export default function OrderPage() {
                 </div>
             )}
 
-            {/* Enhanced Cart Modal */}
             {showCart && (
                 <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
                     <div className={`absolute inset-0 ${MODAL_OVERLAY} backdrop-blur-sm`} onClick={() => setShowCart(false)} />
                     <div className={`relative z-10 mx-auto max-w-4xl w-[95%] rounded-3xl ${PANEL_SURFACE} shadow-2xl overflow-hidden`}>
-                        {/* Enhanced Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 backdrop-blur-sm">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
@@ -1200,7 +1426,22 @@ export default function OrderPage() {
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
                                                     <div className="flex items-start justify-between mb-3">
-                                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{item.service.name}</h3>
+                                                        <div>
+                                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{item.service.name}</h3>
+                                                            {item.service.stockInfo && (
+                                                                <div className={`text-xs mt-1 ${item.service.stockInfo.hasStockLimit ? 
+                                                                    (item.service.stockInfo.availableStock === 0 ? 'text-red-700 dark:text-red-300' : 
+                                                                     'text-emerald-700 dark:text-emerald-300') : 
+                                                                    'text-green-700 dark:text-green-300'}`}>
+                                                                    {formatStockDisplay(item.service.stockInfo.availableStock, item.service.stockInfo.hasStockLimit)}
+                                                                    {item.service.stockInfo.inventoryItemName && (
+                                                                        <span className={`text-xs ${MUTED_TEXT_LIGHT} ml-1`}>
+                                                                            ({item.service.stockInfo.inventoryItemName})
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                         <div className="text-right ml-4">
                                                             <div className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
                                                                 {formatMoney(
@@ -1260,22 +1501,29 @@ export default function OrderPage() {
                                                 </div>
                                             </div>
 
-                                            {/* Enhanced Quantity Controls */}
                                             <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-300 dark:border-gray-600">
                                                 <div className="flex items-center gap-2">
                                                     <button 
                                                         onClick={() => updateCartItemQuantity(index, item.quantity - 1)}
-                                                        className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors"
+                                                        className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors disabled:opacity-40"
+                                                        disabled={item.quantity <= 1}
                                                     >
                                                         -
                                                     </button>
                                                     <span className="w-12 text-center font-medium text-gray-900 dark:text-white">{item.quantity}</span>
                                                     <button 
                                                         onClick={() => updateCartItemQuantity(index, item.quantity + 1)}
-                                                        className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors"
+                                                        className="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition-colors disabled:opacity-40"
+                                                        disabled={item.service.stockInfo?.hasStockLimit && 
+                                                                item.quantity >= (item.service.stockInfo.maxAllowedQuantity || 9999)}
                                                     >
                                                         +
                                                     </button>
+                                                    {item.service.stockInfo?.hasStockLimit && (
+                                                        <div className={`text-xs ml-2 ${item.service.stockInfo.availableStock !== null && item.quantity >= item.service.stockInfo.maxAllowedQuantity ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                                                            Max: {item.service.stockInfo.maxAllowedQuantity}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <button 
                                                     onClick={() => removeFromCart(index)}
@@ -1308,12 +1556,10 @@ export default function OrderPage() {
                                     <button
                                         onClick={async () => {
                                             if (!derivedStoreId) return;
-                                            // If bulk (>2000) require downpayment first
                                             if (cartTotal > 2000) {
                                                 setShowDownPaymentModal(true);
                                                 return;
                                             }
-                                            // otherwise place orders normally
                                             await submitOrders();
                                         }}
                                         className={`flex-1 px-6 py-3 rounded-xl ${BUTTON_PRIMARY} font-semibold disabled:opacity-60 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2`}
@@ -1340,7 +1586,6 @@ export default function OrderPage() {
                 </div>
             )}
 
-            {/* Down Payment Modal for bulk orders (>2000) */}
             {showDownPaymentModal && (
                 <div className="fixed inset-0 z-[999998] flex items-center justify-center p-4">
                     <div className={`absolute inset-0 ${MODAL_OVERLAY} backdrop-blur-sm`} onClick={() => setShowDownPaymentModal(false)} />
@@ -1387,7 +1632,6 @@ export default function OrderPage() {
                                     }}
                                     className={`relative ${DROPZONE_BORDER} ${DROPZONE_HOVER} border-2 border-dashed bg-gray-50/30 dark:bg-gray-700/30 rounded-2xl p-8 min-h-[180px] text-center backdrop-blur-sm transition-all duration-200 flex items-center justify-center gap-4 cursor-pointer`}
                                 >
-                                    {/* Content (visual) sits below the invisible input so clicks open file picker; remove button sits above input */}
                                     <div className="relative z-10 flex flex-col items-center justify-center gap-3">
                                         {dpReceiptFile ? (
                                             <div className="flex flex-col items-center gap-3">
@@ -1411,7 +1655,6 @@ export default function OrderPage() {
                                         )}
                                     </div>
 
-                                    {/* Invisible full-size file input so the whole dropbox is clickable; placed above visual but below the remove button */}
                                     <input 
                                         type="file" 
                                         accept="image/*,.pdf"
@@ -1419,7 +1662,6 @@ export default function OrderPage() {
                                         onChange={(e) => handleDpFile(e.target.files ? e.target.files[0] : null)}
                                     />
 
-                                    {/* Remove button sits on top so it remains clickable when preview shown */}
                                     {dpReceiptFile && (
                                         <button type="button" onClick={() => handleDpFile(null)} className="absolute top-3 right-3 z-30 text-red-400 hover:text-red-300 bg-black/30 backdrop-blur-sm px-2 py-1 rounded-md">
                                             ✕
@@ -1433,7 +1675,7 @@ export default function OrderPage() {
                                 <input value={dpReference} onChange={(e) => setDpReference(e.target.value)} className={`w-full rounded-xl ${INPUT_SURFACE} px-4 py-3`} placeholder="e.g. GCash reference or bank transaction ID" />
                             </div>
 
-                                <div className="flex items-center gap-3 pt-2">
+                            <div className="flex items-center gap-3 pt-2">
                                 <button onClick={() => setShowDownPaymentModal(false)} className={`flex-1 px-6 py-3 rounded-xl ${BUTTON_SECONDARY} transition-all`}>Cancel</button>
                                 <button disabled={!dpReceiptFile} onClick={async () => {
                                     if (!dpReceiptFile) {
@@ -1449,12 +1691,10 @@ export default function OrderPage() {
                 </div>
             )}
 
-            {/* Enhanced Payment Confirmation Modal */}
             {showPaymentModal && paymentOrderId && (
                 <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4">
                     <div className={`absolute inset-0 ${MODAL_OVERLAY} backdrop-blur-sm`} onClick={() => setShowPaymentModal(false)} />
                     <div className={`relative z-10 max-w-md w-full rounded-3xl ${PANEL_SURFACE} shadow-2xl overflow-hidden`}>
-                        {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-300 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-800/50 backdrop-blur-sm">
                             <div className="text-xl font-bold text-gray-900 dark:text-white">
                                 Order Status
@@ -1468,9 +1708,7 @@ export default function OrderPage() {
                             </button>
                         </div>
                         
-                        {/* Body */}
                         <div className="p-6 space-y-6">
-                            {/* Status Display */}
                             <div className="text-center">
                                 <div className={`text-sm ${MUTED_TEXT} mb-2`}>Current Status</div>
                                 <div className={`text-2xl font-bold ${
@@ -1486,7 +1724,6 @@ export default function OrderPage() {
                                 </div>
                             </div>
 
-                            {/* QR Code / Receipt */}
                             {(watchedOrderStatus === 'ready' || watchedOrderStatus === 'completed') && (
                                 <div className="space-y-4">
                                     {watchedOrderStatus === 'ready' && (
@@ -1524,7 +1761,6 @@ export default function OrderPage() {
                                 </div>
                             )}
 
-                            {/* Actions */}
                             <div className="flex flex-col gap-3">
                                 <button 
                                     onClick={() => setShowPaymentModal(false)}

@@ -16,14 +16,21 @@ const {
   markReturnRequestForwarded,
   reviewReturnRequest,
   streamReturnEvidence,
+  getServiceStockInfo,
+  cancelOrderAndRestoreInventory, // ✅ NEW: Import the cancellation function
 } = require('../controllers/orderController');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Create order (optional files + optional downpayment receipt)
-// accept both `files` (order attachments) and `receipt` (downpayment proof)
 router.post('/', protect, auditLogger('create', 'Order'), upload.fields([{ name: 'files', maxCount: 10 }, { name: 'receipt', maxCount: 1 }]), createOrder);
+
+// Get stock information for services in a store (public - no auth needed)
+router.get('/store/:storeId/stock-info', getServiceStockInfo);
+
+// ✅ NEW ROUTE: Cancel order and restore inventory (dedicated endpoint)
+router.post('/:id/cancel', protect, auditLogger('cancel', 'Order'), cancelOrderAndRestoreInventory);
 
 // List my orders
 router.get('/mine', protect, getMyOrders);
