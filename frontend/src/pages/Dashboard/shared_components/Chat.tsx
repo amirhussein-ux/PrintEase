@@ -134,6 +134,7 @@ const isImageFile = (fileName?: string, fileType?: string) => {
 const OwnerChat: React.FC = () => {
   const { socket, isConnected } = useSocket();
   const { user } = useAuth();
+  const { state: sidebarState, isMobile } = useSidebar();
   const currentUserId = user?._id ? String(user._id) : '';
   const [storeId, setStoreId] = React.useState<string | null>(null);
   const [storeOwnerId, setStoreOwnerId] = React.useState<string | null>(null);
@@ -498,6 +499,7 @@ const OwnerChat: React.FC = () => {
       setLoadingParticipants(true);
       setParticipants([]);
       setSelectedParticipant(null);
+      setIsMobileChatView(false);
       try {
         // Guard: wait for identifiers before attempting customer loads
         if (chatMode === 'customers' && !storeId) { setLoadingParticipants(false); return; }
@@ -517,7 +519,9 @@ const OwnerChat: React.FC = () => {
           final = Object.values(byId);
         }
         setParticipants(final);
-        if (final.length > 0) handleSelectParticipant(final[0]);
+        if (final.length > 0 && !isMobile) {
+          handleSelectParticipant(final[0]);
+        }
       } catch (err) {
         console.error('Error loading participants', err);
       } finally {
@@ -525,7 +529,7 @@ const OwnerChat: React.FC = () => {
       }
     };
     run();
-  }, [chatMode, currentUserId, registerStoreMembers, storeId, storeOwnerId, user?.role]);
+  }, [chatMode, currentUserId, registerStoreMembers, storeId, storeOwnerId, user?.role, isMobile]);
 
   React.useEffect(() => {
     if (!selectedParticipant || selectedParticipant.kind !== 'customer') return;
@@ -715,7 +719,6 @@ const OwnerChat: React.FC = () => {
     );
   });
 
-    const { state: sidebarState, isMobile } = useSidebar();
     const sidebarOffset = React.useMemo(() => {
       if (isMobile) return "0px";
       return sidebarState === "collapsed" ? "var(--sidebar-width-icon)" : "var(--sidebar-width)";
