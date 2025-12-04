@@ -234,7 +234,7 @@ async function reduceInventoryForOrder(order) {
   }
 }
 
-// ✅ UPDATED: Check stock before creating order
+// ✅ FIXED: Corrected downpayment receipt handling in createOrder
 exports.createOrder = async (req, res) => {
   try {
     const requester = req.user; // may be guest
@@ -372,7 +372,7 @@ exports.createOrder = async (req, res) => {
     }
     orderDoc.files = filesMeta;
 
-    // Handle optional downpayment receipt upload and fields
+    // ✅ FIXED: Corrected downpayment receipt handling
     if (req.body && (req.body.downPaymentRequired === 'true' || req.body.downPaymentRequired === true)) {
       orderDoc.downPaymentRequired = true;
       const dpAmt = Number(req.body.downPaymentAmount);
@@ -380,18 +380,28 @@ exports.createOrder = async (req, res) => {
       orderDoc.downPaymentMethod = req.body.downPaymentMethod || undefined;
       orderDoc.downPaymentReference = req.body.downPaymentReference || undefined;
 
-      const receiptArray = (req.files && req.files.receipt) || [];
-      if (!Array.isArray(receiptArray) || receiptArray.length === 0) {
+      // ✅ FIXED: Check for 'receipt' field (singular) instead of 'receipts'
+      let receiptFile = null;
+      if (req.files && req.files.receipt) {
+        // Handle both single file and array
+        if (Array.isArray(req.files.receipt)) {
+          receiptFile = req.files.receipt[0];
+        } else {
+          receiptFile = req.files.receipt;
+        }
+      }
+      
+      if (!receiptFile) {
         return res.status(400).json({ message: 'Down payment receipt is required for bulk orders.' });
       }
 
-      const rf = receiptArray[0];
-      const uploadStream = bucket.openUploadStream(rf.originalname, { contentType: rf.mimetype });
-      uploadStream.end(rf.buffer);
+      const uploadStream = bucket.openUploadStream(receiptFile.originalname, { contentType: receiptFile.mimetype });
+      uploadStream.end(receiptFile.buffer);
       const receiptId = await new Promise((resolve, reject) => {
         uploadStream.on('finish', () => resolve(uploadStream.id));
         uploadStream.on('error', reject);
       });
+      
       orderDoc.downPaymentReceipt = receiptId;
       orderDoc.downPaymentPaid = true;
       orderDoc.downPaymentPaidAt = new Date();
