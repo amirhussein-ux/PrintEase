@@ -143,6 +143,23 @@ const TRACK_INPUT_BUTTON = 'px-4 py-2.5 rounded-xl text-sm font-medium border tr
 const TRACK_QR_SECTION = 'p-6 rounded-xl border border-indigo-100 bg-indigo-50 text-gray-800 shadow-inner dark:border-indigo-500/40 dark:bg-slate-950/80 dark:text-white';
 const TRACK_QR_MESSAGE = 'flex items-center gap-3 text-sm text-indigo-700 dark:text-indigo-100';
 const MAX_RETURN_EVIDENCE = 6;
+const RETURN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+type ReturnWindowState = { expired: boolean; expiresAt: Date | null; completedAt: Date | null };
+
+function resolveCompletionTimestamp(order: Order): string | undefined {
+  return order.stageTimestamps?.completed || order.updatedAt || order.stageTimestamps?.ready || order.createdAt;
+}
+
+function getReturnWindowState(order: Order): ReturnWindowState {
+  if (order.status !== 'completed') return { expired: false, expiresAt: null, completedAt: null };
+  const completedIso = resolveCompletionTimestamp(order);
+  if (!completedIso) return { expired: false, expiresAt: null, completedAt: null };
+  const completedAt = new Date(completedIso);
+  if (Number.isNaN(completedAt.getTime())) return { expired: false, expiresAt: null, completedAt: null };
+  const expiresAt = new Date(completedAt.getTime() + RETURN_WINDOW_MS);
+  return { expired: Date.now() > expiresAt.getTime(), expiresAt, completedAt };
+}
 
 export default function TrackOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -719,6 +736,8 @@ export default function TrackOrders() {
             const first = o.items[0];
             const total = o.subtotal ?? first?.totalPrice ?? 0;
             const currency = o.currency || first?.currency || 'PHP';
+            const returnWindow = getReturnWindowState(o);
+            const canRequestReturn = o.status === 'completed' && !o.returnRequest && o.paymentStatus !== 'refunded';
             return (
               <div key={o._id} className={`${TRACK_CARD} p-6 shadow-xl hover:shadow-2xl transition-all duration-300`}>
                 <div className="flex flex-col lg:flex-row lg:items-start gap-6">
@@ -819,13 +838,30 @@ export default function TrackOrders() {
                         </button>
                       )}
                       
-                      {o.status === 'completed' && !o.returnRequest && o.paymentStatus !== 'refunded' && (
-                        <button
-                          onClick={() => openReturnModal(o._id)}
-                          className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:shadow-md transition-all duration-200 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-100"
-                        >
-                          Return / Refund
-                        </button>
+                      {canRequestReturn && (
+                        <div className="space-y-1">
+                          <button
+                            onClick={() => {
+                              if (returnWindow.expired) return;
+                              openReturnModal(o._id);
+                            }}
+                            disabled={returnWindow.expired}
+                            className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200 ${
+                              returnWindow.expired
+                                ? 'border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'
+                                : 'border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:shadow-md dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-100'
+                            }`}
+                          >
+                            {returnWindow.expired ? 'Return Window Closed' : 'Return / Refund'}
+                          </button>
+                          {returnWindow.expiresAt && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {returnWindow.expired
+                                ? `Return window expired on ${formatDateUTC(returnWindow.expiresAt.toISOString())}.`
+                                : `Return window ends on ${formatDateUTC(returnWindow.expiresAt.toISOString())}.`}
+                            </p>
+                          )}
+                        </div>
                       )}
 
                       {o.returnRequest && (

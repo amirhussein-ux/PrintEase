@@ -8,6 +8,7 @@ const Notification = require('../models/notificationModel');
 const { getManagedStore, AccessError } = require('../utils/storeAccess');
 
 const EMPLOYEE_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
+const RETURN_REQUEST_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function computeUnitPrice(service, selectedOptions = []) {
   const base = Number(service.basePrice) || 0;
@@ -896,6 +897,17 @@ exports.submitReturnRequest = async (req, res) => {
 
     if (order.status !== 'completed') {
       return res.status(400).json({ message: 'Returns/refunds are only available for completed orders.' });
+    }
+
+    const completedIso = (order.stageTimestamps && order.stageTimestamps.completed) || order.updatedAt || order.createdAt;
+    if (completedIso) {
+      const completedAt = new Date(completedIso);
+      if (Number.isFinite(completedAt.getTime())) {
+        const elapsedMs = Date.now() - completedAt.getTime();
+        if (elapsedMs > RETURN_REQUEST_WINDOW_MS) {
+          return res.status(400).json({ message: 'Return/refund requests must be submitted within 7 days of completion.' });
+        }
+      }
     }
 
     if (order.returnRequest && order.returnRequest.status === 'pending') {
