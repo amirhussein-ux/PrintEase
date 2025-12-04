@@ -6,8 +6,28 @@ const InventoryItem = require('../models/inventoryItemModel');
 const crypto = require('crypto');
 const Notification = require('../models/notificationModel');
 const { getManagedStore, AccessError } = require('../utils/storeAccess');
+const AuditLog = require('../models/AuditLog');
 
 const EMPLOYEE_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
+
+// Helper for audit logging
+const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
+  try {
+    await AuditLog.create({
+      action,
+      resource,
+      resourceId,
+      user: req.user?.email || req.user?.username || 'System',
+      userRole: req.user?.role || 'unknown',
+      storeId: store._id,
+      details,
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+    console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
+  } catch (auditErr) {
+    console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);
+  }
+};
 
 function computeUnitPrice(service, selectedOptions = []) {
   const base = Number(service.basePrice) || 0;
@@ -331,6 +351,19 @@ exports.createOrder = async (req, res) => {
     // Create the actual order
     const order = await Order.create(orderDoc);
 
+    // AUDIT LOG: Order Created
+    await logAudit(req, store, 'place', 'order', order._id, {
+      orderId: order._id,
+      customer: req.user?.email || 'Guest',
+      items: order.items.map(item => ({
+        service: item.serviceName,
+        quantity: item.quantity,
+        price: item.totalPrice
+      })),
+      total: order.subtotal,
+      createdBy: req.user?.email || req.user?.username || 'Guest'
+    });
+
     // Immediately deduct inventory for confirmed orders
     try {
       await reduceInventoryForOrder(order);
@@ -501,8 +534,18 @@ exports.updateOrderStatus = async (req, res) => {
         return res.status(400).json({ message: 'Order cannot be cancelled at this stage' });
       }
 
+      const oldStatus = order.status;
       order.status = 'cancelled';
       await order.save();
+
+      // AUDIT LOG: Order Cancelled by Customer
+      await logAudit(req, order.store, 'cancel', 'order', order._id, { 
+        orderId: order._id,
+        oldStatus: oldStatus,
+        newStatus: order.status,
+        cancelledBy: req.user?.email || req.user?.username || 'Customer',
+        cancelledAt: new Date()
+      });
 
       // Notify store owner about cancellation
       try {
@@ -528,6 +571,7 @@ exports.updateOrderStatus = async (req, res) => {
     const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
     const order = await Order.findOne({ _id: id, store: store._id }).populate('store');
     if (!order) return res.status(404).json({ message: 'Order not found' });
+    const oldStatus = order.status;
 
     // --- Update status ---
     if (incomingStatus) {
@@ -572,6 +616,14 @@ exports.updateOrderStatus = async (req, res) => {
 
     await order.save();
 
+    // AUDIT LOG: Order Status Updated by Staff
+    await logAudit(req, store, 'update', 'order', order._id, {
+      orderId: order._id,
+      oldStatus: oldStatus,
+      newStatus: order.status,
+      paymentStatus: order.paymentStatus,
+      updatedBy: req.user?.email || req.user?.username || 'Staff'
+    });
 
     try {
       const io = req.app.get('io');
@@ -634,6 +686,14 @@ exports.confirmPickupByToken = async (req, res) => {
     order.pickupToken = undefined;
     order.pickupTokenExpires = undefined;
     await order.save();
+
+    // AUDIT LOG: Pickup Confirmed
+    await logAudit(req, order.store, 'update', 'order', order._id, {
+      orderId: order._id,
+      action: 'pickup_confirmed',
+      pickupTime: order.pickupVerifiedAt,
+      confirmedBy: req.user?.email || req.user?.username || 'Token System'
+    });
 
     try {
       const io = req.app.get('io');

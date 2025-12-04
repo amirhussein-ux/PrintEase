@@ -3,6 +3,7 @@ const DeletedEmployee = require('../models/deletedEmployeeModel');
 const PrintStore = require('../models/printStoreModel');
 const bcrypt = require('bcryptjs');
 const { getManagedStore, AccessError } = require('../utils/storeAccess');
+const AuditLog = require('../models/AuditLog'); 
 
 const normalizeEmail = (email) => (typeof email === 'string' ? email.trim().toLowerCase() : '');
 
@@ -79,6 +80,31 @@ exports.createEmployee = async (req, res) => {
       passwordHash,
       avatar: avatar === '' ? undefined : avatar,
     });
+    console.log('Attempting to create audit log for employee:', doc._id);
+    // AUDIT LOG: Employee Created
+    try {
+      await AuditLog.create({
+        action: 'create',
+        resource: 'employee',
+        resourceId: doc._id,
+        user: req.user.email || req.user.username || 'System',
+        userRole: req.user.role,
+        storeId: store._id,
+        details: {
+          employeeId: doc._id,
+          employeeName: doc.fullName,
+          email: doc.email,
+          role: doc.role,
+          createdBy: req.user.email || req.user.username
+        },
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+      console.log('✅ Audit log created successfully:', auditResult._id);
+    } catch (auditErr) {
+      console.error('❌ Audit log FAILED:', auditErr.message);
+      console.error('Full error:', auditErr);
+    }
+
     res.status(201).json(sanitizeEmployee(doc));
   } catch (err) {
     if (err && err.code === 11000) {
@@ -123,6 +149,29 @@ exports.updateEmployee = async (req, res) => {
     }
 
     await employee.save();
+
+    // AUDIT LOG: Employee Updated
+    try {
+      await AuditLog.create({
+        action: 'update',
+        resource: 'employee',
+        resourceId: employee._id,
+        user: req.user.email || req.user.username || 'System',
+        userRole: req.user.role,
+        storeId: store._id,
+        details: {
+          employeeId: employee._id,
+          employeeName: employee.fullName,
+          email: employee.email,
+          role: employee.role,
+          fieldsUpdated: Object.keys(req.body),
+          updatedBy: req.user.email || req.user.username
+        },
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+    } catch (auditErr) {
+      console.error('Failed to create employee update audit log:', auditErr);
+    }
     res.json(sanitizeEmployee(employee));
   } catch (err) {
     if (err && err.code === 11000) {
@@ -167,6 +216,30 @@ exports.archiveEmployee = async (req, res) => {
 
     // Remove from active
     await employee.deleteOne();
+
+    // AUDIT LOG: Employee Archived
+    try {
+      await AuditLog.create({
+        action: 'archive',
+        resource: 'employee',
+        resourceId: id,
+        user: req.user.email || req.user.username || 'System',
+        userRole: req.user.role,
+        storeId: store._id,
+        details: {
+          employeeId: id,
+          employeeName: archivedPayload.fullName,
+          email: archivedPayload.email,
+          role: archivedPayload.role,
+          archivedAt: archivedPayload.deletedAt,
+          archivedBy: req.user.email || req.user.username
+        },
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+    } catch (auditErr) {
+      console.error('Failed to create employee archive audit log:', auditErr);
+    }
+
 
     res.json({ success: true, message: 'Employee archived successfully', archived: sanitizeEmployee(archived) });
   } catch (err) {
@@ -226,6 +299,29 @@ exports.restoreArchivedEmployee = async (req, res) => {
 
     await archived.deleteOne();
 
+    // AUDIT LOG: Employee Restored
+    try {
+      await AuditLog.create({
+        action: 'restore',
+        resource: 'employee',
+        resourceId: restored._id,
+        user: req.user.email || req.user.username || 'System',
+        userRole: req.user.role,
+        storeId: store._id,
+        details: {
+          employeeId: restored._id,
+          employeeName: restored.fullName,
+          email: restored.email,
+          role: restored.role,
+          restoredFrom: deletedId,
+          restoredBy: req.user.email || req.user.username
+        },
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+    } catch (auditErr) {
+      console.error('Failed to create employee restore audit log:', auditErr);
+    }
+
     res.json(sanitizeEmployee(restored));
   } catch (err) {
     const status = err.statusCode || 500;
@@ -242,6 +338,28 @@ exports.purgeArchivedEmployee = async (req, res) => {
     
     const archived = await DeletedEmployee.findOneAndDelete({ _id: deletedId, store: store._id });
     
+    // AUDIT LOG: Employee Permanently Deleted
+    try {
+      await AuditLog.create({
+        action: 'delete',
+        resource: 'employee',
+        resourceId: deletedId,
+        user: req.user.email || req.user.username || 'System',
+        userRole: req.user.role,
+        storeId: store._id,
+        details: {
+          employeeId: deletedId,
+          employeeName: archived?.fullName || 'Unknown',
+          email: archived?.email || 'Unknown',
+          permanentlyDeletedAt: new Date(),
+          deletedBy: req.user.email || req.user.username
+        },
+        ipAddress: req.ip || req.connection.remoteAddress
+      });
+    } catch (auditErr) {
+      console.error('Failed to create employee purge audit log:', auditErr);
+    }
+
     if (!archived) return res.status(404).json({ message: 'Archived employee not found' });
     res.json({ success: true, message: 'Employee permanently deleted' });
   } catch (err) {

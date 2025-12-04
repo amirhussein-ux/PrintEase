@@ -278,7 +278,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
   )
 }
 
-// Audit Trail Component with dark mode
+// Audit Trail Component - Business Events Focus with Dark Mode
 const AuditTrailSection = ({ 
   logs, 
   loading 
@@ -288,38 +288,155 @@ const AuditTrailSection = ({
 }) => {
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
 
+  // Format date to readable format
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const getActionColor = (action: string) => {
     const colors: Record<string, string> = {
-      create: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
-      update: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-      delete: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
-      login: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800",
-      logout: "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700",
-      download: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800",
-      register: "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800",
-      guest_login: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
-      create_service: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
-      update_service: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-      delete_service: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
-      restore_service: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
-      create_employee: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
-      update_employee: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800", 
-      delete_employee: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
-      restore_employee: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
-      purge_employee: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
-      create_store: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
-      update_store: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
-      update_profile: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800"
+      // Job/Order events
+      "order_created": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      "order_updated": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      "order_completed": "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+      "order_cancelled": "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      "order_status_changed": "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
+      "job_started": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      "job_completed": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      
+      // Payment events
+      "payment_received": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      "payment_refunded": "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      "payment_failed": "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      "invoice_issued": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      
+      // Inventory events
+      "inventory_created": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      "inventory_updated": "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
+      "inventory_low": "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 border-orange-200 dark:border-orange-800",
+      "inventory_restocked": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      "inventory_archived": "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      "inventory_restored": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      "material_used": "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700",
+      
+      // User events
+      "user_login": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      "user_logout": "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700",
+      "user_created": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      "user_updated": "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
+      "user_deleted": "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      "role_changed": "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800",
+      "login": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      
+      // Service events
+      "service_created": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      "service_updated": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      "service_archived": "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      "service_restored": "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
+      
+      // Employee events
+      "employee_created": "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-200 dark:border-green-800",
+      "employee_updated": "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-200 dark:border-blue-800",
+      "employee_archived": "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-800",
+      "employee_restored": "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 border-yellow-200 dark:border-yellow-800",
+      
+      // System events
+      "system_backup": "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800",
+      "report_generated": "bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 border-teal-200 dark:border-teal-800",
+      "settings_updated": "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700",
     };
     return colors[action.toLowerCase()] || "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700";
   };
 
-  const capitalizeFirst = (str: string) => {
-    return str.charAt(0).toUpperCase() + str.slice(1);
+  const getActionIcon = (action: string) => {
+    const icons: Record<string, string> = {
+      // Job/Order
+      "order_created": "🆕",
+      "order_updated": "✏️",
+      "order_completed": "✅",
+      "order_cancelled": "❌",
+      "order_status_changed": "🔄",
+      "job_started": "⚙️",
+      "job_completed": "🏁",
+      
+      // Payment
+      "payment_received": "💰",
+      "payment_refunded": "💸",
+      "payment_failed": "❌",
+      "invoice_issued": "🧾",
+      
+      // Inventory
+      "inventory_created": "📦",
+      "inventory_updated": "✏️",
+      "inventory_low": "⚠️",
+      "inventory_restocked": "📈",
+      "inventory_archived": "🗑️",
+      "inventory_restored": "🔄",
+      "material_used": "📉",
+      
+      // User
+      "user_login": "🔐",
+      "login": "🔐",
+      "user_logout": "👋",
+      "user_created": "👤",
+      "user_updated": "✏️",
+      "user_deleted": "🗑️",
+      "role_changed": "🎭",
+      
+      // Service
+      "service_created": "📋",
+      "service_updated": "✏️",
+      "service_archived": "🗑️",
+      "service_restored": "🔄",
+      
+      // Employee
+      "employee_created": "👨‍💼",
+      "employee_updated": "✏️",
+      "employee_archived": "🗑️",
+      "employee_restored": "🔄",
+      
+      // System
+      "system_backup": "💾",
+      "report_generated": "📊",
+      "settings_updated": "⚙️",
+    };
+    return icons[action.toLowerCase()] || "📋";
+  };
+
+  const getResourceIcon = (resource: string) => {
+    const icons: Record<string, string> = {
+      "Order": "📦",
+      "Job": "🛠️",
+      "Payment": "💰",
+      "Invoice": "🧾",
+      "Inventory": "📊",
+      "Material": "🧱",
+      "User": "👤",
+      "Employee": "👨‍💼",
+      "Customer": "👥",
+      "Service": "🛍️",
+      "System": "🖥️",
+      "Report": "📈",
+      "auth": "🔐",
+    };
+    return icons[resource] || "📋";
   };
 
   const getRoleColor = (role: string) => {
@@ -328,47 +445,128 @@ const AuditTrailSection = ({
       employee: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800 font-medium",
       customer: "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border-green-300 dark:border-green-800",
       guest: "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-700",
+      manager: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800",
+      admin: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-300 dark:border-red-800 font-bold",
     };
     return colors[role.toLowerCase()] || "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700";
   };
 
-  const getActionIcon = (action: string) => {
-    const icons: Record<string, string> = {
-      // Authentication
-      login: "🔐",
-      logout: "📤",
-      register: "👤", 
-      guest_login: "👥",
+  // Format the business-friendly message
+  const formatBusinessMessage = (log: AuditLog) => {
+    const details = log.details || {};
+    const resourceName = details.name || details.email || details.orderId || log.resourceId || '';
+    
+    switch (log.action.toLowerCase()) {
+      // Handle old "login" action
+      case 'login':
+        return `User logged in: ${details.email || log.user}`;
       
-      // Generic actions  
-      create: "🆕",
-      update: "✏️",
-      delete: "🗑️",
-      download: "📥",
-      restore: "🔄",
-      purge: "💥",
+      // Order/Job events
+      case 'order_created':
+        return `New order created${resourceName ? `: ${resourceName.slice(-6)}` : ''}`;
+      case 'order_completed':
+        return `Order completed${resourceName ? `: ${resourceName.slice(-6)}` : ''}`;
+      case 'order_cancelled':
+        return `Order cancelled${resourceName ? `: ${resourceName.slice(-6)}` : ''}`;
+      case 'order_status_changed':
+        return `Order status changed to "${details.status}"`;
+      case 'job_started':
+        return `Print job started${resourceName ? `: ${resourceName.slice(-6)}` : ''}`;
+      case 'job_completed':
+        return `Print job completed${resourceName ? `: ${resourceName.slice(-6)}` : ''}`;
       
-      // Service actions
-      create_service: "📋",
-      update_service: "✏️",
-      delete_service: "🗑️",
-      restore_service: "🔄",
+      // Payment events
+      case 'payment_received':
+        return `Payment received${details.amount ? `: ₱${details.amount}` : ''}`;
+      case 'payment_refunded':
+        return `Payment refunded${details.amount ? `: ₱${details.amount}` : ''}`;
+      case 'invoice_issued':
+        return `Invoice issued${details.invoiceNumber ? `: #${details.invoiceNumber}` : ''}`;
       
-      // Employee actions  
-      create_employee: "👨‍💼",
-      update_employee: "✏️",
-      delete_employee: "🗑️",
-      restore_employee: "🔄",
-      purge_employee: "💥",
+      // Inventory events
+      case 'inventory_created':
+        return `Inventory created: ${details.itemName || log.resource}`;
+      case 'inventory_updated':
+        return `Inventory updated: ${details.itemName || log.resource}`;
+      case 'inventory_low':
+        return `Low stock alert: ${details.itemName || log.resource}`;
+      case 'inventory_restocked':
+        return `Inventory restocked: ${details.itemName || log.resource}`;
+      case 'inventory_archived':
+        return `Inventory archived: ${details.itemName || log.resource}`;
+      case 'inventory_restored':
+        return `Inventory restored: ${details.itemName || log.resource}`;
       
-      // Store actions
-      create_store: "🏪",
-      update_store: "✏️",
+      // User events
+      case 'user_login':
+        return `User logged in: ${details.email || log.user}`;
+      case 'user_created':
+        return `New user account created: ${details.email || log.user}`;
+      case 'user_updated':
+        return `User profile updated: ${details.email || log.user}`;
+      case 'role_changed':
+        return `User role changed to "${details.newRole}"`;
       
-      // Profile actions
-      update_profile: "👤"
-    };
-    return icons[action.toLowerCase()] || "📋";
+      // Service events
+      case 'service_created':
+        return `Service created: ${details.serviceName || log.resource}`;
+      case 'service_updated':
+        return `Service updated: ${details.serviceName || log.resource}`;
+      case 'service_archived':
+        return `Service archived: ${details.serviceName || log.resource}`;
+      case 'service_restored':
+        return `Service restored: ${details.serviceName || log.resource}`;
+      
+      // Employee events
+      case 'employee_created':
+        return `Employee created: ${details.employeeName || log.resource}`;
+      case 'employee_updated':
+        return `Employee updated: ${details.employeeName || log.resource}`;
+      case 'employee_archived':
+        return `Employee archived: ${details.employeeName || log.resource}`;
+      case 'employee_restored':
+        return `Employee restored: ${details.employeeName || log.resource}`;
+      
+      // Default
+      default:
+        return `${log.action} - ${log.resource}`;
+    }
+  };
+
+  // Parse JSON strings in details
+  const parseDetails = (details: any) => {
+    if (!details) return {};
+    
+    try {
+      // If details itself is a string, parse it
+      if (typeof details === 'string') {
+        return JSON.parse(details);
+      }
+      
+      // Check for stringified fields within details
+      const parsed = { ...details };
+      
+      if (typeof parsed.response === 'string') {
+        try {
+          parsed.response = JSON.parse(parsed.response);
+        } catch (e) {
+          // Keep as string if parsing fails
+        }
+      }
+      
+      if (typeof parsed.requestBody === 'string') {
+        try {
+          parsed.requestBody = JSON.parse(parsed.requestBody);
+        } catch (e) {
+          // Keep as string if parsing fails
+        }
+      }
+      
+      return parsed;
+    } catch (e) {
+      console.error('Error parsing audit details:', e);
+      return details;
+    }
   };
 
   if (loading) {
@@ -387,79 +585,174 @@ const AuditTrailSection = ({
     );
   }
 
+  // Filter to show only business-relevant logs
+  const businessLogs = logs.filter(log => {
+    const action = log.action.toLowerCase();
+    return !action.includes('get') && !action.includes('list'); // Filter out read-only operations
+  });
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 p-6 border border-gray-100 dark:border-gray-700">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Audit Trail</h3>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">Recent system activities and changes</p>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Audit Trail - Business Events</h3>
+          <p className="text-gray-600 dark:text-gray-300 mt-1">Key operations: job status, payments, inventory, user actions</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-sm text-gray-500 dark:text-gray-400">Live</span>
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Active</span>
+          </div>
+          <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">
+            {businessLogs.length} events
+          </span>
         </div>
       </div>
 
-      <div className="space-y-4 max-h-96 overflow-y-auto">
-        {logs.length === 0 ? (
+      <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+        {businessLogs.length === 0 ? (
           <div className="text-center py-8">
             <DocumentChartBarIcon className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-            <p className="text-gray-500 dark:text-gray-400">No audit logs available</p>
-            <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Login or perform actions to see audit logs</p>
+            <p className="text-gray-500 dark:text-gray-400">No business events recorded</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm mt-2">Perform business operations to see audit events</p>
           </div>
         ) : (
-          logs.map((log) => (
-            <div
-              key={log._id}
-              className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 bg-white dark:bg-gray-800"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3 flex-1">
-                  <div className="text-lg mt-1">{getActionIcon(log.action)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getActionColor(log.action)}`}>
-                        {log.action.toUpperCase()}
+          businessLogs.map((log) => {
+            const parsedDetails = parseDetails(log.details);
+            const businessMessage = formatBusinessMessage({ ...log, details: parsedDetails });
+            
+            return (
+              <div
+                key={log._id}
+                className="border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 bg-white dark:bg-gray-800 hover:shadow-sm dark:hover:shadow-gray-900/50"
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-3 flex-1">
+                    <div className="text-xl mt-1">
+                      {getActionIcon(log.action)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getActionColor(log.action)}`}>
+                          {log.action.replace(/_/g, ' ').toUpperCase()}
+                        </div>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(log.userRole)}`}>
+                          {log.userRole.charAt(0).toUpperCase() + log.userRole.slice(1)}
+                        </div>
                       </div>
-                      <div className={`px-2 py-1 rounded-full text-xs font-medium border ${getRoleColor(log.userRole)}`}>
-                        {capitalizeFirst(log.userRole)}
+                      
+                      <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                        {businessMessage}
+                      </p>
+                      
+                      <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400 mt-2">
+                        <span className="flex items-center gap-1">
+                          {getResourceIcon(log.resource)}
+                          {log.resource}
+                        </span>
+                        <span>•</span>
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">{log.user}</span>
+                        <span>•</span>
+                        <span className="text-gray-500 dark:text-gray-500">{formatDate(log.timestamp)}</span>
                       </div>
                     </div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      {log.resource}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                      By <span className="font-semibold">{log.user}</span>
-                    </p>
+                  </div>
+                  
+                  <div className="text-right">
+                    <button
+                      onClick={() => setExpandedLog(expandedLog === log._id ? null : log._id)}
+                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs font-medium px-3 py-1 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                    >
+                      {expandedLog === log._id ? "Hide" : "Details"}
+                    </button>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {formatDate(log.timestamp)}
-                  </p>
-                  <button
-                    onClick={() => setExpandedLog(expandedLog === log._id ? null : log._id)}
-                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-xs font-medium mt-1"
-                  >
-                    {expandedLog === log._id ? "Hide" : "Details"}
-                  </button>
-                </div>
-              </div>
 
-              {expandedLog === log._id && log.details && (
-                <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <pre className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                    {JSON.stringify(log.details, null, 2)}
-                  </pre>
-                  {log.ipAddress && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                      IP: {log.ipAddress}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          ))
+                {expandedLog === log._id && Object.keys(parsedDetails).length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Show business-relevant details */}
+                      {parsedDetails.status && (
+                        <div className="text-xs">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">Status:</span>
+                          <span className="ml-2 px-2 py-1 rounded bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300">
+                            {parsedDetails.status}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {parsedDetails.amount && (
+                        <div className="text-xs">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">Amount:</span>
+                          <span className="ml-2 font-medium">
+                            ₱{parseFloat(parsedDetails.amount).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {parsedDetails.email && (
+                        <div className="text-xs">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">Email:</span>
+                          <span className="ml-2">{parsedDetails.email}</span>
+                        </div>
+                      )}
+                      
+                      {parsedDetails.itemName && (
+                        <div className="text-xs">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">Item:</span>
+                          <span className="ml-2">{parsedDetails.itemName}</span>
+                        </div>
+                      )}
+                      
+                      {parsedDetails.serviceName && (
+                        <div className="text-xs">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">Service:</span>
+                          <span className="ml-2">{parsedDetails.serviceName}</span>
+                        </div>
+                      )}
+                      
+                      {parsedDetails.employeeName && (
+                        <div className="text-xs">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">Employee:</span>
+                          <span className="ml-2">{parsedDetails.employeeName}</span>
+                        </div>
+                      )}
+                      
+                      {/* Show IP if available */}
+                      {log.ipAddress && (
+                        <div className="text-xs">
+                          <span className="font-semibold text-gray-700 dark:text-gray-300">IP Address:</span>
+                          <span className="ml-2 text-gray-600 dark:text-gray-400">{log.ipAddress}</span>
+                        </div>
+                      )}
+                      
+                      {/* Show timestamp details */}
+                      <div className="text-xs">
+                        <span className="font-semibold text-gray-700 dark:text-gray-300">Full Date:</span>
+                        <span className="ml-2 text-gray-600 dark:text-gray-400">
+                          {new Date(log.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Show raw details only for debugging */}
+                    {process.env.NODE_ENV === 'development' && (
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        <details className="text-xs">
+                          <summary className="cursor-pointer text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-400">
+                            Raw Details (Debug)
+                          </summary>
+                          <pre className="mt-2 p-2 bg-gray-50 dark:bg-gray-900 rounded text-gray-600 dark:text-gray-400 overflow-x-auto">
+                            {JSON.stringify(parsedDetails, null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>

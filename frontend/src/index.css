@@ -212,3 +212,18 @@ input.no-spinner[type="number"] {
   color: #f8fafc !important;
   border-color: rgba(255, 255, 255, 0.15) !important;
 }
+
+/* SIDEBAR TRANSPARENT FIX */
+[data-sidebar="sidebar"] {
+  background: transparent !important;
+  backdrop-filter: blur(8px);
+}
+
+/* Optional: Add border for floating effect */
+[data-sidebar="sidebar"] {
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark [data-sidebar="sidebar"] {
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}

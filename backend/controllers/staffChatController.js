@@ -2,6 +2,55 @@ const mongoose = require("mongoose");
 const StaffChat = require("../models/staffChatModel");
 const User = require("../models/userModel");
 const Employee = require("../models/employeeModel");
+const AuditLog = require('../models/AuditLog');
+
+// Helper for audit logging
+const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
+  try {
+    await AuditLog.create({
+      action,
+      resource,
+      resourceId,
+      user: req.user?.email || req.user?.username || 'System',
+      userRole: req.user?.role || 'unknown',
+      storeId: store?._id,
+      details,
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+    console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
+  } catch (auditErr) {
+    console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);
+  }
+};
+
+// Helper to get storeId from participants
+const getStoreIdFromParticipants = async (participantIds) => {
+  try {
+    // Try to get store from employees first
+    const employees = await Employee.find({ 
+      _id: { $in: participantIds } 
+    }).select('store').limit(1);
+    
+    if (employees.length > 0 && employees[0].store) {
+      return employees[0].store;
+    }
+    
+    // If not employees, try users (owners)
+    const users = await User.find({
+      _id: { $in: participantIds },
+      role: 'owner'
+    }).select('storeId').limit(1);
+    
+    if (users.length > 0 && users[0].storeId) {
+      return users[0].storeId;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting storeId from participants:', error);
+    return null;
+  }
+};
 
 const buildKey = (ids) => ids.map((id) => id.toString()).sort().join("-");
 
@@ -67,6 +116,21 @@ exports.getOrCreateStaffChat = async (req, res) => {
     if (!chat) {
       try {
         chat = await StaffChat.create({ participants: [aId, bId] });
+        
+        // Get storeId from participants
+        const storeId = await getStoreIdFromParticipants([aId, bId]);
+        
+        // AUDIT LOG: Staff Chat Created
+        if (storeId) {
+          await logAudit(req, { _id: storeId }, 'create', 'chat', chat._id, {
+            chatId: chat._id,
+            participantA: userAId,
+            participantB: userBId,
+            chatType: 'staff',
+            createdBy: req.user?.email || req.user?.username || 'System'
+          });
+        }
+        
       } catch (err) {
         if (err.code === 11000) {
           chat = await StaffChat.findOne({ participantsKey: key });
@@ -130,6 +194,22 @@ exports.addStaffChatMessage = async (req, res) => {
       return res.status(404).json({ message: "Chat is unavailable" });
     }
     const message = await chat.appendMessage({ senderId, text: text || "", fileUrl: fileUrl || null, fileName: fileName || null });
+    
+    // Get storeId from chat participants
+    const storeId = await getStoreIdFromParticipants(chat.participants);
+    
+    // AUDIT LOG: Staff Chat Message Sent
+    if (storeId) {
+      await logAudit(req, { _id: storeId }, 'message', 'chat', chatId, {
+        chatId: chatId,
+        messageId: message._id,
+        senderId: senderId,
+        chatType: 'staff',
+        hasFile: !!fileUrl,
+        sentBy: req.user?.email || req.user?.username || 'System'
+      });
+    }
+
     return res.status(201).json(message);
   } catch (err) {
     console.error("addStaffChatMessage error", err);

@@ -2,8 +2,28 @@ const Service = require('../models/serviceModel');
 const InventoryItem = require('../models/inventoryItemModel');
 const mongoose = require('mongoose');
 const { getManagedStore, AccessError } = require('../utils/storeAccess');
+const AuditLog = require('../models/AuditLog');
 
 const EMPLOYEE_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
+
+// Helper for audit logging
+const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
+  try {
+    await AuditLog.create({
+      action,
+      resource,
+      resourceId,
+      user: req.user?.email || req.user?.username || 'System',
+      userRole: req.user?.role || 'unknown',
+      storeId: store._id,
+      details,
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+    console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
+  } catch (auditErr) {
+    console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);
+  }
+};
 
 function normalizeInventoryId(value) {
   if (!value) return undefined;
@@ -138,6 +158,18 @@ exports.createService = async (req, res) => {
       doc.imageMime = req.file.mimetype;
     }
     const svc = await Service.create(doc);
+
+    
+    // AUDIT LOG: Service Created
+    await logAudit(req, store, 'create', 'service', svc._id, {
+      serviceId: svc._id,
+      serviceName: svc.name,
+      basePrice: svc.basePrice,
+      currency: svc.currency,
+      hasInventory: !!svc.requiredInventory,
+      createdBy: req.user?.email || req.user?.username
+    });
+
     // Build enriched response with inventory status
     try {
       await svc.populate('requiredInventory');
@@ -277,6 +309,16 @@ exports.updateService = async (req, res) => {
       svc.imageMime = req.file.mimetype;
     }
     await svc.save();
+
+    // AUDIT LOG: Service Updated
+    await logAudit(req, store, 'update', 'service', svc._id, {
+      serviceId: svc._id,
+      serviceName: svc.name,
+      fieldsUpdated: Object.keys(updates),
+      wasAutoDisabled: wasAutoDisabled,
+      isNowActive: svc.active,
+      updatedBy: req.user?.email || req.user?.username
+    });
     // Build enriched response with inventory status
     try {
   const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
@@ -332,6 +374,14 @@ exports.deleteService = async (req, res) => {
     if (svc.deletedAt) return res.status(400).json({ message: 'Service already deleted' });
     svc.deletedAt = new Date();
     await svc.save();
+    // AUDIT LOG: Service Soft Deleted
+    await logAudit(req, store, 'archive', 'service', id, {
+      serviceId: id,
+      serviceName: svc.name,
+      deletedAt: svc.deletedAt,
+      deletedBy: req.user?.email || req.user?.username
+    });
+
     res.json({ success: true, deletedAt: svc.deletedAt });
   } catch (err) {
     if (err instanceof AccessError) {
@@ -485,6 +535,15 @@ exports.restoreService = async (req, res) => {
     if (!svc.deletedAt) return res.status(400).json({ message: 'Service is not deleted' });
     svc.deletedAt = null;
     await svc.save();
+    
+    // AUDIT LOG: Service Restored
+    await logAudit(req, store, 'restore', 'service', svc._id, {
+      serviceId: svc._id,
+      serviceName: svc.name,
+      restoredAt: new Date(),
+      restoredBy: req.user?.email || req.user?.username
+    });
+
     res.json(svc);
   } catch (err) {
     if (err instanceof AccessError) {

@@ -2,6 +2,26 @@ const mongoose = require("mongoose");
 const CustomerChat = require("../models/customerChatModel");
 const User = require("../models/userModel");
 const { findOrMigrateCustomerChat } = require("../utils/customerChatHelper");
+const AuditLog = require('../models/AuditLog');
+
+// Helper for audit logging
+const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
+  try {
+    await AuditLog.create({
+      action,
+      resource,
+      resourceId,
+      user: req.user?.email || req.user?.username || 'System',
+      userRole: req.user?.role || 'unknown',
+      storeId: store._id,
+      details,
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+    console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
+  } catch (auditErr) {
+    console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);
+  }
+};
 
 const getCustomerIdFromChat = (chatDoc) => {
   const storeIdStr = chatDoc.storeId ? chatDoc.storeId.toString() : null;
@@ -26,6 +46,15 @@ exports.getOrCreateCustomerChat = async (req, res) => {
     if (!chat) {
       try {
         chat = await CustomerChat.create({ participants: [cId, sId], storeId: sId });
+
+        // AUDIT LOG: Customer Chat Created
+        await logAudit(req, { _id: sId }, 'create', 'chat', chat._id, { // Note: store object
+          chatId: chat._id,
+          customerId: customerId,
+          storeId: storeId,
+          createdBy: req.user?.email || req.user?.username || 'System'
+        });
+
       } catch (err) {
         // Handle race condition duplicate key
         if (err.code === 11000) {
@@ -86,6 +115,16 @@ exports.addCustomerChatMessage = async (req, res) => {
     const chat = await CustomerChat.findById(chatId);
     if (!chat) return res.status(404).json({ message: "Chat not found" });
     const message = await chat.appendMessage({ senderId, text: text || "", fileUrl: fileUrl || null, fileName: fileName || null });
+
+    // AUDIT LOG: Chat Message Sent
+    await logAudit(req, { _id: chat.storeId }, 'message', 'chat', chatId, {
+      chatId: chatId,
+      messageId: message._id,
+      senderId: senderId,
+      hasFile: !!fileUrl,
+      sentBy: req.user?.email || req.user?.username || 'System'
+    });
+    
     return res.status(201).json(message);
   } catch (err) {
     console.error("addCustomerChatMessage error", err);

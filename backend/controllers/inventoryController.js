@@ -2,6 +2,7 @@ const InventoryItem = require('../models/inventoryItemModel');
 const DeletedInventoryItem = require('../models/deletedInventoryItemModel'); 
 const Service = require('../models/serviceModel'); // Add Service import
 const { getManagedStore, AccessError } = require('../utils/storeAccess');
+const AuditLog = require('../models/AuditLog');
 
 const STORE_STAFF_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
@@ -11,6 +12,25 @@ const handleError = (res, err) => {
     return res.status(err.statusCode).json({ message: err.message });
   }
   res.status(500).json({ message: err.message });
+};
+
+// Helper for audit logging
+const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
+  try {
+    await AuditLog.create({
+      action,
+      resource,
+      resourceId,
+      user: req.user?.email || req.user?.username || 'System',
+      userRole: req.user?.role || 'unknown',
+      storeId: store._id,
+      details,
+      ipAddress: req.ip || req.connection.remoteAddress
+    });
+    console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
+  } catch (auditErr) {
+    console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);
+  }
 };
 
 // ✅ NEW FUNCTION: Get inventory stock for services in a store (public access)
@@ -230,6 +250,17 @@ exports.createItem = async (req, res) => {
       currency,
       category: category ? String(category).trim() : undefined,
     });
+
+    // AUDIT LOG: Item Created
+    await logAudit(req, store, 'create', 'inventory', doc._id, {
+      itemId: doc._id,
+      itemName: doc.name,
+      amount: doc.amount,
+      price: doc.price,
+      category: doc.category,
+      createdBy: req.user?.email || req.user?.username
+    });
+
     res.status(201).json(doc);
   } catch (err) {
     if (err && err.code === 11000) {
@@ -247,6 +278,17 @@ exports.updateItem = async (req, res) => {
     if (!item) return res.status(404).json({ message: 'Item not found' });
 
     const { name, amount, minAmount, entryPrice, price, currency, category } = req.body;
+
+    // Save old values for audit log
+    const oldValues = {
+      name: item.name,
+      amount: item.amount,
+      minAmount: item.minAmount,
+      entryPrice: item.entryPrice,
+      price: item.price,
+      currency: item.currency,
+      category: item.category
+    };
     
     if (name !== undefined) item.name = String(name).trim();
     if (amount !== undefined) item.amount = Number(amount) || 0;
@@ -257,6 +299,25 @@ exports.updateItem = async (req, res) => {
     if (category !== undefined) item.category = String(category).trim() || undefined;
 
     await item.save();
+
+    // AUDIT LOG: Item Updated
+    await logAudit(req, store, 'update', 'inventory', item._id, {
+      itemId: item._id,
+      itemName: item.name,
+      oldValues,
+      newValues: {
+        name: item.name,
+        amount: item.amount,
+        minAmount: item.minAmount,
+        entryPrice: item.entryPrice,
+        price: item.price,
+        currency: item.currency,
+        category: item.category
+      },
+      fieldsUpdated: Object.keys(req.body),
+      updatedBy: req.user?.email || req.user?.username
+    });
+
     res.json(item);
   } catch (err) {
     if (err && err.code === 11000) {
@@ -298,6 +359,16 @@ exports.archiveItem = async (req, res) => {
 
     // 3. Remove from Active collection
     await item.deleteOne();
+
+    // AUDIT LOG: Item Archived
+    await logAudit(req, store, 'archive', 'inventory', id, {
+      itemId: id,
+      itemName: item.name,
+      amount: item.amount,
+      price: item.price,
+      archivedAt: archivedPayload.deletedAt,
+      archivedBy: req.user?.email || req.user?.username
+    });
 
     res.json({ success: true, message: 'Item archived successfully', archived });
   } catch (err) {
@@ -347,6 +418,16 @@ exports.restoreArchivedItem = async (req, res) => {
 
     await archived.deleteOne();
 
+    // AUDIT LOG: Item Restored
+    await logAudit(req, store, 'restore', 'inventory', restored._id, {
+      itemId: restored._id,
+      itemName: restored.name,
+      restoredFrom: deletedId,
+      amount: restored.amount,
+      price: restored.price,
+      restoredBy: req.user?.email || req.user?.username
+    });
+
     res.json(restored);
   } catch (err) {
     handleError(res, err);
@@ -361,6 +442,17 @@ exports.purgeArchivedItem = async (req, res) => {
     const archived = await DeletedInventoryItem.findOneAndDelete({ _id: deletedId, store: store._id });
     
     if (!archived) return res.status(404).json({ message: 'Archived inventory item not found' });
+
+    // AUDIT LOG: Item Permanently Deleted
+    await logAudit(req, store, 'delete', 'inventory', deletedId, {
+      itemId: deletedId,
+      itemName: archived?.name || 'Unknown',
+      amount: archived?.amount || 0,
+      price: archived?.price || 0,
+      permanentlyDeletedAt: new Date(),
+      deletedBy: req.user?.email || req.user?.username
+    });
+    
     res.json({ success: true, message: 'Item permanently deleted' });
   } catch (err) {
     handleError(res, err);
