@@ -11,6 +11,27 @@ import { useAuth } from "@/context/AuthContext";
 import html2canvas from 'html2canvas';
 import { toast } from "react-toastify";
 
+// Theme Variables for consistent dark/light mode - WHITE THEME
+const PANEL_SURFACE = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+const SOFT_PANEL = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white";
+const INPUT_SURFACE = "rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400";
+const MUTED_TEXT = "text-gray-600 dark:text-gray-300";
+const MUTED_TEXT_LIGHT = "text-gray-500 dark:text-gray-400";
+const BACKGROUND_GRADIENT = "bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800";
+const CARD_BACKGROUND = "bg-white dark:bg-gray-800";
+const CARD_BORDER = "border border-gray-200 dark:border-gray-700";
+const CARD_HOVER = "hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xl transition-all duration-300";
+const BUTTON_PRIMARY = "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700";
+const BUTTON_SECONDARY = "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-500";
+const BUTTON_FILTER_ACTIVE = "bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700";
+const BUTTON_FILTER_INACTIVE = "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700";
+const STATS_CARD = "bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700";
+const MODAL_OVERLAY = "bg-black/50 dark:bg-black/70";
+const IMAGE_BACKGROUND = "bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900";
+const DROPZONE_BORDER = "border border-gray-300 dark:border-gray-600";
+const DROPZONE_HOVER = "hover:border-blue-400 dark:hover:border-blue-500";
+const DROPZONE_ACTIVE = "border-blue-400 bg-blue-50 dark:border-blue-500 dark:bg-blue-900/20";
+
 // --- TYPES ---
 interface CropArea {
   x: number;
@@ -89,19 +110,12 @@ const productSettings: Record<string, any> = {
     backgroundColor: "#ffffff",
     decalDefaults: { position: [0.5, 0.5], scale: 0.4, minScale: 0.05, maxScale: 0.8 },
     variations: {
-      Black: { colorCode: "#1a1a1a" },
       White: { colorCode: "#ffffff" },
+      Black: { colorCode: "#1a1a1a" },
       Clear: { colorCode: "rgba(255,255,255,0.1)" },
     },
   },
 };
-
-const CUSTOMIZE_PAGE_WRAPPER = 'min-h-screen bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white';
-const CUSTOMIZE_PRIMARY_CARD = 'rounded-3xl border border-gray-200 bg-white/95 dark:border-slate-800 dark:bg-slate-900';
-const CUSTOMIZE_PANEL = 'rounded-2xl bg-white/95 text-gray-900 dark:border-slate-800 dark:bg-slate-900 dark:text-white';
-const CUSTOMIZE_SUBTLE_CARD = 'rounded-xl border border-gray-200 bg-gray-50 text-gray-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-100';
-const CUSTOMIZE_INPUT = 'w-full h-8 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-slate-600 dark:bg-slate-800/60 dark:text-white dark:placeholder:text-slate-400';
-const CUSTOMIZE_NEUTRAL_BUTTON = 'bg-white border border-gray-400 text-gray-900 hover:bg-gray-50 dark:bg-slate-800/60 dark:border-slate-600 dark:text-white dark:hover:bg-slate-700/70';
 
 // --- Error Boundary ---
 class ErrorBoundary extends Component<any, { hasError: boolean }> {
@@ -115,7 +129,7 @@ class ErrorBoundary extends Component<any, { hasError: boolean }> {
   }
   render() {
     if (this.state.hasError) {
-      return <div className="p-4 text-center text-red-600 bg-red-50 rounded-xl dark:bg-red-500/10 dark:text-red-200">Something went wrong with the preview. Please reload.</div>;
+      return <div className="p-4 text-red-600 dark:text-red-400 text-center">Something went wrong with the preview. Please reload.</div>;
     }
     return this.props.children;
   }
@@ -125,7 +139,7 @@ class ErrorBoundary extends Component<any, { hasError: boolean }> {
 function Loader() {
   return (
     <Html center>
-      <div className="text-gray-900 text-lg animate-pulse dark:text-white">Loading Model...</div>
+      <div className="text-gray-900 dark:text-white text-lg animate-pulse">Loading Model...</div>
     </Html>
   );
 }
@@ -268,18 +282,18 @@ function Product2DPreview({
       className="w-full h-full flex items-center justify-center relative"
     >
       <div 
-        className="relative border-2 border-gray-200 rounded-lg shadow-2xl dark:border-slate-700"
+        className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg shadow-2xl"
         style={{
           width: displayWidth,
           height: displayHeight,
           backgroundColor,
-          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.2)'
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2) dark:0 10px 30px rgba(0, 0, 0, 0.4)'
         }}
       >
         <div className="absolute inset-0 opacity-20">
           <div className="w-full h-full" style={{
-            backgroundImage: `linear-gradient(to right, rgba(148, 163, 184, 0.7) 1px, transparent 1px),
-                             linear-gradient(to bottom, rgba(148, 163, 184, 0.7) 1px, transparent 1px)`,
+            backgroundImage: `linear-gradient(to right, #999 1px, transparent 1px),
+                             linear-gradient(to bottom, #999 1px, transparent 1px)`,
             backgroundSize: '20px 20px'
           }} />
         </div>
@@ -300,12 +314,12 @@ function Product2DPreview({
               alt="Design"
               className="w-full h-full object-cover"
             />
-            <div className="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white dark:border-slate-900"></div>
-            <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white dark:border-slate-900"></div>
+            <div className="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white"></div>
+            <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white"></div>
           </div>
         )}
 
-        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-gray-500 text-sm font-mono dark:text-slate-400">
+        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-gray-600 dark:text-gray-400 text-sm font-mono">
           {dimensions.width}mm × {dimensions.height}mm
         </div>
       </div>
@@ -407,25 +421,25 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in duration-300">
-      <div className={`${CUSTOMIZE_PANEL} w-full max-w-4xl mx-4 overflow-hidden`}>
-        <div className="p-6 border-b border-gray-200 flex justify-between items-center dark:border-slate-700">
+    <div className={`fixed inset-0 ${MODAL_OVERLAY} backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in duration-300`}>
+      <div className={`${PANEL_SURFACE} w-full max-w-4xl mx-4 overflow-hidden shadow-2xl`}>
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white">Crop & Adjust Your Design</h3>
-            <p className="text-gray-600 text-sm mt-1 dark:text-slate-400">Drag to reposition, scroll to zoom, rotate as needed</p>
+            <p className={`${MUTED_TEXT} text-sm mt-1`}>Drag to reposition, scroll to zoom, rotate as needed</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg transition-colors text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 dark:text-slate-300"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         <div className="p-6">
-          <div className="relative h-[400px] bg-gray-100 rounded-lg overflow-hidden dark:bg-slate-950">
+          <div className="relative h-[400px] bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
             <Cropper
               image={image}
               crop={crop}
@@ -448,8 +462,8 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
           <div className="mt-6 space-y-6">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-semibold text-gray-700 dark:text-slate-100">Zoom</label>
-                <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-blue-600 dark:bg-slate-800/60 dark:text-blue-300">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Zoom</label>
+                <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-blue-600 dark:text-blue-300">
                   {zoom.toFixed(2)}x
                 </span>
               </div>
@@ -460,18 +474,18 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
                 step={0.1}
                 value={zoom}
                 onChange={(e) => setZoom(parseFloat(e.target.value))}
-                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb dark:bg-slate-800/60"
+                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3 dark:text-slate-100">Rotation</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">Rotation</label>
               <div className="flex items-center gap-4">
                 <button
                   onClick={handleRotateLeft}
-                  className={`p-3 rounded-xl transition-colors ${CUSTOMIZE_NEUTRAL_BUTTON}`}
+                  className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                   </svg>
                 </button>
@@ -483,15 +497,15 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
                     max={180}
                     value={rotation}
                     onChange={(e) => setRotation(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb dark:bg-slate-800/60"
+                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
                   />
                 </div>
                 
                 <button
                   onClick={handleRotateRight}
-                  className={`p-3 rounded-xl transition-colors ${CUSTOMIZE_NEUTRAL_BUTTON}`}
+                  className="p-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-700 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
                   </svg>
                 </button>
@@ -504,17 +518,17 @@ function CropperModal({ image, onClose, onCropComplete, aspectRatio }: CropperMo
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 flex justify-end gap-3 dark:border-slate-700">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className={`px-6 py-3 rounded-xl font-semibold text-sm ${CUSTOMIZE_NEUTRAL_BUTTON}`}
+            className="px-6 py-3 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 font-semibold text-gray-700 dark:text-white transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleApplyCrop}
             disabled={isProcessing}
-            className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className={`${BUTTON_PRIMARY} px-6 py-3 rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2`}
           >
             {isProcessing ? (
               <>
@@ -619,20 +633,20 @@ function DraggablePositionControl({ position, onChange, productType, productName
   }, [isDragging]);
 
   return (
-    <div className={`${CUSTOMIZE_SUBTLE_CARD} p-4`}>
+    <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <label className="text-sm font-semibold text-gray-700 dark:text-slate-100">Drag to Position</label>
+        <label className="text-sm font-semibold text-gray-700 dark:text-gray-200">Drag to Position</label>
         <div className="flex items-center gap-2">
           <button
             onClick={handleResetPosition}
-            className="text-xs text-blue-600 hover:text-blue-500 flex items-center gap-1 dark:text-blue-300 dark:hover:text-blue-200"
+            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
             Reset
           </button>
-          <div className="text-xs text-gray-600 font-mono dark:text-slate-300">
+          <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
             X: {position[0].toFixed(2)} | Y: {position[1].toFixed(2)}
           </div>
         </div>
@@ -640,65 +654,81 @@ function DraggablePositionControl({ position, onChange, productType, productName
 
       <div 
         ref={containerRef}
-        className="relative w-full h-48 bg-gradient-to-br from-gray-50 to-gray-200 rounded-lg border border-gray-200 overflow-hidden cursor-crosshair dark:from-slate-800 dark:to-slate-900 dark:border-slate-700"
+        className="relative w-full h-48 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden cursor-crosshair"
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}
       >
-        <div className="absolute inset-0 opacity-30">
+        <div className="absolute inset-0 opacity-20">
           <div className="w-full h-full" style={{
-            backgroundImage: `linear-gradient(to right, rgba(59,130,246,0.3) 1px, transparent 1px),
-                             linear-gradient(to bottom, rgba(59,130,246,0.3) 1px, transparent 1px)`,
+            backgroundImage: `linear-gradient(to right, #999 1px, transparent 1px),
+                             linear-gradient(to bottom, #999 1px, transparent 1px)`,
             backgroundSize: '25% 25%'
           }} />
         </div>
 
-        <div className="absolute top-1/2 left-0 right-0 h-px bg-blue-500/40 transform -translate-y-1/2"></div>
-        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-blue-500/40 transform -translate-x-1/2"></div>
+        <div className="absolute top-1/2 left-0 right-0 h-px bg-blue-500/30 transform -translate-y-1/2"></div>
+        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-blue-500/30 transform -translate-x-1/2"></div>
 
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-4 h-4">
-          <div className="absolute top-0 left-1/2 w-px h-2 bg-blue-500/50 transform -translate-x-1/2"></div>
-          <div className="absolute bottom-0 left-1/2 w-px h-2 bg-blue-500/50 transform -translate-x-1/2"></div>
-          <div className="absolute left-0 top-1/2 w-2 h-px bg-blue-500/50 transform -translate-y-1/2"></div>
-          <div className="absolute right-0 top-1/2 w-2 h-px bg-blue-500/50 transform -translate-y-1/2"></div>
+          <div className="absolute top-0 left-1/2 w-px h-2 bg-blue-400/50 transform -translate-x-1/2"></div>
+          <div className="absolute bottom-0 left-1/2 w-px h-2 bg-blue-400/50 transform -translate-x-1/2"></div>
+          <div className="absolute left-0 top-1/2 w-2 h-px bg-blue-400/50 transform -translate-y-1/2"></div>
+          <div className="absolute right-0 top-1/2 w-2 h-px bg-blue-400/50 transform -translate-y-1/2"></div>
         </div>
 
-        {[[0.25,0.75],[0.75,0.75],[0.25,0.25],[0.75,0.25]].map(([x,y]) => (
-          <div key={`${x}-${y}`} className={`absolute ${y === 0.75 ? 'top-1/4' : 'top-3/4'} ${x === 0.25 ? 'left-1/4' : 'left-3/4'}`}>
-            <div 
-              className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
-              onClick={() => handleDotClick([x, y])}
-            />
-          </div>
-        ))}
+        <div className="absolute top-1/4 left-1/4">
+          <div 
+            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
+            onClick={() => handleDotClick([0.25, 0.75])}
+          />
+        </div>
+        <div className="absolute top-1/4 left-3/4">
+          <div 
+            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
+            onClick={() => handleDotClick([0.75, 0.75])}
+          />
+        </div>
+        <div className="absolute top-3/4 left-1/4">
+          <div 
+            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
+            onClick={() => handleDotClick([0.25, 0.25])}
+          />
+        </div>
+        <div className="absolute top-3/4 left-3/4">
+          <div 
+            className="w-3 h-3 bg-blue-400/30 rounded-full border border-blue-400/50 cursor-pointer hover:scale-150 transition-transform"
+            onClick={() => handleDotClick([0.75, 0.25])}
+          />
+        </div>
 
         <div 
-          className="absolute w-8 h-8 rounded-full border-2 border-blue-500 bg-blue-100/80 flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2 shadow-lg z-10 dark:bg-blue-500/20"
+          className="absolute w-8 h-8 rounded-full border-2 border-blue-400 bg-blue-400/20 flex items-center justify-center transform -translate-x-1/2 -translate-y-1/2 shadow-lg z-10"
           style={{
             left: `${position[0] * 100}%`,
             top: `${(1 - position[1]) * 100}%`
           }}
         >
-          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+          <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
         </div>
 
         <div 
-          className="absolute w-6 h-6 rounded-full border border-blue-300/50 transform -translate-x-1/2 -translate-y-1/2"
+          className="absolute w-6 h-6 rounded-full border border-blue-300/30 transform -translate-x-1/2 -translate-y-1/2"
           style={{
             left: `${defaultPosition[0] * 100}%`,
             top: `${(1 - defaultPosition[1]) * 100}%`
           }}
         >
-          <div className="w-1.5 h-1.5 bg-blue-300/40 rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
+          <div className="w-1.5 h-1.5 bg-blue-300/30 rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></div>
         </div>
 
-        <div className="absolute top-2 left-2 text-xs text-gray-600 dark:text-slate-300">Top Left</div>
-        <div className="absolute top-2 right-2 text-xs text-gray-600 dark:text-slate-300">Top Right</div>
-        <div className="absolute bottom-2 left-2 text-xs text-gray-600 dark:text-slate-300">Bottom Left</div>
-        <div className="absolute bottom-2 right-2 text-xs text-gray-600 dark:text-slate-300">Bottom Right</div>
+        <div className="absolute top-2 left-2 text-xs text-gray-500 dark:text-gray-400">Top Left</div>
+        <div className="absolute top-2 right-2 text-xs text-gray-500 dark:text-gray-400">Top Right</div>
+        <div className="absolute bottom-2 left-2 text-xs text-gray-500 dark:text-gray-400">Bottom Left</div>
+        <div className="absolute bottom-2 right-2 text-xs text-gray-500 dark:text-gray-400">Bottom Right</div>
       </div>
 
-      <div className="mt-3 text-xs text-gray-600 text-center dark:text-slate-300">
-        Drag the blue circle or click preset dots • Solid blue = current, Faint ring = default
+      <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center">
+        Drag the blue circle or click preset dots • Blue dot = current, Gray dot = default
       </div>
     </div>
   );
@@ -1067,365 +1097,365 @@ const Customize: React.FC = () => {
 
   return (
     <DashboardLayout role="customer">
-      <div className={CUSTOMIZE_PAGE_WRAPPER}>
-        <div className="w-full max-w-7xl mx-auto px-4 pb-16">
-          <div className="pt-10 text-center">
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 tracking-wide dark:text-white">
+      <div className={`${BACKGROUND_GRADIENT} min-h-screen`}>
+        <div className="w-full max-w-7xl mx-auto">
+          <div className="mt-6 text-center">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white tracking-wide">
               Customize your Product
             </h1>
-            <p className="text-gray-600 mt-2 text-sm md:text-base dark:text-slate-300">
+            <p className={`${MUTED_TEXT} mt-2 text-sm md:text-base`}>
               Design your perfect product with real-time {activeTab === '3d' ? '3D' : '2D'} preview
             </p>
           </div>
 
           <div className="mt-6 flex justify-center">
-            <div className="inline-flex rounded-xl border border-gray-200 bg-white/90 p-1 shadow-lg backdrop-blur dark:border-slate-700 dark:bg-slate-900/60">
-            <button
-              onClick={() => {
-                setActiveTab('3d');
-                setSelectedProduct(null);
-                setSelectedColor(null);
-              }}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-                activeTab === '3d'
-                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-slate-800/60'
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-                </svg>
-                3D Products
-              </span>
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab('2d');
-                setSelectedProduct(null);
-                setSelectedColor(null);
-              }}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
-                activeTab === '2d'
-                  ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-slate-800/60'
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                2D Products
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <div className={`mt-8 flex flex-col lg:flex-row gap-6 ${CUSTOMIZE_PRIMARY_CARD} p-6`}>
-          
-          <aside 
-            ref={sidebarRef}
-            className={`w-full lg:w-96 ${CUSTOMIZE_PANEL} p-6 flex flex-col`}
-            style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}
-          >
-            <div className="flex flex-col gap-6">
-              <div className="space-y-2">
-                <label htmlFor="product-select" className="block text-sm font-semibold text-gray-700 flex items-center gap-2 dark:text-slate-100">
+            <div className="inline-flex rounded-xl bg-gray-100 dark:bg-gray-800 p-1 border border-gray-300 dark:border-gray-700">
+              <button
+                onClick={() => {
+                  setActiveTab('3d');
+                  setSelectedProduct(null);
+                  setSelectedColor(null);
+                }}
+                className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  activeTab === '3d'
+                    ? `${BUTTON_PRIMARY} shadow-lg`
+                    : `${BUTTON_FILTER_INACTIVE}`
+                }`}
+              >
+                <span className="flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
                   </svg>
-                  SELECT PRODUCT
-                </label>
-                <select 
-                  id="product-select" 
-                  value={selectedProduct || ""} 
-                  onChange={(e) => handleProductSelect(e.target.value)}
-                  className={`${CUSTOMIZE_INPUT} font-semibold transition-all duration-200`}
-                >
-                  <option value="" disabled className="text-gray-500 dark:text-slate-400">Choose a product...</option>
-                  {activeTab === '3d' 
-                    ? available3DProducts.map((product) => (
-                        <option key={product} value={product} className="bg-white text-gray-900 dark:bg-slate-900 dark:text-white">{product}</option>
-                      ))
-                    : available2DProducts.map((product) => (
-                        <option key={product} value={product} className="bg-white text-gray-900 dark:bg-slate-900 dark:text-white">{product}</option>
-                      ))
-                  }
-                </select>
-              </div>
-
-              {selectedProduct && currentProductInfo && (
-                <>
-                  <div className="space-y-4">
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${
-                        isDraggingOver 
-                          ? 'border-blue-400 bg-blue-50/70 scale-[1.02] shadow-lg dark:bg-blue-500/10'
-                          : 'border-gray-300 bg-white/70 hover:border-blue-400 hover:bg-blue-50/60 dark:border-slate-600 dark:bg-slate-900/40 dark:hover:bg-slate-800/60'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center gap-3 pointer-events-none">
-                        <div className="p-3 bg-blue-500/10 rounded-full">
-                          <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                          </svg>
-                        </div>
-                        <div>
-                          <span className="text-sm font-semibold text-gray-700 dark:text-slate-100 block">Upload Your Design</span>
-                          <span className="text-xs text-gray-500 mt-1 block dark:text-slate-400">PNG or JPG • Drag & Drop</span>
-                        </div>
-                      </div>
-                      <input type="file" accept="image/png, image/jpeg, image/jpg" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                    </div>
-
-                    {preview && (
-                      <div className={`${CUSTOMIZE_SUBTLE_CARD} p-4`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm font-semibold text-gray-800 dark:text-slate-100">Image Preview</span>
-                          <button 
-                            onClick={handleEditCrop}
-                            className="text-xs text-blue-600 hover:text-blue-500 flex items-center gap-1 dark:text-blue-300 dark:hover:text-blue-200"
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Edit Crop
-                          </button>
-                        </div>
-                        <div className="relative h-32 rounded-lg overflow-hidden border border-gray-200 dark:border-slate-600 bg-gray-100 dark:bg-slate-900">
-                          <img 
-                            src={preview} 
-                            alt="Design Preview" 
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-                        <div className="mt-2 text-xs text-gray-500 text-center dark:text-slate-400">
-                          Click "Edit Crop" to adjust rotation and position
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-6 pt-4 border-t border-gray-200 dark:border-slate-700">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2 dark:text-slate-100">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
-                        </svg>
-                        PRODUCT COLOR
-                      </label>
-                      <div className="flex gap-2 flex-wrap"> 
-                        {Object.entries(currentProductInfo.variations).map(([colorName, colorData]: [string, any]) => (
-                          <button 
-                            key={colorName} 
-                            onClick={() => handleColorSelect(colorName)}
-                            className={`w-10 h-10 rounded-xl border-3 transition-all duration-200 transform hover:scale-110 shadow-lg ${
-                              selectedColor === colorName 
-                                ? 'border-blue-500 scale-110 ring-2 ring-blue-400/30' 
-                                : 'border-gray-300 hover:border-gray-400 dark:border-slate-600 dark:hover:border-slate-400'
-                            }`}
-                            style={{ backgroundColor: colorData.colorCode }} 
-                            title={colorName} 
-                          />
-                        ))}
-                      </div>
-                    </div>
-
-                    {preview && (
-                      <div className="space-y-4">
-                        <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-slate-100">DESIGN SCALE</label>
-                            <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-blue-600 dark:bg-slate-800/60 dark:text-blue-300">
-                              {currentProductInfo.type === '3d' ? decal3DScale.toFixed(2) : decal2DScale.toFixed(2)}
-                            </span>
-                          </div>
-                          <input 
-                            type="range" 
-                            min={decalScaleRange.minScale} 
-                            max={decalScaleRange.maxScale} 
-                            step="0.01" 
-                            value={currentProductInfo.type === '3d' ? decal3DScale : decal2DScale}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value);
-                              if (currentProductInfo.type === '3d') {
-                                setDecal3DScale(value);
-                              } else {
-                                setDecal2DScale(value);
-                              }
-                            }} 
-                            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb dark:bg-slate-800/60"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-semibold text-gray-700 mb-3 dark:text-slate-100">DESIGN POSITION</label>
-                          {currentProductInfo.type === '3d' ? (
-                            <DraggablePositionControl
-                              position={draggablePosition}
-                              onChange={handleDraggablePositionChange}
-                              productType="3d"
-                              productName={selectedProduct}
-                            />
-                          ) : (
-                            <DraggablePositionControl
-                              position={decal2DPosition}
-                              onChange={handleDecal2DPositionChange}
-                              productType="2d"
-                              productName={selectedProduct}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {notification && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 animate-in fade-in slide-in-from-top-2 duration-300 dark:bg-red-500/10 dark:border-red-500/40">
-                  <div className="text-red-600 text-sm font-medium flex items-center gap-2 dark:text-red-200">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {notification}
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-6 pt-4 border-t border-gray-200 dark:border-slate-700">
-                <div className="flex gap-3">
-                  <button 
-                    type="button" 
-                    onClick={handleReset} 
-                    className={`flex-1 py-3.5 rounded-xl font-semibold text-sm shadow-sm transition-all duration-200 flex items-center justify-center gap-2 ${CUSTOMIZE_NEUTRAL_BUTTON}`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    Reset
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={handleBuy} 
-                    disabled={!selectedProduct}
-                    className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 font-semibold text-white text-sm shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                    </svg>
-                    Buy Now
-                  </button>
-                </div>
-              </div>
+                  3D Products
+                </span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('2d');
+                  setSelectedProduct(null);
+                  setSelectedColor(null);
+                }}
+                className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+                  activeTab === '2d'
+                    ? `${BUTTON_PRIMARY} shadow-lg`
+                    : `${BUTTON_FILTER_INACTIVE}`
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  2D Products
+                </span>
+              </button>
             </div>
-          </aside>
+          </div>
 
-          <main className={`flex-1 flex items-start justify-center ${CUSTOMIZE_PANEL} p-6 relative`}>
-            {selectedProduct && currentProductInfo && currentProductInfo.type === '3d' && (
-              <div className="absolute top-4 right-4 z-10">
-                <label className="flex items-center gap-2 border border-gray-200 bg-white/90 backdrop-blur px-4 py-2 rounded-lg shadow-sm cursor-pointer transition-all duration-200 dark:border-slate-700 dark:bg-slate-900/80">
-                  <input
-                    type="checkbox"
-                    checked={autoRotate}
-                    onChange={(e) => setAutoRotate(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-600 focus:ring-offset-2 cursor-pointer dark:bg-slate-800 dark:border-slate-600"
-                  />
-                  <div className="flex items-center gap-2">
-                    <svg className={`w-4 h-4 ${autoRotate ? 'text-blue-500 animate-spin' : 'text-gray-400 dark:text-slate-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                    <span className={`text-sm font-medium ${autoRotate ? 'text-blue-600 dark:text-blue-300' : 'text-gray-600 dark:text-slate-300'}`}>
-                      Rotate
-                    </span>
-                  </div>
-                </label>
-              </div>
-            )}
+          <div className={`mt-8 flex flex-col lg:flex-row gap-6 rounded-2xl ${PANEL_SURFACE} p-6`}>
             
-            <div 
-              ref={canvasRef}
-              className="w-full h-[600px] rounded-xl border-2 border-gray-200 overflow-hidden bg-white shadow-inner dark:border-slate-700 dark:bg-slate-950"
+            <aside 
+              ref={sidebarRef}
+              className={`${SOFT_PANEL} w-full lg:w-96 backdrop-blur-sm p-6 flex flex-col shadow-lg`}
+              style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}
             >
-              <ErrorBoundary>
-                {selectedProduct && selectedColor && currentVariation ? (
-                  currentProductInfo.type === '3d' ? (
-                    <div 
-                      id={`preview-canvas-${selectedProduct}-${selectedColor}`}
-                      className="w-full h-full"
-                    >
-                      <Canvas 
-                        key={`${currentVariation.path}-${selectedColor}`} 
-                        camera={{ position: [0, 0, 5], fov: 50 }}
-                        onPointerDown={() => setIsDragging(true)} 
-                        onPointerUp={() => setIsDragging(false)}
-                        onCreated={({ gl }) => {
-                          gl.domElement.addEventListener('webglcontextlost', (e) => {
-                            console.error('WebGL context lost');
-                            e.preventDefault();
-                          }, false);
-                        }}
-                      >
-                        <ambientLight intensity={0.8} />
-                        <Environment preset="city" />
-                        <Suspense fallback={<Loader />}>
-                          <ProductModel3D 
-                            decalTexture={texture} 
-                            decalPosition={decal3DPosition} 
-                            decalScale={decal3DScale} 
-                            modelPath={currentVariation.path}
-                            scale={currentVariation.scale} 
-                            position={currentVariation.position} 
-                            rotation={currentVariation.rotation}
-                            targetMeshName={currentVariation.targetMeshName} 
-                            baseColor={currentVariation.colorCode} 
-                          />
-                        </Suspense>
-                        <OrbitControls 
-                          enablePan={false} 
-                          minDistance={2} 
-                          maxDistance={10} 
-                          autoRotate={autoRotate && !isDragging} 
-                          autoRotateSpeed={1.5} 
-                        />
-                      </Canvas>
-                    </div>
-                  ) : (
-                    <div 
-                      id={`2d-preview-${selectedProduct}-${selectedColor}`}
-                      className="w-full h-full"
-                    >
-                      <Product2DPreview
-                        decalImage={preview}
-                        position={decal2DPosition}
-                        scale={decal2DScale}
-                        dimensions={currentProductInfo.dimensions}
-                        backgroundColor={currentVariation.colorCode}
-                      />
-                    </div>
-                  )
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 dark:text-slate-400">
-                    <svg className="w-16 h-16 mb-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              <div className="flex flex-col gap-6">
+                <div className="space-y-2">
+                  <label htmlFor="product-select" className={`block text-sm font-semibold ${MUTED_TEXT} flex items-center gap-2`}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    <p className="text-xl font-medium text-gray-700 mb-2 dark:text-slate-100">Ready to Create?</p>
-                    <p className="text-sm text-gray-500 text-center max-w-sm dark:text-slate-400">
-                      Select a {activeTab === '3d' ? '3D' : '2D'} product and start customizing with your own design
-                    </p>
+                    SELECT PRODUCT
+                  </label>
+                  <select 
+                    id="product-select" 
+                    value={selectedProduct || ""} 
+                    onChange={(e) => handleProductSelect(e.target.value)}
+                    className={`${INPUT_SURFACE} w-full p-3 font-medium transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-600`}
+                  >
+                    <option value="" disabled className="text-gray-400">Choose a product...</option>
+                    {activeTab === '3d' 
+                      ? available3DProducts.map((product) => (
+                          <option key={product} value={product} className="bg-white dark:bg-gray-800">{product}</option>
+                        ))
+                      : available2DProducts.map((product) => (
+                          <option key={product} value={product} className="bg-white dark:bg-gray-800">{product}</option>
+                        ))
+                    }
+                  </select>
+                </div>
+
+                {selectedProduct && currentProductInfo && (
+                  <>
+                    <div className="space-y-4">
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300 ${
+                          isDraggingOver 
+                            ? `${DROPZONE_ACTIVE} scale-[1.02]` 
+                            : `${DROPZONE_BORDER} ${DROPZONE_HOVER} hover:bg-gray-50 dark:hover:bg-gray-700/50`
+                        }`}
+                      >
+                        <div className="flex flex-col items-center gap-3 pointer-events-none">
+                          <div className="p-3 bg-blue-500/10 rounded-full">
+                            <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                            </svg>
+                          </div>
+                          <div>
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 block">Upload Your Design</span>
+                            <span className={`text-xs ${MUTED_TEXT} mt-1 block`}>PNG or JPG • Drag & Drop</span>
+                          </div>
+                        </div>
+                        <input type="file" accept="image/png, image/jpeg, image/jpg" ref={fileInputRef} onChange={handleFileChange} className="hidden" />
+                      </div>
+
+                      {preview && (
+                        <div className={`${SOFT_PANEL} p-4`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200">Image Preview</span>
+                            <button 
+                              onClick={handleEditCrop}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Edit Crop
+                            </button>
+                          </div>
+                          <div className="relative h-32 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600">
+                            <img 
+                              src={preview} 
+                              alt="Design Preview" 
+                              className="w-full h-full object-contain bg-gray-50 dark:bg-gray-800"
+                            />
+                          </div>
+                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
+                            Click "Edit Crop" to adjust rotation and position
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-6 pt-4 border-t border-gray-300 dark:border-gray-700">
+                      <div>
+                        <label className={`block text-sm font-semibold ${MUTED_TEXT} mb-3 flex items-center gap-2`}>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
+                          </svg>
+                          PRODUCT COLOR
+                        </label>
+                        <div className="flex gap-2 flex-wrap"> 
+                          {Object.entries(currentProductInfo.variations).map(([colorName, colorData]: [string, any]) => (
+                            <button 
+                              key={colorName} 
+                              onClick={() => handleColorSelect(colorName)}
+                              className={`w-10 h-10 rounded-xl border-3 transition-all duration-200 transform hover:scale-110 shadow-lg ${
+                                selectedColor === colorName 
+                                  ? 'border-blue-400 scale-110 ring-2 ring-blue-400/30' 
+                                  : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-400'
+                              }`}
+                              style={{ backgroundColor: colorData.colorCode }} 
+                              title={colorName} 
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      {preview && (
+                        <div className="space-y-4">
+                          <div>
+                            <div className="flex justify-between items-center mb-2">
+                              <label className={`block text-sm font-semibold ${MUTED_TEXT}`}>DESIGN SCALE</label>
+                              <span className="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded text-blue-600 dark:text-blue-300">
+                                {currentProductInfo.type === '3d' ? decal3DScale.toFixed(2) : decal2DScale.toFixed(2)}
+                              </span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min={decalScaleRange.minScale} 
+                              max={decalScaleRange.maxScale} 
+                              step="0.01" 
+                              value={currentProductInfo.type === '3d' ? decal3DScale : decal2DScale}
+                              onChange={(e) => {
+                                const value = parseFloat(e.target.value);
+                                if (currentProductInfo.type === '3d') {
+                                  setDecal3DScale(value);
+                                } else {
+                                  setDecal2DScale(value);
+                                }
+                              }} 
+                              className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+                            />
+                          </div>
+
+                          <div>
+                            <label className={`block text-sm font-semibold ${MUTED_TEXT} mb-3`}>DESIGN POSITION</label>
+                            {currentProductInfo.type === '3d' ? (
+                              <DraggablePositionControl
+                                position={draggablePosition}
+                                onChange={handleDraggablePositionChange}
+                                productType="3d"
+                                productName={selectedProduct}
+                              />
+                            ) : (
+                              <DraggablePositionControl
+                                position={decal2DPosition}
+                                onChange={handleDecal2DPositionChange}
+                                productType="2d"
+                                productName={selectedProduct}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {notification && (
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="text-red-600 dark:text-red-400 text-sm font-medium flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {notification}
+                    </div>
                   </div>
                 )}
-              </ErrorBoundary>
-            </div>
-          </main>
+
+                <div className="mt-6 pt-4 border-t border-gray-300 dark:border-gray-700">
+                  <div className="flex gap-3">
+                    <button 
+                      type="button" 
+                      onClick={handleReset} 
+                      className={`${BUTTON_FILTER_INACTIVE} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-sm transition-all duration-200 hover:shadow-md flex items-center justify-center gap-2`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Reset
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={handleBuy} 
+                      disabled={!selectedProduct}
+                      className={`${BUTTON_PRIMARY} flex-1 py-3.5 rounded-xl font-medium text-sm shadow-lg transition-all duration-200 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                      </svg>
+                      Buy Now
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            <main className="flex-1 flex items-start justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-2xl border border-gray-300 dark:border-gray-700 p-6 shadow-2xl relative">
+              {selectedProduct && currentProductInfo && currentProductInfo.type === '3d' && (
+                <div className="absolute top-4 right-4 z-10">
+                  <label className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all duration-200">
+                    <input
+                      type="checkbox"
+                      checked={autoRotate}
+                      onChange={(e) => setAutoRotate(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 dark:text-blue-500 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 rounded focus:ring-blue-500 dark:focus:ring-blue-600 focus:ring-offset-white dark:focus:ring-offset-gray-800 focus:ring-2 focus:ring-offset-2 cursor-pointer"
+                    />
+                    <div className="flex items-center gap-2">
+                      <svg className={`w-4 h-4 ${autoRotate ? 'text-blue-600 dark:text-blue-400 animate-spin' : 'text-gray-600 dark:text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span className={`text-sm font-medium ${autoRotate ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'}`}>
+                        Rotate
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              )}
+              
+              <div 
+                ref={canvasRef}
+                className="w-full h-[600px] rounded-xl border-2 border-gray-300 dark:border-gray-700 overflow-hidden bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 shadow-inner"
+              >
+                <ErrorBoundary>
+                  {selectedProduct && selectedColor && currentVariation ? (
+                    currentProductInfo.type === '3d' ? (
+                      <div 
+                        id={`preview-canvas-${selectedProduct}-${selectedColor}`}
+                        className="w-full h-full"
+                      >
+                        <Canvas 
+                          key={`${currentVariation.path}-${selectedColor}`} 
+                          camera={{ position: [0, 0, 5], fov: 50 }}
+                          onPointerDown={() => setIsDragging(true)} 
+                          onPointerUp={() => setIsDragging(false)}
+                          onCreated={({ gl }) => {
+                            gl.domElement.addEventListener('webglcontextlost', (e) => {
+                              console.error('WebGL context lost');
+                              e.preventDefault();
+                            }, false);
+                          }}
+                        >
+                          <ambientLight intensity={0.8} />
+                          <Environment preset="city" />
+                          <Suspense fallback={<Loader />}>
+                            <ProductModel3D 
+                              decalTexture={texture} 
+                              decalPosition={decal3DPosition} 
+                              decalScale={decal3DScale} 
+                              modelPath={currentVariation.path}
+                              scale={currentVariation.scale} 
+                              position={currentVariation.position} 
+                              rotation={currentVariation.rotation}
+                              targetMeshName={currentVariation.targetMeshName} 
+                              baseColor={currentVariation.colorCode} 
+                            />
+                          </Suspense>
+                          <OrbitControls 
+                            enablePan={false} 
+                            minDistance={2} 
+                            maxDistance={10} 
+                            autoRotate={autoRotate && !isDragging} 
+                            autoRotateSpeed={1.5} 
+                          />
+                        </Canvas>
+                      </div>
+                    ) : (
+                      <div 
+                        id={`2d-preview-${selectedProduct}-${selectedColor}`}
+                        className="w-full h-full"
+                      >
+                        <Product2DPreview
+                          decalImage={preview}
+                          position={decal2DPosition}
+                          scale={decal2DScale}
+                          dimensions={currentProductInfo.dimensions}
+                          backgroundColor={currentVariation.colorCode}
+                        />
+                      </div>
+                    )
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                      <svg className="w-16 h-16 mb-4 text-gray-400 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                      <p className="text-xl font-medium text-gray-700 dark:text-gray-300 mb-2">Ready to Create?</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400 text-center max-w-sm">
+                        Select a {activeTab === '3d' ? '3D' : '2D'} product and start customizing with your own design
+                      </p>
+                    </div>
+                  )}
+                </ErrorBoundary>
+              </div>
+            </main>
+          </div>
         </div>
       </div>
 
-      </div>
       {showCropper && imageToCrop && (
         <CropperModal
           image={imageToCrop}
@@ -1440,35 +1470,35 @@ const Customize: React.FC = () => {
 
       {(showModal || modalClosing) && createPortal(
         <div 
-          className={`fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300 ${
+          className={`fixed inset-0 ${MODAL_OVERLAY} backdrop-blur-sm flex items-center justify-center z-50 transition-all duration-300 ${
             modalClosing ? 'opacity-0' : 'opacity-100'
           }`}
         >
           <div 
-            className={`${CUSTOMIZE_PANEL} w-full max-w-md mx-4 transform transition-all duration-300 ${
+            className={`${PANEL_SURFACE} w-full max-w-md mx-4 transform transition-all duration-300 ${
               modalClosing 
                 ? 'scale-95 opacity-0 translate-y-4' 
                 : 'scale-100 opacity-100 translate-y-0'
             }`}
           >
-            <div className="p-6 border-b border-gray-200 dark:border-slate-700">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   </div>
                   <div>
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">Order Confirmation</h3>
-                    <p className="text-sm text-gray-600 dark:text-slate-400">Review your customized product</p>
+                    <p className={`text-sm ${MUTED_TEXT}`}>Review your customized product</p>
                   </div>
                 </div>
                 <button 
                   onClick={handleCloseModal}
-                  className="p-2 rounded-lg transition-colors duration-200 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-800 dark:text-slate-300"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -1478,9 +1508,9 @@ const Customize: React.FC = () => {
             <div className="p-6">
               <div className="mb-6">
                 <div className="flex items-center gap-4 mb-4">
-                  <div className="w-16 h-16 bg-gray-100 rounded-xl border border-gray-200 flex items-center justify-center dark:bg-slate-900 dark:border-slate-700">
+                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700/50 rounded-xl border border-gray-300 dark:border-gray-600 flex items-center justify-center">
                     {selectedProduct === 'Mug' && (
-                      <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.75 7.75h-16.5M6 4.75h12M18.25 7.75V19a2.25 2.25 0 01-2.25 2.25H8A2.25 2.25 0 015.75 19V7.75" />
                       </svg>
                     )}
@@ -1508,38 +1538,38 @@ const Customize: React.FC = () => {
                     )}
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-gray-900 font-semibold mb-1 dark:text-white">{selectedProduct}</h4>
+                    <h4 className="text-gray-900 dark:text-white font-semibold mb-1">{selectedProduct}</h4>
                     <div className="flex items-center gap-2">
                       <div 
-                        className="w-4 h-4 rounded border border-gray-300 dark:border-slate-600"
+                        className="w-4 h-4 rounded border border-gray-300 dark:border-gray-600"
                         style={{ backgroundColor: currentProductInfo?.variations[selectedColor || '']?.colorCode || '#ffffff' }}
                       />
-                      <span className="text-sm text-gray-600 dark:text-slate-400">{selectedColor}</span>
+                      <span className={`text-sm ${MUTED_TEXT}`}>{selectedColor}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className={`${CUSTOMIZE_SUBTLE_CARD} p-4`}>
+                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border border-gray-300 dark:border-gray-600/50">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium">Customization Status</span>
-                    <span className="text-xs bg-blue-500/10 text-blue-600 px-2 py-1 rounded-lg dark:text-blue-300">Complete</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Customization Status</span>
+                    <span className="text-xs bg-blue-500/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-lg">Complete</span>
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-slate-300">Design Uploaded</span>
-                      <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className={`text-sm ${MUTED_TEXT}`}>Design Uploaded</span>
+                      <svg className="w-4 h-4 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-slate-300">Position & Scale</span>
-                      <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className={`text-sm ${MUTED_TEXT}`}>Position & Scale</span>
+                      <svg className="w-4 h-4 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600 dark:text-slate-300">Ready for Production</span>
-                      <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className={`text-sm ${MUTED_TEXT}`}>Ready for Production</span>
+                      <svg className="w-4 h-4 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
@@ -1550,7 +1580,7 @@ const Customize: React.FC = () => {
               <div className="flex gap-3">
                 <button 
                   onClick={handleCloseModal}
-                  className={`flex-1 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2 ${CUSTOMIZE_NEUTRAL_BUTTON}`}
+                  className={`${BUTTON_FILTER_INACTIVE} flex-1 py-3 rounded-xl font-medium text-sm transition-all duration-200 flex items-center justify-center gap-2`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -1560,7 +1590,7 @@ const Customize: React.FC = () => {
                 <button 
                   onClick={handleSaveAndProceed}
                   disabled={isSaving}
-                  className="flex-1 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 font-medium text-white text-sm shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`${BUTTON_PRIMARY} flex-1 py-3 rounded-xl font-medium text-sm shadow-lg transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {isSaving ? (
                     <>
@@ -1581,7 +1611,7 @@ const Customize: React.FC = () => {
                 </button>
               </div>
 
-              <p className="text-center text-xs text-gray-500 mt-4 pt-4 border-t border-gray-200 dark:border-slate-700 dark:text-slate-400">
+              <p className={`text-center text-xs ${MUTED_TEXT} mt-4 pt-4 border-t border-gray-300 dark:border-gray-700/50`}>
                 Your design will be saved in your account for 30 days
               </p>
             </div>
@@ -1615,8 +1645,9 @@ const Customize: React.FC = () => {
           width: 6px;
         }
         aside::-webkit-scrollbar-track {
-          background: rgba(31, 41, 55, 0.4);
+          background: rgba(229, 231, 235, 0.4);
           border-radius: 3px;
+          dark: rgba(31, 41, 55, 0.4);
         }
         aside::-webkit-scrollbar-thumb {
           background: rgba(59, 130, 246, 0.5);
