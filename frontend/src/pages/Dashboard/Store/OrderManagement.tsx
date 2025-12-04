@@ -1180,7 +1180,7 @@ export default function OrderManagement() {
 									</div>
 								) : request.reviewNotes && request.status === 'denied' ? (
 									<div className="rounded-2xl border border-red-200 bg-red-50 p-4 dark:border-red-500/40 dark:bg-red-500/10">
-										<p className="text-xs uppercase tracking-wide text-gray-600 dark:text-gray-300">Notes Shared With Customer</p>
+										<p className="text-xs uppercase tracking-wide text-gray-600 dark:text-gray-300">Rejection Reason</p>
 										<p className="mt-2 text-base text-gray-900 dark:text-white whitespace-pre-line">{request.reviewNotes}</p>
 									</div>
 								) : null}

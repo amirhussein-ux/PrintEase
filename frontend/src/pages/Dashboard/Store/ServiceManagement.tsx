@@ -187,6 +187,29 @@ export default function ServiceManagement() {
   const { user } = useAuth();
   const role: "owner" | "customer" = user?.role === "customer" ? "customer" : "owner";
 
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof document === "undefined") return false;
+    return document.documentElement.classList.contains("dark");
+  });
+
+  useEffect(() => {
+    if (typeof document === "undefined" || typeof window === "undefined") return;
+    const root = document.documentElement;
+    const update = () => setIsDarkMode(root.classList.contains("dark"));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+    const mediaListener = () => update();
+    if (media?.addEventListener) media.addEventListener("change", mediaListener);
+    else media?.addListener?.(mediaListener);
+    return () => {
+        observer.disconnect();
+        if (media?.removeEventListener) media.removeEventListener("change", mediaListener);
+        else media?.removeListener?.(mediaListener);
+    };
+  }, []);
+
   // state
   const [query, setQuery] = useState("");
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -826,6 +849,7 @@ export default function ServiceManagement() {
         }}
         onSave={saveService}
         inventoryItems={inventoryItems}
+        isDarkMode={isDarkMode}
       />
       {/* Delete confirmation */}
       <Transition show={!!showDeleteConfirm} as={Fragment}>
@@ -883,12 +907,14 @@ function ServiceModal({
   initial,
   onSave,
   inventoryItems,
+  isDarkMode,
 }: {
   open: boolean;
   onClose: () => void;
   initial?: ServiceItem;
   onSave: (item: ServiceDraft) => void;
   inventoryItems: InventoryItem[];
+  isDarkMode: boolean;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -1333,6 +1359,7 @@ function ServiceModal({
         <CropperModal
           src={showCropper}
           aspect={1}
+          theme={isDarkMode ? "dark" : "light"}
           onCancel={() => {
             if (showCropper && showCropper.startsWith('blob:')) URL.revokeObjectURL(showCropper);
             setShowCropper(null);
