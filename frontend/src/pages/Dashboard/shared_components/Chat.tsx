@@ -1,5 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "./DashboardLayout";
 import { AiOutlineSend, AiOutlinePaperClip, AiOutlineUser, AiOutlineMessage, AiOutlineTeam, AiOutlineShop, AiOutlineDownload, AiOutlineClose, AiOutlineReload, AiOutlineArrowLeft } from "react-icons/ai";
 import { FaMagnifyingGlass } from "react-icons/fa6";
@@ -21,6 +22,8 @@ interface BaseMessage {
   fileUrl?: string;
   fileType?: string;
   isRead?: boolean;
+  payloadType?: string;
+  payload?: Record<string, unknown> | null;
 }
 
 interface Participant {
@@ -43,6 +46,8 @@ interface ChatMessage {
   fileType?: string;
   fileUrl?: string;
   createdAt: string;
+  payloadType?: string;
+  payload?: Record<string, unknown> | null;
 }
 
 interface CustomerChatSummary {
@@ -79,6 +84,40 @@ interface FilePreviewState {
   url: string;
   name: string;
   type?: string;
+}
+
+type ReturnRequestStatus = 'pending' | 'approved' | 'denied';
+type ReturnRequestTone = 'light' | 'dark';
+
+interface ReturnRequestEvidenceMeta {
+  fileId: string;
+  filename?: string;
+  mimeType?: string;
+  size?: number;
+}
+
+interface ReturnRequestCardPayload {
+  orderId?: string;
+  orderShortId?: string;
+  status?: ReturnRequestStatus;
+  reason?: string;
+  details?: string;
+  submittedAt?: string;
+  evidenceCount?: number;
+  storeName?: string;
+  evidence?: ReturnRequestEvidenceMeta[];
+  anchorId?: string;
+  reviewNotes?: string;
+}
+
+interface ReturnRequestCardProps {
+  payload: ReturnRequestCardPayload;
+  variant: 'owner' | 'customer';
+  onNavigate?: () => void;
+  tone?: ReturnRequestTone;
+  onPreviewEvidence?: (context: { file: ReturnRequestEvidenceMeta; url: string; mimeType?: string }) => void;
+  enableDecisionActions?: boolean;
+  onStatusUpdate?: (nextStatus: ReturnRequestStatus) => void;
 }
 
 interface UnifiedChatProps {
@@ -130,10 +169,377 @@ const isImageFile = (fileName?: string, fileType?: string) => {
   return /(\.png|\.jpe?g|\.gif|\.bmp|\.webp|\.svg)$/i.test(fileName);
 };
 
+const RETURN_STATUS_STYLES: Record<ReturnRequestStatus, string> = {
+  pending: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-100 dark:border-amber-400/30',
+  approved: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-100 dark:border-emerald-400/30',
+  denied: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-100 dark:border-rose-400/30',
+};
+
+const RETURN_STATUS_LABELS: Record<ReturnRequestStatus, string> = {
+  pending: 'Return Request Pending',
+  approved: 'Return Request Approved',
+  denied: 'Return Request Denied',
+};
+
+const RETURN_STATUS_STYLES_DARK_SURFACE: Record<ReturnRequestStatus, string> = {
+  pending: 'bg-amber-400/25 text-amber-50 border-amber-200/40',
+  approved: 'bg-emerald-400/25 text-emerald-50 border-emerald-200/40',
+  denied: 'bg-rose-400/25 text-rose-50 border-rose-200/40',
+};
+
+const MAX_EVIDENCE_THUMBNAILS = 3;
+
+const formatReturnTimestamp = (iso?: string) => {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
+};
+
+const parseChatFocusParams = (search: string) => {
+  const params = new URLSearchParams(search || '');
+  return {
+    chatId: params.get('chatId') || undefined,
+    customerId: params.get('customerId') || undefined,
+    focusOrder: params.get('focusOrder') || params.get('focus') || undefined,
+    focusAnchor: params.get('focusAnchor') || params.get('anchorId') || undefined,
+  };
+};
+
+const ReturnRequestCard: React.FC<ReturnRequestCardProps> = ({ payload, variant, onNavigate, tone = 'light', onPreviewEvidence, enableDecisionActions, onStatusUpdate }) => {
+  const [resolvedStatus, setResolvedStatus] = React.useState<ReturnRequestStatus>((payload.status || 'pending') as ReturnRequestStatus);
+  const resolvedStatusRef = React.useRef(resolvedStatus);
+  const statusLabel = RETURN_STATUS_LABELS[resolvedStatus];
+  const isDarkSurface = tone === 'dark';
+  const containerBase = isDarkSurface
+    ? 'bg-slate-900/80 text-white border-white/15 shadow-lg shadow-black/40 backdrop-blur'
+    : 'bg-white text-gray-900 border-gray-200 dark:bg-gray-900 dark:text-white dark:border-gray-700';
+  const detailMuted = isDarkSurface ? 'text-white/80' : 'text-gray-600 dark:text-gray-300';
+  const statusClasses = isDarkSurface ? RETURN_STATUS_STYLES_DARK_SURFACE[resolvedStatus] : RETURN_STATUS_STYLES[resolvedStatus];
+  const evidenceList = React.useMemo(() => (payload.evidence || []).slice(0, MAX_EVIDENCE_THUMBNAILS), [payload.evidence]);
+  const extraEvidence = Math.max(0, (payload.evidence?.length || 0) - evidenceList.length);
+  const [evidencePreviews, setEvidencePreviews] = React.useState<Record<string, { url: string; mimeType?: string }>>({});
+  const [statusLoading, setStatusLoading] = React.useState(false);
+  const [decisionState, setDecisionState] = React.useState<null | 'approved' | 'denied'>(null);
+  const [decisionError, setDecisionError] = React.useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = React.useState<string | undefined>(payload.reviewNotes);
+  const [showRejectReason, setShowRejectReason] = React.useState(false);
+  const [rejectReason, setRejectReason] = React.useState('');
+  const [rejectReasonError, setRejectReasonError] = React.useState<string | null>(null);
+  const rejectReasonRef = React.useRef<HTMLTextAreaElement | null>(null);
+
+  React.useEffect(() => {
+    setResolvedStatus((payload.status || 'pending') as ReturnRequestStatus);
+  }, [payload.orderId, payload.status]);
+
+  React.useEffect(() => {
+    resolvedStatusRef.current = resolvedStatus;
+  }, [resolvedStatus]);
+
+  React.useEffect(() => {
+    if (!payload.orderId) return;
+    let cancelled = false;
+    const fetchLatestStatus = async () => {
+      setStatusLoading(true);
+      try {
+        const res = await api.get(`/orders/${payload.orderId}`);
+        if (cancelled) return;
+        const returnRequest = res.data?.returnRequest;
+        const latestStatus = returnRequest?.status as ReturnRequestStatus | undefined;
+        if (latestStatus && latestStatus !== resolvedStatusRef.current) {
+          setResolvedStatus(latestStatus);
+          onStatusUpdate?.(latestStatus);
+        }
+        if (returnRequest?.reviewNotes) {
+          setReviewNotes(returnRequest.reviewNotes);
+        }
+      } catch (err) {
+        console.warn('Failed to refresh return request status', err);
+      } finally {
+        if (!cancelled) setStatusLoading(false);
+      }
+    };
+    fetchLatestStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [payload.orderId, payload.status, onStatusUpdate]);
+
+  const handleDecision = React.useCallback(async (next: 'approved' | 'denied', opts?: { reviewNotes?: string }) => {
+    if (!payload.orderId) return;
+    setDecisionError(null);
+    setDecisionState(next);
+    try {
+      const body: Record<string, unknown> = { status: next };
+      if (next === 'denied' && opts?.reviewNotes) {
+        body.reviewNotes = opts.reviewNotes;
+      }
+      const res = await api.patch(`/orders/${payload.orderId}/return-request`, body);
+      const returned = (res.data?.returnRequest?.status as ReturnRequestStatus | undefined) || next;
+      setResolvedStatus(returned);
+      onStatusUpdate?.(returned);
+      if (next === 'denied') {
+        setShowRejectReason(false);
+        setRejectReason('');
+      }
+    } catch (err) {
+      const error = err as { response?: { data?: { message?: string } }; message?: string };
+      setDecisionError(error.response?.data?.message || error.message || 'Failed to update request');
+    } finally {
+      setDecisionState(null);
+    }
+  }, [payload.orderId, onStatusUpdate]);
+
+  React.useEffect(() => {
+    setShowRejectReason(false);
+    setRejectReason('');
+    setRejectReasonError(null);
+  }, [payload.orderId, resolvedStatus]);
+
+  React.useEffect(() => {
+    if (!payload.orderId || !evidenceList.length) {
+      setEvidencePreviews({});
+      return;
+    }
+    let cancelled = false;
+    const objectUrls: string[] = [];
+    const loadPreviews = async () => {
+      const next: Record<string, { url: string; mimeType?: string }> = {};
+      for (const file of evidenceList) {
+        if (!file?.fileId) continue;
+        try {
+          const res = await api.get(`/orders/${payload.orderId}/return-request/evidence/${file.fileId}`, { responseType: 'blob' });
+          if (cancelled) return;
+          const blob: Blob = res.data instanceof Blob
+            ? res.data
+            : new Blob([res.data], { type: res.headers['content-type'] || file.mimeType || 'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          objectUrls.push(url);
+          next[file.fileId] = { url, mimeType: blob.type || file.mimeType };
+        } catch (err) {
+          console.warn('Failed to preload return evidence preview', err);
+        }
+      }
+      if (!cancelled) setEvidencePreviews(next);
+    };
+    loadPreviews();
+    return () => {
+      cancelled = true;
+      objectUrls.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {
+          /* no-op */
+        }
+      });
+    };
+  }, [payload.orderId, evidenceList]);
+
+  return (
+    <div className={`rounded-2xl border p-4 space-y-3 transition-colors duration-200 ${containerBase}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className={`text-[11px] uppercase tracking-wide ${detailMuted}`}>
+            Return / Refund
+          </p>
+          <p className="text-lg font-semibold">
+            {payload.orderShortId || payload.orderId || 'Order'}
+          </p>
+          {payload.storeName && variant === 'customer' && (
+            <p className={`text-xs ${detailMuted}`}>{payload.storeName}</p>
+          )}
+        </div>
+        <span className={`text-xs font-semibold px-3 py-1 rounded-full border flex items-center gap-2 ${statusClasses}`}>
+          {statusLabel}
+          {statusLoading && <span className="w-2 h-2 rounded-full border-2 border-current border-t-transparent animate-spin" />}
+        </span>
+      </div>
+
+      {payload.reason && (
+        <div>
+          <p className={`text-[11px] uppercase tracking-wide ${detailMuted}`}>Reason</p>
+          <p className="font-semibold text-sm">{payload.reason}</p>
+        </div>
+      )}
+
+      {payload.details && (
+        <div>
+          <p className={`text-[11px] uppercase tracking-wide ${detailMuted}`}>Details</p>
+          <p className="text-sm whitespace-pre-line">{payload.details}</p>
+        </div>
+      )}
+
+      {reviewNotes && resolvedStatus === 'denied' && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3 dark:border-rose-400/30 dark:bg-rose-500/10">
+          <p className="text-xs font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-200">
+            {variant === 'owner' ? 'Rejection Reason' : 'Rejection reason from store'}
+          </p>
+          <p className="mt-2 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-line">{reviewNotes}</p>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between text-xs">
+        <div>
+          <p className={`text-[11px] uppercase tracking-wide ${detailMuted}`}>Submitted</p>
+          <p className="font-semibold text-sm">{formatReturnTimestamp(payload.submittedAt)}</p>
+        </div>
+        <div className="text-right">
+          <p className={`text-[11px] uppercase tracking-wide ${detailMuted}`}>Photos/Videos</p>
+          <p className="font-semibold text-sm">{payload.evidenceCount ?? 0} file(s)</p>
+        </div>
+      </div>
+
+      {payload.orderId && payload.evidence && payload.evidence.length > 0 && (
+        <div>
+          <div className="mt-2 grid grid-cols-3 gap-2">
+            {evidenceList.map((file) => {
+              const preview = evidencePreviews[file.fileId];
+              const mime = preview?.mimeType || file.mimeType || '';
+              const isVideo = mime.startsWith('video/');
+              const tileBase = isDarkSurface
+                ? 'border-white/25 bg-slate-800/70'
+                : 'border-gray-200 bg-gray-50 dark:border-gray-700/60 dark:bg-gray-800/60';
+              const canPreview = Boolean(preview && onPreviewEvidence);
+              const handlePreview = () => {
+                if (!preview || !onPreviewEvidence) return;
+                onPreviewEvidence({ file, url: preview.url, mimeType: preview.mimeType || file.mimeType });
+              };
+              return (
+                <div
+                  key={file.fileId}
+                  role={canPreview ? 'button' : undefined}
+                  tabIndex={canPreview ? 0 : undefined}
+                  onClick={canPreview ? handlePreview : undefined}
+                  onKeyDown={canPreview ? (event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handlePreview();
+                    }
+                  } : undefined}
+                  className={`relative rounded-xl overflow-hidden border ${tileBase} ${canPreview ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400' : ''}`}
+                >
+                  {preview ? (
+                    isVideo ? (
+                      <video src={preview.url} muted loop playsInline className="w-full h-20 object-cover" />
+                    ) : (
+                      <img src={preview.url} alt={file.filename || 'Return evidence'} className="w-full h-20 object-cover" />
+                    )
+                  ) : (
+                    <div className="w-full h-20 flex items-center justify-center text-[11px] opacity-70">
+                      Loading…
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity" />
+                  <div className={`absolute bottom-1 left-1 right-1 text-[10px] font-semibold drop-shadow truncate ${isDarkSurface ? 'text-white' : 'text-gray-900'}`}>
+                    {file.filename || (isVideo ? 'Video evidence' : 'Photo evidence')}
+                  </div>
+                  {isVideo && (
+                    <div className="absolute inset-0 flex items-center justify-center text-white">
+                      <span className="text-[10px] font-semibold bg-black/60 rounded-full px-2 py-0.5">Video</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {extraEvidence > 0 && (
+              <div className={`rounded-xl border border-dashed flex items-center justify-center text-xs font-semibold ${isDarkSurface ? 'border-white/40 text-white/90' : 'border-gray-300 text-gray-600 dark:text-gray-100 dark:border-gray-600'}`}>
+                +{extraEvidence} more
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {variant === 'owner' && enableDecisionActions && resolvedStatus === 'pending' && payload.orderId && (
+        <div className="space-y-3">
+          <div className={`rounded-2xl border text-sm transition-all duration-300 ease-in-out overflow-hidden ${showRejectReason ? 'border-rose-100 bg-rose-50/80 p-3 dark:border-rose-400/40 dark:bg-rose-500/10' : 'border-transparent bg-transparent max-h-0 p-0'}`}>
+              <p className="text-xs font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-200">Rejection Reason</p>
+              <textarea
+                ref={rejectReasonRef}
+                className={`${INPUT_SURFACE} p-4 w-full min-h-[120px] resize-y mt-2 text-sm`}
+                placeholder="Let the customer know why you're rejecting this request..."
+                value={rejectReason}
+                onChange={(event) => {
+                  setRejectReason(event.target.value);
+                  if (rejectReasonError) setRejectReasonError(null);
+                }}
+                disabled={decisionState === 'denied'}
+              />
+              <p className="mt-2 text-xs text-rose-700/80 dark:text-rose-100/80">This note will appear on the customer's return details.</p>
+              {rejectReasonError && <p className="mt-2 text-xs text-rose-600 dark:text-rose-200">{rejectReasonError}</p>}
+            </div>
+          <div className="grid grid-cols-2 gap-2 pt-1">
+            <button
+              type="button"
+              onClick={async () => {
+                if (decisionState !== null) return;
+                if (!showRejectReason) {
+                  setShowRejectReason(true);
+                  requestAnimationFrame(() => rejectReasonRef.current?.focus());
+                  return;
+                }
+                const trimmed = rejectReason.trim();
+                if (!trimmed) {
+                  setRejectReasonError('Please provide a rejection reason.');
+                  rejectReasonRef.current?.focus();
+                  return;
+                }
+                setRejectReasonError(null);
+                await handleDecision('denied', { reviewNotes: trimmed });
+              }}
+              disabled={decisionState !== null}
+              className={`px-3 py-2 rounded-xl text-sm font-semibold border border-rose-400 text-rose-600 bg-white/80 hover:bg-rose-50 dark:border-rose-300 dark:text-rose-200 dark:bg-transparent dark:hover:bg-white/10 ${decisionState !== null ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {decisionState === 'denied' ? 'Submitting…' : showRejectReason ? 'Send Rejection' : 'Reject'}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (decisionState !== null) return;
+                setShowRejectReason(false);
+                setRejectReason('');
+                setRejectReasonError(null);
+                await handleDecision('approved');
+              }}
+              disabled={decisionState !== null}
+              className={`px-3 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 dark:bg-emerald-500 dark:hover:bg-emerald-400 ${decisionState !== null ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {decisionState === 'approved' ? 'Approving…' : 'Accept'}
+            </button>
+          </div>
+          {decisionError && (
+            <div className="text-xs text-rose-500 dark:text-rose-300">
+              {decisionError}
+            </div>
+          )}
+        </div>
+      )}
+
+      {onNavigate && (
+        <button
+          type="button"
+          onClick={onNavigate}
+          className={`${isDarkSurface
+            ? 'w-full px-4 py-2 rounded-xl bg-white/90 text-gray-900 font-semibold hover:bg-white transition'
+            : variant === 'owner'
+              ? 'w-full px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-500 transition'
+              : 'w-full px-4 py-2 rounded-xl bg-gray-900 text-white font-semibold hover:bg-gray-800 transition'}`}
+        >
+          View Return Request
+        </button>
+      )}
+    </div>
+  );
+};
+
 // Owner Chat sub-component
 const OwnerChat: React.FC = () => {
   const { socket, isConnected } = useSocket();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { state: sidebarState, isMobile } = useSidebar();
   const currentUserId = user?._id ? String(user._id) : '';
   const [storeId, setStoreId] = React.useState<string | null>(null);
@@ -154,6 +560,23 @@ const OwnerChat: React.FC = () => {
   const pendingMessagesRef = React.useRef<Set<string>>(new Set());
   const hasPrefetchedMembers = React.useRef(false);
   const pendingMemberFetchRef = React.useRef<Set<string>>(new Set());
+  const focusParamsRef = React.useRef(parseChatFocusParams(location.search));
+  const [pendingChatFocus, setPendingChatFocus] = React.useState<{ chatId?: string; customerId?: string } | null>(() => {
+    const { chatId, customerId } = focusParamsRef.current;
+    return chatId || customerId ? { chatId, customerId } : null;
+  });
+  const [focusOrderId, setFocusOrderId] = React.useState<string | null>(focusParamsRef.current.focusOrder || null);
+  const [focusAnchorId, setFocusAnchorId] = React.useState<string | null>(focusParamsRef.current.focusAnchor || null);
+  const messageRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [highlightedMessageKey, setHighlightedMessageKey] = React.useState<string | null>(null);
+
+  const getMessageKey = React.useCallback((message: BaseMessage, fallbackIndex?: number) => {
+    if (message._id) return message._id;
+    const payloadLabel = message.payloadType || (message.fileName ? 'file' : 'text');
+    const unique = message.fileName || message.text || (typeof fallbackIndex === 'number' ? `idx-${fallbackIndex}` : 'fallback');
+    return `${message.chatId || 'chat'}-${message.createdAt}-${payloadLabel}-${unique}`;
+  }, []);
 
   const registerStoreMembers = React.useCallback((entries: Array<{ id?: string | null; name?: string | null }>) => {
     if (!entries?.length) return;
@@ -182,6 +605,23 @@ const OwnerChat: React.FC = () => {
     const fallbackName = user?.fullName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'You';
     registerStoreMembers([{ id: currentUserId, name: fallbackName }]);
   }, [currentUserId, user?.fullName, user?.firstName, user?.lastName, registerStoreMembers]);
+
+  const handleSelectParticipant = React.useCallback((p: Participant) => {
+    setSelectedParticipant(p);
+    setMessages([]);
+    setParticipants(prev => prev.map(x => x.chatId === p.chatId ? { ...x, unreadCount: 0 } : x));
+    setIsMobileChatView(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (!pendingChatFocus) return;
+    if (!participants.length) return;
+    const match = participants.find((p) => (pendingChatFocus.chatId && p.chatId === pendingChatFocus.chatId) || (pendingChatFocus.customerId && p.id === pendingChatFocus.customerId));
+    if (match) {
+      handleSelectParticipant(match);
+      setPendingChatFocus(null);
+    }
+  }, [participants, pendingChatFocus, handleSelectParticipant]);
 
   React.useEffect(() => {
     const prefetchMembers = async () => {
@@ -281,6 +721,56 @@ const OwnerChat: React.FC = () => {
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
   }, [messages]);
+
+  React.useEffect(() => {
+    const params = parseChatFocusParams(location.search);
+    focusParamsRef.current = params;
+    setFocusOrderId(params.focusOrder || null);
+    setFocusAnchorId(params.focusAnchor || null);
+  }, [location.search]);
+
+  React.useEffect(() => {
+    if ((!focusOrderId && !focusAnchorId) || !messages.length) return;
+    const targetIndex = messages.findIndex((m) => {
+      if (m.payloadType !== 'return_request' || !m.payload) return false;
+      const payload = m.payload as ReturnRequestCardPayload | undefined;
+      if (!payload) return false;
+      if (focusAnchorId && payload.anchorId) return payload.anchorId === focusAnchorId;
+      if (focusOrderId && payload.orderId) return payload.orderId === focusOrderId;
+      return false;
+    });
+    if (targetIndex === -1) return;
+    const target = messages[targetIndex];
+    const messageKey = getMessageKey(target, targetIndex);
+    const node = messageRefs.current[messageKey];
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedMessageKey(messageKey);
+    setFocusOrderId(null);
+    setFocusAnchorId(null);
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedMessageKey((prev) => (prev === messageKey ? null : prev));
+    }, 6000);
+  }, [messages, focusOrderId, focusAnchorId, getMessageKey]);
+
+  React.useEffect(() => {
+    if (pendingChatFocus || focusOrderId || focusAnchorId) return;
+    if (!location.search) return;
+    const params = new URLSearchParams(location.search);
+    const removableKeys = ['chatId', 'customerId', 'focusOrder', 'focus', 'focusAnchor', 'anchorId'];
+    let mutated = false;
+    removableKeys.forEach((key) => {
+      if (params.has(key)) {
+        params.delete(key);
+        mutated = true;
+      }
+    });
+    if (!mutated) return;
+    const search = params.toString();
+    navigate(search ? `${location.pathname}?${search}` : location.pathname, { replace: true });
+  }, [pendingChatFocus, focusOrderId, focusAnchorId, location.pathname, location.search, navigate]);
 
   React.useEffect(() => {
     if (!socket) return;
@@ -586,13 +1076,6 @@ const OwnerChat: React.FC = () => {
     loadMessagesForParticipant(selectedParticipant, type);
   }, [selectedParticipant]);
 
-  const handleSelectParticipant = (p: Participant) => {
-    setSelectedParticipant(p);
-    setMessages([]);
-    setParticipants(prev => prev.map(x => x.chatId === p.chatId ? { ...x, unreadCount: 0 } : x));
-    setIsMobileChatView(true);
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
@@ -817,22 +1300,54 @@ const OwnerChat: React.FC = () => {
                     const isCustomerChat = selectedParticipant?.kind === 'customer';
                     const isStoreMessage = isCustomerChat ? m.senderId !== selectedParticipant?.id : m.senderId === currentUserId;
                     const bubbleAlign = isStoreMessage ? 'justify-end' : 'justify-start';
-              const bubbleColor = isStoreMessage
-                ? 'bg-blue-600 text-white rounded-br-none shadow-lg shadow-blue-600/30'
-                : 'bg-gray-100 text-gray-900 rounded-bl-none shadow-sm border border-gray-200 dark:bg-gray-700 dark:text-white dark:border-transparent';
+                    const isReturnCard = m.payloadType === 'return_request';
+                    const bubbleColor = isReturnCard
+                      ? 'p-0 bg-transparent text-inherit border-none shadow-none'
+                      : isStoreMessage
+                        ? 'bg-blue-600 text-white rounded-br-none shadow-lg shadow-blue-600/30'
+                        : 'bg-gray-100 text-gray-900 rounded-bl-none shadow-sm border border-gray-200 dark:bg-gray-700 dark:text-white dark:border-transparent';
                     const metaJustify = isStoreMessage ? 'justify-end' : 'justify-start';
                   const metaTextColor = isStoreMessage ? 'text-gray-200' : 'text-gray-500 dark:text-gray-300';
                   const senderTagColor = isStoreMessage ? 'text-gray-200' : 'text-gray-500 dark:text-gray-200';
                     const senderTag = isCustomerChat && isStoreMessage ? resolveStoreSenderName(m.senderId) : null;
+                    const payload = (m.payload || undefined) as ReturnRequestCardPayload | undefined;
+                    const messageKey = getMessageKey(m, i);
+                    const isHighlighted = highlightedMessageKey === messageKey;
                     return (
-                      <div key={m._id||`${m.createdAt}-${i}`} className={`flex ${bubbleAlign}`}>
-                        <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${bubbleColor}`}>
-                          {m.fileName? renderFileMessage(m): <p className="text-sm whitespace-pre-wrap">{m.text}</p>}
-                      <div className={`flex ${metaJustify} gap-1 mt-2 items-center`}>
-                      {senderTag && <span className={`text-[11px] mr-2 ${senderTagColor}`}>Sent by {senderTag}</span>}
-                      <span className={`text-xs ${metaTextColor}`}>{formatTime(m.createdAt)}</span>
-                            {renderStatus(m)}
-                          </div>
+                      <div
+                        key={messageKey}
+                        ref={(el) => {
+                          if (el) messageRefs.current[messageKey] = el; else delete messageRefs.current[messageKey];
+                        }}
+                        className={`flex ${bubbleAlign}`}
+                      >
+                        <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl ${bubbleColor} ${isHighlighted ? 'ring-2 ring-amber-400 shadow-[0_0_0_4px_rgba(251,191,36,0.25)]' : ''}`}>
+                          {isReturnCard && payload ? (
+                            <>
+                              <ReturnRequestCard
+                                payload={payload}
+                                variant="owner"
+                                tone={isStoreMessage ? 'dark' : 'light'}
+                                onNavigate={payload.orderId ? () => navigate(`/dashboard/orders?status=return_refund&focus=${payload.orderId}`) : undefined}
+                                onPreviewEvidence={({ file, url, mimeType }) => openPreview(url, file.filename || 'Evidence', mimeType || file.mimeType)}
+                                enableDecisionActions={selectedParticipant?.kind === 'customer'}
+                              />
+                              <div className={`flex ${metaJustify} gap-1 mt-2 items-center`}>
+                                {senderTag && <span className={`text-[11px] mr-2 ${senderTagColor}`}>Sent by {senderTag}</span>}
+                                <span className={`text-xs ${metaTextColor}`}>{formatTime(m.createdAt)}</span>
+                                {renderStatus(m)}
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              {m.fileName ? renderFileMessage(m) : <p className="text-sm whitespace-pre-wrap">{m.text}</p>}
+                              <div className={`flex ${metaJustify} gap-1 mt-2 items-center`}>
+                                {senderTag && <span className={`text-[11px] mr-2 ${senderTagColor}`}>Sent by {senderTag}</span>}
+                                <span className={`text-xs ${metaTextColor}`}>{formatTime(m.createdAt)}</span>
+                                {renderStatus(m)}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     );
@@ -906,6 +1421,8 @@ const OwnerChat: React.FC = () => {
 const CustomerChat: React.FC = () => {
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
+  const navigate = useNavigate();
+  const location = useLocation();
   const customerId = user?._id;
   const [storeId, setStoreId] = React.useState<string | null>(null);
   const [chatId, setChatId] = React.useState<string | null>(null);
@@ -924,6 +1441,76 @@ const CustomerChat: React.FC = () => {
   const pendingMessagesRef = React.useRef<Set<string>>(new Set());
   const storeMembersRef = React.useRef<string[]>([]);
   const storeOnlineRef = React.useRef<Set<string>>(new Set());
+  const focusParamsRef = React.useRef(parseChatFocusParams(location.search));
+  const [focusOrderId, setFocusOrderId] = React.useState<string | null>(focusParamsRef.current.focusOrder || null);
+  const [focusAnchorId, setFocusAnchorId] = React.useState<string | null>(focusParamsRef.current.focusAnchor || null);
+  const messageRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
+  const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [highlightedMessageKey, setHighlightedMessageKey] = React.useState<string | null>(null);
+
+  const getMessageKey = React.useCallback((message: BaseMessage, fallbackIndex?: number) => {
+    if (message._id) return message._id;
+    const payloadLabel = message.payloadType || (message.fileName ? 'file' : 'text');
+    const unique = message.fileName || message.text || (typeof fallbackIndex === 'number' ? `idx-${fallbackIndex}` : 'fallback');
+    return `${message.chatId || 'chat'}-${message.createdAt}-${payloadLabel}-${unique}`;
+  }, []);
+
+  React.useEffect(() => {
+    const params = parseChatFocusParams(location.search);
+    focusParamsRef.current = params;
+    setFocusOrderId(params.focusOrder || null);
+    setFocusAnchorId(params.focusAnchor || null);
+  }, [location.search]);
+
+  React.useEffect(() => {
+    if ((!focusOrderId && !focusAnchorId) || !messages.length) return;
+    const targetIndex = messages.findIndex((m) => {
+      if (m.payloadType !== 'return_request' || !m.payload) return false;
+      const payload = m.payload as ReturnRequestCardPayload | undefined;
+      if (!payload) return false;
+      if (focusAnchorId && payload.anchorId) return payload.anchorId === focusAnchorId;
+      if (focusOrderId && payload.orderId) return payload.orderId === focusOrderId;
+      return false;
+    });
+
+    if (targetIndex === -1) return;
+    const target = messages[targetIndex];
+    const messageKey = getMessageKey(target, targetIndex);
+    const node = messageRefs.current[messageKey];
+    if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedMessageKey(messageKey);
+    setFocusOrderId(null);
+    setFocusAnchorId(null);
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = setTimeout(() => {
+      setHighlightedMessageKey((prev) => (prev === messageKey ? null : prev));
+    }, 6000);
+  }, [messages, focusOrderId, focusAnchorId, getMessageKey]);
+
+  React.useEffect(() => {
+    if (focusOrderId || focusAnchorId) return;
+    if (!location.search) return;
+    const params = new URLSearchParams(location.search);
+    const removableKeys = ['focusOrder', 'focus', 'focusAnchor', 'anchorId'];
+    let mutated = false;
+    removableKeys.forEach((key) => {
+      if (params.has(key)) {
+        params.delete(key);
+        mutated = true;
+      }
+    });
+    if (!mutated) return;
+    const search = params.toString();
+    navigate(search ? `${location.pathname}?${search}` : location.pathname, { replace: true });
+  }, [focusOrderId, focusAnchorId, location.pathname, location.search, navigate]);
+
+  React.useEffect(() => () => {
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+  }, []);
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
@@ -1247,16 +1834,50 @@ const CustomerChat: React.FC = () => {
     }
     return messages.map((m, i) => {
       const isSelf = m.senderId === customerId;
-      const bubbleClass = isSelf ? CUSTOMER_CHAT_BUBBLE_SELF : CUSTOMER_CHAT_BUBBLE_STORE;
+      const isReturnCard = m.payloadType === 'return_request';
+      const bubbleClass = isReturnCard
+        ? 'p-0 bg-transparent text-inherit border-none shadow-none'
+        : isSelf
+          ? CUSTOMER_CHAT_BUBBLE_SELF
+          : CUSTOMER_CHAT_BUBBLE_STORE;
       const timestampClass = isSelf ? 'text-white/80' : 'text-gray-500 dark:text-gray-300';
+      const payload = (m.payload || undefined) as ReturnRequestCardPayload | undefined;
+      const messageKey = getMessageKey(m, i);
+      const isHighlighted = highlightedMessageKey === messageKey;
       return (
-        <div key={m._id || `${m.createdAt}-${i}`} className={`flex mb-4 ${isSelf ? 'justify-end' : 'justify-start'}`}>
-          <div className={`max-w-xs lg:max-w-md px-4 py-3 ${bubbleClass}`}>
-            {m.fileName ? renderFile(m) : <p className="text-sm whitespace-pre-wrap">{m.text}</p>}
-            <div className={`flex items-center gap-1 mt-2 ${isSelf ? 'justify-end' : 'justify-start'}`}>
-              <span className={`text-xs ${timestampClass}`}>{formatTime(m.createdAt)}</span>
-              {renderStatus(m)}
-            </div>
+        <div
+          key={messageKey}
+          ref={(el) => {
+            if (el) messageRefs.current[messageKey] = el; else delete messageRefs.current[messageKey];
+          }}
+          className={`flex mb-4 ${isSelf ? 'justify-end' : 'justify-start'}`}
+        >
+          <div
+            className={`max-w-xs lg:max-w-md px-3 py-3 rounded-2xl ${bubbleClass} ${isHighlighted ? 'ring-2 ring-amber-400 shadow-[0_0_0_4px_rgba(251,191,36,0.25)]' : ''}`}
+          >
+            {isReturnCard && payload ? (
+              <>
+                <ReturnRequestCard
+                  payload={payload}
+                  variant="customer"
+                  tone={isSelf ? 'dark' : 'light'}
+                  onNavigate={payload.orderId ? () => navigate(`/dashboard/my-orders?status=return_refund&focus=${payload.orderId}`) : undefined}
+                  onPreviewEvidence={({ file, url, mimeType }) => openCustomerPreview(url, file.filename || 'Evidence', mimeType || file.mimeType)}
+                />
+                <div className={`flex items-center gap-1 mt-2 ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                  <span className={`text-xs ${timestampClass}`}>{formatTime(m.createdAt)}</span>
+                  {renderStatus(m)}
+                </div>
+              </>
+            ) : (
+              <>
+                {m.fileName ? renderFile(m) : <p className="text-sm whitespace-pre-wrap">{m.text}</p>}
+                <div className={`flex items-center gap-1 mt-2 ${isSelf ? 'justify-end' : 'justify-start'}`}>
+                  <span className={`text-xs ${timestampClass}`}>{formatTime(m.createdAt)}</span>
+                  {renderStatus(m)}
+                </div>
+              </>
+            )}
           </div>
         </div>
       );
@@ -1286,7 +1907,7 @@ const CustomerChat: React.FC = () => {
         </div>
 
         <div className={`${CUSTOMER_CHAT_STREAM} px-5 py-4 min-h-[360px] h-[60vh] lg:h-[65vh] overflow-hidden flex`}>
-          <div className="flex-1 overflow-y-auto chat-scroll">
+          <div className="flex-1 overflow-y-auto chat-scroll pr-4">
             {renderChatContent()}
             <div ref={messagesEndRef} />
           </div>

@@ -5,6 +5,8 @@ const embeddedMessageSchema = new mongoose.Schema({
   text: { type: String },
   fileUrl: { type: String },
   fileName: { type: String },
+  payloadType: { type: String },
+  payload: { type: mongoose.Schema.Types.Mixed },
   createdAt: { type: Date, default: Date.now },
 });
 
@@ -28,8 +30,17 @@ customerChatSchema.pre("validate", function (next) {
 });
 
 customerChatSchema.methods.appendMessage = async function (messageData) {
-  this.messages.push(messageData);
-  this.lastMessage = messageData.text || messageData.fileName || "File";
+  const nextMessage = {
+    ...messageData,
+    payload: messageData.payload ?? undefined,
+    payloadType: messageData.payloadType ?? undefined,
+  };
+  this.messages.push(nextMessage);
+  if (messageData.payloadType === 'return_request' && !messageData.text) {
+    this.lastMessage = 'Return / Refund request shared';
+  } else {
+    this.lastMessage = messageData.text || messageData.fileName || 'File';
+  }
   this.updatedAt = new Date();
   await this.save();
   return this.messages[this.messages.length - 1];

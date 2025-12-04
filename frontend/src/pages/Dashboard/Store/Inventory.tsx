@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, Fragment, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
-import { Dialog, DialogPanel, Transition } from "@headlessui/react";
+import { Dialog, DialogPanel, Transition, Listbox } from "@headlessui/react";
 import {
     PencilSquareIcon,
     UserPlusIcon,
@@ -17,13 +17,16 @@ import {
     ChartBarIcon,
     CubeIcon,
     UserGroupIcon,
-    ArchiveBoxIcon // Changed from TrashIcon to ArchiveBoxIcon
+    ArchiveBoxIcon,
+    PhotoIcon,
+    ChevronUpDownIcon
 } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import DashboardLayout from "../shared_components/DashboardLayout";
 import api from "../../../lib/api";
 import { isAxiosError } from "axios";
 import jsPDF from 'jspdf';
+import CropperModal from "../../../components/CropperModal";
 
 // Types
 interface InventoryItem {
@@ -82,13 +85,24 @@ interface EmployeeFormState {
     role: string;
     email: string;
     phone: string;
+    password: string;
+    confirmPassword: string;
 }
+
+const EMPLOYEE_ROLE_OPTIONS = [
+    "Operations Manager",
+    "Front Desk",
+    "Inventory & Supplies",
+    "Printer Operator",
+];
 
 const createEmptyEmployeeForm = (): EmployeeFormState => ({
     fullName: "",
     role: "",
     email: "",
     phone: "",
+    password: "",
+    confirmPassword: "",
 });
 
 const createEmptyProductForm = () => ({
@@ -99,6 +113,21 @@ const createEmptyProductForm = () => ({
     unitPrice: "",
     entryPrice: "",
 });
+
+const revokeBlobUrl = (url: string | null) => {
+    if (url && url.startsWith("blob:")) {
+        URL.revokeObjectURL(url);
+    }
+};
+
+const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+};
 
 function toErrorMessage(e: unknown, fallback: string): string {
     if (isAxiosError(e)) {
@@ -120,6 +149,11 @@ const Inventory: React.FC = () => {
     const [activeTab, setActiveTab] = useState<"graph" | "products" | "employee">("graph");
     const location = useLocation();
 
+    const [isDarkMode, setIsDarkMode] = useState(() => {
+        if (typeof document === "undefined") return false;
+        return document.documentElement.classList.contains("dark");
+    });
+
     // Set initial tab based on the current path (so we can route to specific inventory subpages)
     useEffect(() => {
         try {
@@ -131,6 +165,24 @@ const Inventory: React.FC = () => {
             // ignore
         }
     }, [location.pathname]);
+
+    useEffect(() => {
+        if (typeof document === "undefined" || typeof window === "undefined") return;
+        const root = document.documentElement;
+        const update = () => setIsDarkMode(root.classList.contains("dark"));
+        update();
+        const observer = new MutationObserver(update);
+        observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+        const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+        const mediaListener = () => update();
+        if (media?.addEventListener) media.addEventListener("change", mediaListener);
+        else media?.addListener?.(mediaListener);
+        return () => {
+            observer.disconnect();
+            if (media?.removeEventListener) media.removeEventListener("change", mediaListener);
+            else media?.removeListener?.(mediaListener);
+        };
+    }, []);
 
     // Product state
     const [showModal, setShowModal] = useState(false);
@@ -147,15 +199,99 @@ const Inventory: React.FC = () => {
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [showEmployeeModal, setShowEmployeeModal] = useState(false);
 
-    const [employeeForm, setEmployeeForm] = useState({ fullName: "", role: "", email: "", phone: "" });
+    const [employeeForm, setEmployeeForm] = useState<EmployeeFormState>(() => createEmptyEmployeeForm());
     const [employeeErrors, setEmployeeErrors] = useState<{ [key: string]: string }>({});
     const [employeeSearch, setEmployeeSearch] = useState("");
     const [editEmployeeIndex, setEditEmployeeIndex] = useState<string | null>(null);
+    const [employeeAvatarPreview, setEmployeeAvatarPreview] = useState<string | null>(null);
+    const [employeeAvatarFile, setEmployeeAvatarFile] = useState<File | null>(null);
+    const [employeeAvatarExisting, setEmployeeAvatarExisting] = useState<string | null>(null);
+    const [employeeAvatarRemoved, setEmployeeAvatarRemoved] = useState(false);
+    const [employeeAvatarDragActive, setEmployeeAvatarDragActive] = useState(false);
+    const [employeeCropperSrc, setEmployeeCropperSrc] = useState<string | null>(null);
+    const employeeAvatarInputRef = useRef<HTMLInputElement | null>(null);
+    const [isSavingEmployee, setIsSavingEmployee] = useState(false);
+    const currentEmployeeAvatar = employeeAvatarPreview || employeeAvatarExisting;
 
     const resetEmployeeModalState = () => {
         setEmployeeForm(createEmptyEmployeeForm());
         setEmployeeErrors({});
+        revokeBlobUrl(employeeAvatarPreview);
+        setEmployeeAvatarPreview(null);
+        setEmployeeAvatarFile(null);
+        setEmployeeAvatarExisting(null);
+        setEmployeeAvatarRemoved(false);
+        setEmployeeAvatarDragActive(false);
+        if (employeeCropperSrc) {
+            revokeBlobUrl(employeeCropperSrc);
+            setEmployeeCropperSrc(null);
+        }
+        if (employeeAvatarInputRef.current) {
+            employeeAvatarInputRef.current.value = "";
+        }
+        setIsSavingEmployee(false);
         setEditEmployeeIndex(null);
+    };
+
+    useEffect(() => {
+        return () => {
+            revokeBlobUrl(employeeAvatarPreview);
+        };
+    }, [employeeAvatarPreview]);
+
+    useEffect(() => {
+        return () => {
+            revokeBlobUrl(employeeCropperSrc);
+        };
+    }, [employeeCropperSrc]);
+
+    const openEmployeeAvatarDialog = () => {
+        employeeAvatarInputRef.current?.click();
+    };
+
+    const triggerEmployeeCropper = (file: File) => {
+        if (!file.type.startsWith("image/")) {
+            setEmployeeErrors(prev => ({ ...prev, avatar: "Please upload an image file." }));
+            return;
+        }
+        setEmployeeErrors(prev => {
+            if (!prev.avatar) return prev;
+            const rest = { ...prev };
+            delete rest.avatar;
+            return rest;
+        });
+        setEmployeeAvatarExisting(null);
+        setEmployeeAvatarRemoved(false);
+        const objectUrl = URL.createObjectURL(file);
+        setEmployeeCropperSrc(prev => {
+            revokeBlobUrl(prev);
+            return objectUrl;
+        });
+    };
+
+    const handleEmployeeAvatarInput = (files: FileList | null) => {
+        const file = files?.[0] || null;
+        if (!file) return;
+        triggerEmployeeCropper(file);
+        setEmployeeAvatarRemoved(false);
+    };
+
+    const handleEmployeeAvatarDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setEmployeeAvatarDragActive(false);
+        const file = e.dataTransfer?.files?.[0] || null;
+        if (!file) return;
+        triggerEmployeeCropper(file);
+        setEmployeeAvatarRemoved(false);
+    };
+
+    const handleEmployeeAvatarRemove = () => {
+        revokeBlobUrl(employeeAvatarPreview);
+        setEmployeeAvatarPreview(null);
+        setEmployeeAvatarFile(null);
+        setEmployeeAvatarRemoved(true);
+        setEmployeeAvatarExisting(null);
     };
 
     // Archive safeguards (Renamed from Delete)
@@ -539,16 +675,29 @@ const Inventory: React.FC = () => {
         if (!canManageEmployees) return;
         resetEmployeeModalState();
         setShowEmployeeModal(true);
-        setEmployeeForm({ fullName: "", role: "", email: "", phone: "" });
-        setEmployeeErrors({});
-        setEditEmployeeIndex(null);
     };
 
     const validateEmployeeFields = () => {
         const newErrors: { [key: string]: string } = {};
         if (!employeeForm.fullName.trim()) newErrors.fullName = "Full name is required.";
-        if (!employeeForm.role.trim()) newErrors.role = "Role is required.";
-        if (employeeForm.email && !/\S+@\S+\.\S+/.test(employeeForm.email)) newErrors.email = "Email is invalid.";
+        const roleValue = employeeForm.role.trim();
+        if (!roleValue) newErrors.role = "Role is required.";
+        else if (!EMPLOYEE_ROLE_OPTIONS.includes(roleValue)) newErrors.role = "Please select a valid role.";
+        const email = employeeForm.email.trim();
+        if (!email) newErrors.email = "Email address is required.";
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Enter a valid email address.";
+        const phone = employeeForm.phone.trim();
+        if (!phone) newErrors.phone = "Phone number is required.";
+        else if (!/^\+?[0-9\s-]{7,15}$/.test(phone)) newErrors.phone = "Enter a valid phone number.";
+        const wantsPassword = editEmployeeIndex === null || employeeForm.password.trim().length > 0 || employeeForm.confirmPassword.trim().length > 0;
+        if (wantsPassword) {
+            const password = employeeForm.password.trim();
+            const confirm = employeeForm.confirmPassword.trim();
+            if (!password) newErrors.password = "Password is required.";
+            else if (password.length < 6) newErrors.password = "Password must be at least 6 characters.";
+            if (!confirm) newErrors.confirmPassword = "Confirm your password.";
+            else if (password !== confirm) newErrors.confirmPassword = "Passwords do not match.";
+        }
         return newErrors;
     };
 
@@ -560,12 +709,21 @@ const Inventory: React.FC = () => {
         
         try {
             setError(null);
+            setIsSavingEmployee(true);
             const payload: Record<string, unknown> = {
                 fullName: employeeForm.fullName.trim(),
                 role: employeeForm.role.trim(),
                 email: employeeForm.email.trim(),
                 phone: employeeForm.phone.trim(),
             };
+            if (employeeForm.password.trim()) {
+                payload.password = employeeForm.password.trim();
+            }
+            if (employeeAvatarRemoved) {
+                payload.avatar = "";
+            } else if (employeeAvatarFile) {
+                payload.avatar = await fileToBase64(employeeAvatarFile);
+            }
 
             if (editEmployeeIndex !== null) {
                 const res = await api.put(`/employees/${editEmployeeIndex}`, payload);
@@ -580,6 +738,8 @@ const Inventory: React.FC = () => {
             setShowEmployeeModal(false);
         } catch (e: unknown) {
             setError(toErrorMessage(e, "Failed to save employee"));
+        } finally {
+            setIsSavingEmployee(false);
         }
     };
 
@@ -592,8 +752,12 @@ const Inventory: React.FC = () => {
             fullName: e.fullName,
             role: e.role,
             email: e.email || "",
-            phone: e.phone || ""
+            phone: e.phone || "",
+            password: "",
+            confirmPassword: "",
         });
+        setEmployeeAvatarExisting(e.avatarUrl || e.avatar || null);
+        setEmployeeAvatarRemoved(false);
         setEditEmployeeIndex(id);
         setShowEmployeeModal(true);
         setEmployeeErrors({});
@@ -1559,72 +1723,239 @@ const Inventory: React.FC = () => {
 
                 {/* Modal for Add/Edit Employee */}
                 {showEmployeeModal && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6 relative">
-                            <button className="absolute top-4 right-4 cursor-pointer text-gray-400 hover:text-gray-600" onClick={handleCancelEmployee} aria-label="Close">
-                                <XMarkIcon className="w-6 h-6" />
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+                        <div className="relative w-full max-w-lg rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 shadow-2xl text-slate-900 dark:text-slate-100">
+                            <button
+                                type="button"
+                                onClick={handleCancelEmployee}
+                                className="absolute right-4 top-4 rounded-full p-1.5 text-slate-500 dark:text-slate-400 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                                aria-label="Close"
+                            >
+                                <XMarkIcon className="w-5 h-5" />
                             </button>
-                            <div className="font-bold text-xl text-center mb-6 text-gray-800">
+                            <h2 className="mb-4 text-center text-xl font-bold">
                                 {editEmployeeIndex !== null ? "Edit Employee" : "Add Employee"}
-                            </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
-                                    <input 
-                                        className="w-full rounded-lg border border-gray-300 px-4 py-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="Enter full name"
-                                        value={employeeForm.fullName} 
-                                        onChange={e => setEmployeeForm(f => ({ ...f, fullName: e.target.value }))} 
+                            </h2>
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    void handleSaveEmployee();
+                                }}
+                                className="space-y-5"
+                            >
+                                <div className="flex flex-col items-center gap-3">
+                                    <div
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={openEmployeeAvatarDialog}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" || e.key === " ") {
+                                                e.preventDefault();
+                                                openEmployeeAvatarDialog();
+                                            }
+                                        }}
+                                        onDragOver={(e) => {
+                                            e.preventDefault();
+                                            setEmployeeAvatarDragActive(true);
+                                        }}
+                                        onDragEnter={(e) => {
+                                            e.preventDefault();
+                                            setEmployeeAvatarDragActive(true);
+                                        }}
+                                        onDragLeave={(e) => {
+                                            e.preventDefault();
+                                            setEmployeeAvatarDragActive(false);
+                                        }}
+                                        onDrop={handleEmployeeAvatarDrop}
+                                        className={`relative flex h-28 w-28 items-center justify-center overflow-hidden rounded-full border-2 border-dashed transition ${employeeAvatarDragActive ? "border-blue-500 bg-blue-50 dark:bg-blue-500/10" : "border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800"}`}
+                                        aria-label="Upload avatar"
+                                    >
+                                        {currentEmployeeAvatar ? (
+                                            <img src={currentEmployeeAvatar} alt="Employee avatar" className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center text-center text-xs text-slate-500 dark:text-slate-400">
+                                                <PhotoIcon className="mb-1 h-8 w-8" />
+                                                Upload Photo
+                                            </div>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        ref={employeeAvatarInputRef}
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            handleEmployeeAvatarInput(e.target.files);
+                                            e.target.value = "";
+                                        }}
                                     />
-                                    {employeeErrors.fullName && <div className="text-red-500 text-xs mt-1">{employeeErrors.fullName}</div>}
+                                    {currentEmployeeAvatar && (
+                                        <button
+                                            type="button"
+                                            onClick={handleEmployeeAvatarRemove}
+                                            className="text-xs font-medium text-red-500 dark:text-red-400 hover:underline"
+                                        >
+                                            Remove photo
+                                        </button>
+                                    )}
+                                    {employeeErrors.avatar && (
+                                        <p className="text-xs text-red-500 dark:text-red-400">{employeeErrors.avatar}</p>
+                                    )}
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
-                                    <input 
-                                        className="w-full rounded-lg border border-gray-300 px-4 py-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="e.g., Manager, Staff"
-                                        value={employeeForm.role} 
-                                        onChange={e => setEmployeeForm(f => ({ ...f, role: e.target.value }))} 
-                                    />
-                                    {employeeErrors.role && <div className="text-red-500 text-xs mt-1">{employeeErrors.role}</div>}
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Full Name</label>
+                                        <input
+                                            value={employeeForm.fullName}
+                                            onChange={e => setEmployeeForm(f => ({ ...f, fullName: e.target.value }))}
+                                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.fullName ? "border-red-400 dark:border-red-400" : "border-slate-300 dark:border-slate-700"} bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 placeholder-slate-400 dark:placeholder-slate-500`}
+                                            placeholder="Juan Dela Cruz"
+                                        />
+                                        {employeeErrors.fullName && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{employeeErrors.fullName}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Role</label>
+                                        <Listbox
+                                            value={employeeForm.role}
+                                            onChange={(value: string) => {
+                                                setEmployeeForm(f => ({ ...f, role: value }));
+                                            }}
+                                        >
+                                            <div className="relative">
+                                                <Listbox.Button
+                                                    className={`w-full cursor-pointer rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between text-left ${employeeErrors.role ? "border-red-400 dark:border-red-400" : "border-slate-300 dark:border-slate-700"} bg-white dark:bg-slate-900`}
+                                                    aria-describedby={employeeErrors.role ? "employee-role-error" : undefined}
+                                                >
+                                                    <span className={employeeForm.role ? "text-slate-900 dark:text-slate-50" : "text-slate-500 dark:text-slate-400"}>
+                                                        {employeeForm.role || "Select a role"}
+                                                    </span>
+                                                    <ChevronUpDownIcon className="h-5 w-5 text-slate-500 dark:text-slate-400" aria-hidden="true" />
+                                                </Listbox.Button>
+                                                <Transition
+                                                    as={Fragment}
+                                                    leave="transition ease-in duration-100"
+                                                    leaveFrom="opacity-100"
+                                                    leaveTo="opacity-0"
+                                                >
+                                                    <Listbox.Options className="absolute left-0 right-0 z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 py-1 text-sm shadow-lg focus:outline-none">
+                                                        {EMPLOYEE_ROLE_OPTIONS.map(option => (
+                                                            <Listbox.Option
+                                                                key={option}
+                                                                value={option}
+                                                                className={({ active }) =>
+                                                                    `flex cursor-pointer items-center justify-between px-3 py-2 ${active ? "bg-blue-100 text-blue-900 dark:bg-blue-500/20 dark:text-blue-100" : "text-slate-900 dark:text-slate-100"}`
+                                                                }
+                                                            >
+                                                                {({ selected }) => (
+                                                                    <>
+                                                                        <span className={`truncate ${selected ? "font-semibold" : ""}`}>{option}</span>
+                                                                        {selected && <CheckIcon className="h-4 w-4 text-blue-600" aria-hidden="true" />}
+                                                                    </>
+                                                                )}
+                                                            </Listbox.Option>
+                                                        ))}
+                                                    </Listbox.Options>
+                                                </Transition>
+                                            </div>
+                                        </Listbox>
+                                        {employeeErrors.role && <p id="employee-role-error" className="mt-1 text-xs text-red-500 dark:text-red-400">{employeeErrors.role}</p>}
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Email (Optional)</label>
-                                    <input 
-                                        type="email"
-                                        className="w-full rounded-lg border border-gray-300 px-4 py-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="employee@company.com"
-                                        value={employeeForm.email} 
-                                        onChange={e => setEmployeeForm(f => ({ ...f, email: e.target.value }))} 
-                                    />
-                                    {employeeErrors.email && <div className="text-red-500 text-xs mt-1">{employeeErrors.email}</div>}
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Email Address</label>
+                                        <input
+                                            type="email"
+                                            value={employeeForm.email}
+                                            onChange={e => setEmployeeForm(f => ({ ...f, email: e.target.value }))}
+                                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.email ? "border-red-400 dark:border-red-400" : "border-slate-300 dark:border-slate-700"} bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 placeholder-slate-400 dark:placeholder-slate-500`}
+                                            placeholder="employee@printease.com"
+                                        />
+                                        {employeeErrors.email && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{employeeErrors.email}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Phone Number</label>
+                                        <input
+                                            type="tel"
+                                            value={employeeForm.phone}
+                                            onChange={e => setEmployeeForm(f => ({ ...f, phone: e.target.value }))}
+                                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.phone ? "border-red-400 dark:border-red-400" : "border-slate-300 dark:border-slate-700"} bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 placeholder-slate-400 dark:placeholder-slate-500`}
+                                            placeholder="09XX XXX XXXX"
+                                        />
+                                        {employeeErrors.phone && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{employeeErrors.phone}</p>}
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone (Optional)</label>
-                                    <input 
-                                        className="w-full rounded-lg border border-gray-300 px-4 py-3 bg-white text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        placeholder="+1 (555) 000-0000"
-                                        value={employeeForm.phone} 
-                                        onChange={e => setEmployeeForm(f => ({ ...f, phone: e.target.value }))} 
-                                    />
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div>
+                                        <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Password</label>
+                                        <input
+                                            type="password"
+                                            value={employeeForm.password}
+                                            onChange={e => setEmployeeForm(f => ({ ...f, password: e.target.value }))}
+                                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.password ? "border-red-400 dark:border-red-400" : "border-slate-300 dark:border-slate-700"} bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 placeholder-slate-400 dark:placeholder-slate-500`}
+                                            placeholder={editEmployeeIndex !== null ? "Leave blank to keep current" : "At least 6 characters"}
+                                        />
+                                        {employeeErrors.password && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{employeeErrors.password}</p>}
+                                    </div>
+                                    <div>
+                                        <label className="mb-1 block text-xs font-semibold text-slate-700 dark:text-slate-200">Confirm Password</label>
+                                        <input
+                                            type="password"
+                                            value={employeeForm.confirmPassword}
+                                            onChange={e => setEmployeeForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                                            className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${employeeErrors.confirmPassword ? "border-red-400 dark:border-red-400" : "border-slate-300 dark:border-slate-700"} bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-50 placeholder-slate-400 dark:placeholder-slate-500`}
+                                            placeholder="Repeat password"
+                                        />
+                                        {employeeErrors.confirmPassword && <p className="mt-1 text-xs text-red-500 dark:text-red-400">{employeeErrors.confirmPassword}</p>}
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="flex gap-3 mt-6">
-                                <button 
-                                    className="flex-1 bg-gray-500 text-white rounded-lg px-4 py-3 font-semibold text-sm inline-flex items-center justify-center gap-2 hover:bg-gray-600 transition-colors"
-                                    onClick={handleCancelEmployee}
-                                >
-                                    <XMarkIcon className="w-4 h-4" /> Cancel
-                                </button>
-                                <button 
-                                    className="flex-1 bg-green-600 text-white rounded-lg px-4 py-3 font-semibold text-sm inline-flex items-center justify-center gap-2 hover:bg-green-700 transition-colors"
-                                    onClick={handleSaveEmployee}
-                                >
-                                    <CheckIcon className="w-4 h-4" /> {editEmployeeIndex !== null ? 'Update' : 'Create'}
-                                </button>
-                            </div>
+
+                                <div className="flex items-center justify-end gap-3 pt-2">
+                                    <button
+                                        type="button"
+                                        onClick={handleCancelEmployee}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-slate-300 dark:border-slate-700 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+                                    >
+                                        <XMarkIcon className="h-4 w-4" /> Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={isSavingEmployee}
+                                        className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-70"
+                                    >
+                                        <CheckIcon className="h-4 w-4" /> {isSavingEmployee ? "Saving..." : editEmployeeIndex !== null ? "Save Changes" : "Add Employee"}
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
+                )}
+
+                {employeeCropperSrc && (
+                    <CropperModal
+                        src={employeeCropperSrc}
+                        aspect={1}
+                        theme={isDarkMode ? "dark" : "light"}
+                        onCancel={() => {
+                            revokeBlobUrl(employeeCropperSrc);
+                            setEmployeeCropperSrc(null);
+                        }}
+                        onApply={(file) => {
+                            const previewUrl = URL.createObjectURL(file);
+                            setEmployeeAvatarPreview(prev => {
+                                revokeBlobUrl(prev);
+                                return previewUrl;
+                            });
+                            setEmployeeAvatarFile(file);
+                            setEmployeeAvatarExisting(null);
+                            setEmployeeAvatarRemoved(false);
+                            revokeBlobUrl(employeeCropperSrc);
+                            setEmployeeCropperSrc(null);
+                        }}
+                    />
                 )}
             </div>
         </DashboardLayout>

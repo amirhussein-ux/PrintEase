@@ -214,7 +214,7 @@ io.on("connection", (socket) => {
   });
 
   // --- SEND CUSTOMER MESSAGE ---
-  socket.on("sendCustomerMessage", async ({ chatId, senderId, receiverId, text, fileUrl, fileName }) => {
+  socket.on("sendCustomerMessage", async ({ chatId, senderId, receiverId, text, fileUrl, fileName, payloadType, payload }) => {
     console.log("📨 Customer message -> chat:", chatId);
     if (!mongoose.Types.ObjectId.isValid(chatId) || !mongoose.Types.ObjectId.isValid(senderId)) {
       return socket.emit("error", { message: "Invalid IDs" });
@@ -222,7 +222,14 @@ io.on("connection", (socket) => {
     try {
       const chat = await CustomerChat.findById(chatId);
       if (!chat) return socket.emit("error", { message: "Chat not found" });
-      const message = await chat.appendMessage({ senderId, text: text || "", fileUrl: fileUrl || null, fileName: fileName || null });
+      const message = await chat.appendMessage({
+        senderId,
+        text: text || "",
+        fileUrl: fileUrl || null,
+        fileName: fileName || null,
+        payloadType: payloadType || undefined,
+        payload: payload || undefined,
+      });
       const msgPayload = {
         _id: message._id.toString(),
         chatId,
@@ -230,6 +237,8 @@ io.on("connection", (socket) => {
         text: message.text,
         fileUrl: message.fileUrl,
         fileName: message.fileName,
+        payloadType: message.payloadType || null,
+        payload: message.payload || null,
         createdAt: message.createdAt,
         storeId: chat.storeId ? chat.storeId.toString() : null,
       };

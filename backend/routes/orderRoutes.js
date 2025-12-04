@@ -12,6 +12,10 @@ const {
   downloadDownPaymentReceipt,
   previewDownPaymentReceipt,
   confirmPickupByToken,
+  submitReturnRequest,
+  markReturnRequestForwarded,
+  reviewReturnRequest,
+  streamReturnEvidence,
 } = require('../controllers/orderController');
 
 const router = express.Router();
@@ -32,6 +36,35 @@ router.get('/:id', protect, getOrderById);
 
 // Update order status
 router.patch('/:id/status', protect, auditLogger('update', 'Order'), updateOrderStatus);
+
+router.post(
+  '/:id/return-request',
+  protect,
+  auditLogger('create', 'ReturnRequest'),
+  upload.array('evidence', 6),
+  submitReturnRequest
+);
+
+router.patch(
+  '/:id/return-request',
+  protect,
+  auditLogger('update', 'ReturnRequest'),
+  reviewReturnRequest
+);
+
+router.patch(
+  '/:id/return-request/chat-forward',
+  protect,
+  auditLogger('update', 'ReturnRequest'),
+  markReturnRequestForwarded
+);
+
+router.get(
+  '/:id/return-request/evidence/:fileId',
+  protect,
+  auditLogger('view', 'ReturnRequestEvidence'),
+  streamReturnEvidence
+);
 
 // Download order file
 router.get('/:id/files/:fileId', protect, auditLogger('download', 'Order File'), downloadOrderFile);

@@ -435,6 +435,202 @@ exports.confirmPickupByToken = async (req, res) => {
   }
 };
 
+exports.submitReturnRequest = async (req, res) => {
+  try {
+    const requester = req.user;
+    if (!requester) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { id } = req.params;
+    const reason = (req.body?.reason || '').trim();
+    const details = (req.body?.details || '').trim();
+
+    if (!reason) {
+      return res.status(400).json({ message: 'Reason is required.' });
+    }
+    if (!details) {
+      return res.status(400).json({ message: 'Details are required.' });
+    }
+
+    const order = await Order.findById(id).populate({ path: 'store', populate: { path: 'owner' } });
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    const isGuest = requester.role === 'guest';
+    const isOwner = isGuest ? String(order.guestId) === String(requester.id) : String(order.user) === String(requester.id);
+    if (!isOwner) return res.status(403).json({ message: 'Not authorized to request a return for this order' });
+
+    if (order.status !== 'completed') {
+      return res.status(400).json({ message: 'Returns/refunds are only available for completed orders.' });
+    }
+
+    if (order.returnRequest && order.returnRequest.status === 'pending') {
+      return res.status(400).json({ message: 'A return/refund request is already pending review.' });
+    }
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+    const evidenceMeta = [];
+    let files = [];
+    if (Array.isArray(req.files)) files = req.files;
+    else if (req.files?.evidence) files = req.files.evidence;
+
+    if (files.length === 0) {
+      return res.status(400).json({ message: 'Please attach at least one photo or video.' });
+    }
+
+    for (const f of files) {
+      const uploadStream = bucket.openUploadStream(f.originalname, { contentType: f.mimetype });
+      uploadStream.end(f.buffer);
+      const fileId = await new Promise((resolve, reject) => {
+        uploadStream.on('finish', () => resolve(uploadStream.id));
+        uploadStream.on('error', reject);
+      });
+      evidenceMeta.push({ fileId, filename: f.originalname, mimeType: f.mimetype, size: f.size });
+    }
+
+    order.returnRequest = {
+      reason,
+      details,
+      status: 'pending',
+      submittedAt: new Date(),
+      evidence: evidenceMeta,
+    };
+
+    await order.save();
+
+    try {
+      const io = req.app.get('io');
+      const onlineUsers = req.app.get('onlineUsers') || {};
+      const ownerRef = order.store && order.store.owner ? (order.store.owner._id || order.store.owner) : null;
+      const ownerId = ownerRef ? ownerRef.toString() : null;
+      if (ownerRef && ownerId) {
+        const notificationDoc = await Notification.create({
+          user: ownerRef,
+          type: 'owner',
+          title: `Return/refund requested (#${order._id.toString().slice(-6)})`,
+          description: `${requester.name || 'A customer'} submitted a return/refund request.`,
+        });
+        if (onlineUsers[ownerId]?.socketId) {
+          io.to(onlineUsers[ownerId].socketId).emit('newNotification', notificationDoc);
+        }
+      }
+    } catch (notifyErr) {
+      console.error('Notification emit error:', notifyErr);
+    }
+
+    res.json(order);
+  } catch (err) {
+    console.error('submitReturnRequest error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.markReturnRequestForwarded = async (req, res) => {
+  try {
+    const requester = req.user;
+    if (!requester) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { id } = req.params;
+    const chatId = req.body?.chatId;
+    const anchorId = req.body?.anchorId;
+    const messageId = req.body?.messageId;
+
+    if (!chatId) {
+      return res.status(400).json({ message: 'chatId is required.' });
+    }
+
+    const order = await Order.findById(id).select('user guestId returnRequest');
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order.returnRequest) return res.status(400).json({ message: 'No return/refund request to update.' });
+
+    const isGuest = requester.role === 'guest';
+    const isOwner = isGuest ? String(order.guestId) === String(requester.id) : String(order.user) === String(requester.id);
+    if (!isOwner) return res.status(403).json({ message: 'Not authorized for this order.' });
+
+    order.returnRequest.chatForward = {
+      chatId,
+      anchorId: anchorId || undefined,
+      messageId: messageId || undefined,
+      forwardedAt: new Date(),
+      forwarder: requester.id,
+    };
+
+    await order.save();
+    res.json(order);
+  } catch (err) {
+    console.error('markReturnRequestForwarded error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.reviewReturnRequest = async (req, res) => {
+  try {
+    const requester = req.user;
+    if (!requester) return res.status(401).json({ message: 'Unauthorized' });
+
+    const { id } = req.params;
+    const status = req.body?.status;
+    const reviewNotesRaw = typeof req.body?.reviewNotes === 'string' ? req.body.reviewNotes.trim() : '';
+
+    if (status !== 'approved' && status !== 'denied') {
+      return res.status(400).json({ message: 'Status must be "approved" or "denied".' });
+    }
+
+    if (status === 'denied' && !reviewNotesRaw) {
+      return res.status(400).json({ message: 'Please provide a reason for denying this return/refund request.' });
+    }
+
+    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
+    const order = await Order.findOne({ _id: id, store: store._id }).populate('user');
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order.returnRequest) return res.status(400).json({ message: 'No return/refund request to review.' });
+    if (order.returnRequest.status !== 'pending') {
+      return res.status(400).json({ message: 'Return/refund request already reviewed.' });
+    }
+
+    order.returnRequest.status = status;
+    order.returnRequest.reviewedAt = new Date();
+    order.returnRequest.reviewer = requester.id;
+    if (reviewNotesRaw) {
+      order.returnRequest.reviewNotes = reviewNotesRaw;
+    } else if (status === 'approved') {
+      order.returnRequest.reviewNotes = undefined;
+    }
+
+    if (status === 'approved') {
+      order.paymentStatus = 'refunded';
+    }
+
+    await order.save();
+
+    try {
+      const io = req.app.get('io');
+      const onlineUsers = req.app.get('onlineUsers') || {};
+      const customerRef = order.user && order.user._id ? order.user._id : order.user;
+      const customerId = customerRef ? customerRef.toString() : null;
+      if (customerRef && customerId) {
+        const notificationDoc = await Notification.create({
+          user: customerRef,
+          type: 'customer',
+          title: status === 'approved' ? 'Return/refund approved' : 'Return/refund denied',
+          description: `Your request for order ${order._id.toString().slice(-6)} was ${status}.`,
+        });
+        if (onlineUsers[customerId]?.socketId) {
+          io.to(onlineUsers[customerId].socketId).emit('newNotification', notificationDoc);
+        }
+      }
+    } catch (notifyErr) {
+      console.error('Notification emit error:', notifyErr);
+    }
+
+    res.json(order);
+  } catch (err) {
+    console.error('reviewReturnRequest error:', err);
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
+    res.status(500).json({ message: err.message });
+  }
+};
+
 exports.downloadOrderFile = async (req, res) => {
   try {
     const { id, fileId } = req.params;
@@ -514,6 +710,65 @@ exports.previewDownPaymentReceipt = async (req, res) => {
     const stream = bucket.openDownloadStream(fileId);
     stream.pipe(res);
     stream.on('error', () => res.status(500).end());
+  } catch (err) {
+    if (err instanceof AccessError) {
+      return res.status(err.statusCode).json({ message: err.message });
+    }
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.streamReturnEvidence = async (req, res) => {
+  try {
+    const { id, fileId } = req.params;
+    if (!fileId) {
+      return res.status(400).json({ message: 'Evidence id is required' });
+    }
+
+    const order = await Order.findById(id).select('store user guestId returnRequest');
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (!order.returnRequest || !Array.isArray(order.returnRequest.evidence) || order.returnRequest.evidence.length === 0) {
+      return res.status(404).json({ message: 'No evidence found for this order' });
+    }
+
+    const evidenceMeta = order.returnRequest.evidence.find((file) => String(file.fileId) === String(fileId));
+    if (!evidenceMeta) {
+      return res.status(404).json({ message: 'Evidence file not found' });
+    }
+
+    const requester = req.user;
+    if (!requester) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const requesterId = (requester._id || requester.id || '').toString();
+    const isCustomer =
+      (requester.role === 'guest' && order.guestId && String(order.guestId) === String(requester.id)) ||
+      (requesterId && order.user && String(order.user) === requesterId);
+
+    let managesOrderStore = false;
+    if (!isCustomer && requester.role === 'owner') {
+      const managedStore = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
+      managesOrderStore = managedStore && String(managedStore._id) === String(order.store);
+    } else if (!isCustomer && requester.role === 'employee') {
+      if (!EMPLOYEE_ROLES.includes(requester.employeeRole)) {
+        throw new AccessError('Not authorized to view return evidence', 403);
+      }
+      managesOrderStore = requester.store && String(requester.store) === String(order.store);
+    }
+
+    if (!isCustomer && !managesOrderStore) {
+      throw new AccessError('Not authorized to view this return evidence', 403);
+    }
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+    res.set('Content-Type', evidenceMeta.mimeType || 'application/octet-stream');
+    res.set('Content-Disposition', `inline; filename="${evidenceMeta.filename || 'return-evidence'}"`);
+    const stream = bucket.openDownloadStream(new mongoose.Types.ObjectId(evidenceMeta.fileId));
+    stream.pipe(res);
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(500).end();
+    });
   } catch (err) {
     if (err instanceof AccessError) {
       return res.status(err.statusCode).json({ message: err.message });

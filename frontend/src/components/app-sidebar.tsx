@@ -28,6 +28,7 @@ import { HiOutlineClock } from 'react-icons/hi';
 import { FaSpinner, FaBoxOpen, FaCheckCircle } from 'react-icons/fa';
 import { IoStorefrontOutline } from "react-icons/io5";
 // ADD THIS IMPORT FOR SAVED DESIGNS ICON
+import { HiOutlineRefresh } from 'react-icons/hi';
 import { FiSave } from "react-icons/fi";
 
 const CUSTOMER_STORE_EVENT = 'customer-store-updated'
@@ -219,6 +220,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     inProgress: <FaSpinner className="size-4 spin" title="In progress" />,
     readyForPickup: <FaBoxOpen className="size-4" title="Ready for pick-up" />,
     completed: <FaCheckCircle className="size-4" title="Completed" />,
+    returnRefund: <HiOutlineRefresh className="size-4" title="Return / Refund" />,
   }
 
   const theme = {
@@ -492,6 +494,17 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
                               <span className="size-4">{statusIcon.completed}</span>
                               <span className="truncate group-data-[state=collapsed]:hidden">Completed</span>
                             </button>
+
+                            <button
+                              type="button"
+                              onClick={() => navigate('/dashboard/orders?status=return_refund')}
+                              className={getStatusButtonClass(
+                                location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'return_refund'
+                              )}
+                            >
+                              <span className="size-4">{statusIcon.returnRefund}</span>
+                              <span className="truncate group-data-[state=collapsed]:hidden">Return / Refund</span>
+                            </button>
                           </div>
                         </CollapsibleContent>
                       </Collapsible>
@@ -645,6 +658,17 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
                         >
                           <span className="size-4">{statusIcon.completed}</span>
                           <span className="truncate group-data-[state=collapsed]:hidden">Completed</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => navigate('/dashboard/my-orders?status=return_refund')}
+                          className={getStatusButtonClass(
+                            location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'return_refund'
+                          )}
+                        >
+                          <span className="size-4">{statusIcon.returnRefund}</span>
+                          <span className="truncate group-data-[state=collapsed]:hidden">Return / Refund</span>
                         </button>
                       </div>
                     </CollapsibleContent>
