@@ -139,7 +139,7 @@ const TRACK_FILTER_BAR = 'flex flex-wrap gap-3 rounded-2xl p-3 shadow-lg border 
 const TRACK_CARD = 'rounded-2xl border border-gray-200 bg-white/95 text-gray-900 shadow-xl dark:border-slate-700 dark:bg-slate-900/70 dark:text-white';
 const TRACK_SUBCARD = 'rounded-xl border border-gray-200 bg-gray-50 text-gray-800 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-200';
 const TRACK_PILL_MUTED = 'text-xs px-2 py-1 rounded-full border border-gray-200 bg-gray-100 text-gray-600 dark:border-gray-500 dark:bg-gray-800/60 dark:text-gray-300';
-const TRACK_INPUT_BUTTON = 'px-4 py-2.5 rounded-xl text-sm font-medium border transition-all duration-200';
+const TRACK_INPUT_BUTTON = 'px-4 py-2.5 rounded-xl text-sm font-medium border';
 const TRACK_QR_SECTION = 'p-6 rounded-xl border border-indigo-100 bg-indigo-50 text-gray-800 shadow-inner dark:border-indigo-500/40 dark:bg-slate-950/80 dark:text-white';
 const TRACK_QR_MESSAGE = 'flex items-center gap-3 text-sm text-indigo-700 dark:text-indigo-100';
 const MAX_RETURN_EVIDENCE = 6;
@@ -646,7 +646,7 @@ export default function TrackOrders() {
       <div className={TRACK_PAGE_WRAPPER}>
       {/* Toast */}
       {toast && (
-        <div className={`fixed top-20 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform transition-all duration-300
+        <div className={`fixed top-20 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform
             ${toast.type === 'error' ? 'bg-gradient-to-r from-red-600/90 to-red-700/90 border-red-400/50 text-white' : 'bg-gradient-to-r from-emerald-600/90 to-emerald-700/90 border-emerald-400/50 text-white'}`}>
           <div className="flex-shrink-0">
             {toast.type === 'error' ? (
@@ -682,7 +682,7 @@ export default function TrackOrders() {
                     const qs = params.toString();
                     navigate(`/dashboard/my-orders${qs ? `?${qs}` : ''}`, { replace: false });
                   }}
-                  className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border-2 ${
+                  className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border-2 ${
                     active
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white border-blue-500 shadow-lg shadow-blue-500/25'
                       : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-md dark:bg-gray-800/50 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700/60 dark:hover:border-gray-500'
@@ -739,7 +739,7 @@ export default function TrackOrders() {
             const returnWindow = getReturnWindowState(o);
             const canRequestReturn = o.status === 'completed' && !o.returnRequest && o.paymentStatus !== 'refunded';
             return (
-              <div key={o._id} className={`${TRACK_CARD} p-6 shadow-xl hover:shadow-2xl transition-all duration-300`}>
+              <div key={o._id} className={`${TRACK_CARD} p-6 shadow-xl hover:shadow-2xl`}>
                 <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                   {/* Left Content */}
                   <div className="flex-1 min-w-0 space-y-4">
@@ -823,7 +823,7 @@ export default function TrackOrders() {
                         <button
                           disabled={updatingId === o._id}
                           onClick={() => cancelOrder(o._id)}
-                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200 ${
+                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border ${
                             updatingId === o._id 
                               ? 'bg-gray-200 border-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-600 dark:border-gray-600 dark:text-gray-400' 
                               : 'bg-red-600 border-red-600 text-white hover:bg-red-500 hover:shadow-lg hover:shadow-red-500/25'
@@ -846,7 +846,7 @@ export default function TrackOrders() {
                               openReturnModal(o._id);
                             }}
                             disabled={returnWindow.expired}
-                            className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border transition-all duration-200 ${
+                            className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border ${
                               returnWindow.expired
                                 ? 'border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500'
                                 : 'border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:shadow-md dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-100'
@@ -867,7 +867,7 @@ export default function TrackOrders() {
                       {o.returnRequest && (
                         <button
                           onClick={() => setViewReturnRequestFor(o._id)}
-                          className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-600/60 bg-white text-amber-700 hover:bg-amber-50 hover:shadow-md transition-all duration-200 dark:border-amber-300/60 dark:bg-slate-800 dark:text-amber-100"
+                          className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-600/60 bg-white text-amber-700 hover:bg-amber-50 hover:shadow-md dark:border-amber-300/60 dark:bg-slate-800 dark:text-amber-100"
                         >
                           View Return Request
                         </button>
@@ -876,7 +876,7 @@ export default function TrackOrders() {
                       {o.status === 'completed' && o.paymentStatus === 'paid' && (
                         <button
                           onClick={() => setShowReceiptFor(o._id)}
-                          className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-green-600 bg-green-600 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/25 transition-all duration-200"
+                          className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-green-600 bg-green-600 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/25"
                         >
                           View Receipt
                         </button>
@@ -918,7 +918,7 @@ export default function TrackOrders() {
                                   alert(e2?.response?.data?.message || e2?.message || 'Download failed');
                                 }
                               }}
-                              className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-500 transition-colors group dark:text-blue-300 dark:hover:text-blue-200"
+                              className="flex items-center gap-2 text-xs text-blue-600 hover:text-blue-500 group dark:text-blue-300 dark:hover:text-blue-200"
                               title={f.filename || 'file'}
                             >
                               <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -951,7 +951,7 @@ export default function TrackOrders() {
                         </div>
                         <button
                           onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: true }))}
-                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/25 transition-all duration-200 flex items-center gap-2"
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/25 flex items-center gap-2"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
@@ -993,7 +993,7 @@ export default function TrackOrders() {
                                 alert('Download failed.');
                               }
                             }}
-                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md transition-all duration-200 flex items-center gap-2"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md flex items-center gap-2"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1002,7 +1002,7 @@ export default function TrackOrders() {
                           </button>
                           <button
                             onClick={() => setEnlargeQrFor(o._id)}
-                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md transition-all duration-200 flex items-center gap-2"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md flex items-center gap-2"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
@@ -1011,7 +1011,7 @@ export default function TrackOrders() {
                           </button>
                           <button
                             onClick={() => setOpenQR((prev) => ({ ...prev, [o._id]: false }))}
-                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-all duration-200 dark:border-gray-600 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white"
+                            className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-transparent dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white"
                           >
                             Hide
                           </button>
@@ -1416,7 +1416,7 @@ export default function TrackOrders() {
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer transition-all duration-200 hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
+              className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
               onClick={() => setEnlargeQrFor(null)}
               aria-label="Close"
             >
@@ -1463,7 +1463,7 @@ export default function TrackOrders() {
                       console.warn('QR download failed', e);
                     }
                   }}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md transition-all duration-200 flex items-center gap-2"
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 hover:shadow-md flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -1485,7 +1485,7 @@ export default function TrackOrders() {
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal>
             <div className={`${TRACK_CARD} relative p-6 w-[92vw] max-w-md`}>
               <button
-                className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer transition-all duration-200 hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
+                className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"
                 onClick={() => setShowReceiptFor(null)}
                 aria-label="Close"
               >
@@ -1572,7 +1572,7 @@ export default function TrackOrders() {
                       console.error('PDF receipt failed', err);
                     }
                   }}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold hover:shadow-lg hover:shadow-blue-500/25 transition-all duration-200"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-semibold hover:shadow-lg hover:shadow-blue-500/25"
                 >
                   Download PDF
                 </button>

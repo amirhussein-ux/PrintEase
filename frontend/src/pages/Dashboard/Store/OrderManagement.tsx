@@ -97,7 +97,7 @@ const DATE_FILTERS = [
 ];
 
 const PANEL_SURFACE = 'rounded-2xl border border-gray-200/80 dark:border-gray-600 bg-white/90 dark:bg-gray-800/50 backdrop-blur-sm shadow-sm dark:shadow-none';
-const INPUT_SURFACE = 'rounded-xl border border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-gray-800/80 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-150 backdrop-blur-sm';
+const INPUT_SURFACE = 'rounded-xl border border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-gray-800/80 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 backdrop-blur-sm';
 const MUTED_TEXT = 'text-gray-600 dark:text-gray-300';
 
 function money(v: number, currency: string = 'PHP') {
@@ -657,7 +657,7 @@ export default function OrderManagement() {
 				<div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-10 text-gray-900 dark:text-gray-100">
 					{pageHeader}
 
-					<div className={`${PANEL_SURFACE} p-8 text-center transition-all duration-150 ease-out hover:scale-[1.02]`}>
+					<div className={`${PANEL_SURFACE} p-8 text-center ease-out transform transition-transform duration-200 hover:scale-[1.02]`}>
 						<div className="flex flex-col items-center gap-4">
 							<div className="text-6xl">🏪</div>
 							<div>
@@ -666,7 +666,7 @@ export default function OrderManagement() {
 							</div>
 							<button
 								onClick={() => navigate('/owner/create-shop')}
-								className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 transition-all duration-150 ease-out transform hover:scale-105 shadow-lg hover:shadow-blue-500/25"
+								className="px-6 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 ease-out transform transition-transform duration-200 hover:scale-105 shadow-lg hover:shadow-blue-500/25"
 							>
 								Create Store
 							</button>
@@ -698,7 +698,7 @@ export default function OrderManagement() {
 												setActiveTab(value);
 												navigate(`/dashboard/orders?status=${value}`);
 											}}
-											className={`flex-1 sm:flex-none min-w-[9rem] inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl text-sm font-medium transition-all duration-150 ease-out transform hover:scale-105 ${
+											className={`flex-1 sm:flex-none min-w-[9rem] inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl text-sm font-medium ease-out transform transition-transform duration-200 hover:scale-105 ${
 												active
 													? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25'
 													: 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-transparent dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-700/50'
@@ -723,7 +723,7 @@ export default function OrderManagement() {
 								<div className="relative flex-1">
 									<div className="relative group">
 										<div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-											<svg className="h-4 w-4 text-gray-400 group-focus-within:text-blue-400 transition-colors duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<svg className="h-4 w-4 text-gray-400 group-focus-within:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 												<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 											</svg>
 										</div>
@@ -737,7 +737,7 @@ export default function OrderManagement() {
 										{searchQuery && (
 											<button
 												onClick={() => setSearchQuery('')}
-												className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-900 transition-colors duration-150 dark:hover:text-white"
+												className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-900 dark:hover:text-white"
 											>
 												<svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 													<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -751,7 +751,7 @@ export default function OrderManagement() {
 								<div className="relative z-30">
 									<button
 										onClick={() => setShowDateFilter(!showDateFilter)}
-										className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-150 ease-out backdrop-blur-sm hover:scale-105 active:scale-95 min-w-[120px] dark:bg-gray-700/80 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600/80 dark:hover:border-gray-500"
+										className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 ease-out backdrop-blur-sm transform transition-transform duration-200 hover:scale-105 active:scale-95 min-w-[120px] dark:bg-gray-700/80 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600/80 dark:hover:border-gray-500"
 									>
 										<svg className="h-4 w-4 text-gray-500 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 											<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -773,7 +773,7 @@ export default function OrderManagement() {
 															setDateFilter(filter.value);
 															setShowDateFilter(false);
 														}}
-														className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+														className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium ${
 															dateFilter === filter.value
 																? 'bg-blue-500 text-white shadow-lg shadow-blue-500/25'
 																: 'text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700/50'
@@ -835,7 +835,7 @@ export default function OrderManagement() {
 					</div>
 				)}
 				{error && (
-					<div className="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-800 px-6 py-4 text-sm backdrop-blur-sm transition-all duration-150 ease-out hover:scale-[1.02] dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
+					<div className="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-800 px-6 py-4 text-sm backdrop-blur-sm transform transition-transform duration-200 ease-out hover:scale-[1.02] dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
 						{error}
 					</div>
 				)}
@@ -843,7 +843,7 @@ export default function OrderManagement() {
 				{/* Orders list */}
 				<div className={`grid grid-cols-1 gap-6 transition-opacity duration-300 ${contentReady ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
 					{!loading && filtered.length === 0 && (
-						<div className={`${PANEL_SURFACE} p-12 text-center text-gray-700 dark:text-gray-300 transition-all duration-150 ease-out hover:scale-[1.02]`}>
+						<div className={`${PANEL_SURFACE} p-12 text-center text-gray-700 dark:text-gray-300 transform transition-transform duration-200 ease-out hover:scale-[1.02]`}>
 							<div className="text-6xl mb-4">
 								{searchQuery || dateFilter !== 'all' ? '🔍' : '📦'}
 							</div>
@@ -862,7 +862,7 @@ export default function OrderManagement() {
 										setSearchQuery('');
 										setDateFilter('all');
 									}}
-									className="mt-4 px-4 py-2 text-sm text-blue-600 hover:text-blue-500 transition-colors duration-150 dark:text-blue-300 dark:hover:text-blue-200"
+									className="mt-4 px-4 py-2 text-sm text-blue-600 hover:text-blue-500 dark:text-blue-300 dark:hover:text-blue-200"
 								>
 									Clear filters
 								</button>
@@ -877,17 +877,17 @@ export default function OrderManagement() {
 						return (
 							<div 
 								key={o._id} 
-								className={`${PANEL_SURFACE} p-6 transition-all duration-150 ease-out hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group`}
+								className={`${PANEL_SURFACE} p-6 transform transition-transform duration-200 ease-out hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group`}
 							>
 								<div className="flex flex-col sm:flex-row sm:items-start gap-4">
 									{/* Left: main info */}
 									<div className="flex-1 min-w-0 space-y-4">
 										{/* Header */}
 										<div className="flex items-center gap-3">
-											<div className="text-gray-900 dark:text-white font-bold text-lg group-hover:text-blue-600 dark:group-hover:text-blue-200 transition-colors duration-150">
+											<div className="text-gray-900 dark:text-white font-bold text-lg group-hover:text-blue-600 dark:group-hover:text-blue-200">
 												{shortId(o._id)}
 											</div>
-											<span className={`text-xs px-3 py-1.5 rounded-full border transition-all duration-150 ease-out transform group-hover:scale-110 ${statusBadgeClasses(o.status)}`}>
+											<span className={`text-xs px-3 py-1.5 rounded-full border transition-transform ${statusBadgeClasses(o.status)}`}>
 												{STATUS_LABELS.find((s) => s.value === o.status)?.label || o.status}
 											</span>
 											{o.returnRequest && (
@@ -903,7 +903,7 @@ export default function OrderManagement() {
 												{formatDateUTC(o.createdAt)}
 											</div>
 											{getTimeRemaining(o) && (
-												<div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-200 font-medium bg-blue-100 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/30 rounded-lg px-3 py-2 transition-all duration-150 group-hover:bg-blue-200 dark:group-hover:bg-blue-500/20">
+												<div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-200 font-medium bg-blue-100 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/30 rounded-lg px-3 py-2 transform transition-transform duration-200 group-hover:bg-blue-200 dark:group-hover:bg-blue-500/20">
 													<CiClock1 className="text-base" aria-hidden />
 													<span>{getTimeRemaining(o)}</span>
 												</div>
@@ -913,7 +913,7 @@ export default function OrderManagement() {
 										{/* Service Details */}
 										<div className="space-y-3">
 											<div>
-												<div className="text-gray-900 dark:text-white font-semibold text-lg group-hover:text-blue-600 dark:group-hover:text-blue-100 transition-colors duration-150">
+												<div className="text-gray-900 dark:text-white font-semibold text-lg group-hover:text-blue-600 dark:group-hover:text-blue-100">
 													{first?.serviceName || 'Service'}
 												</div>
 												<div className={`text-sm mt-1 ${MUTED_TEXT}`}>
@@ -923,13 +923,13 @@ export default function OrderManagement() {
 											</div>
 
 											{first && (
-												<div className="text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 transition-all duration-150 group-hover:bg-gray-200 dark:group-hover:bg-gray-700/50">
+												<div className="text-sm text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2 transform transition-transform duration-200 group-hover:bg-gray-200 dark:group-hover:bg-gray-700/50">
 													{itemSummary(first)}
 												</div>
 											)}
 
 											{o.notes && (
-												<div className="flex gap-3 items-center text-sm text-yellow-900 dark:text-yellow-200 bg-yellow-50 border border-yellow-200 dark:bg-yellow-500/10 dark:border-yellow-500/30 rounded-lg px-3 py-2 transition-all duration-150 group-hover:bg-yellow-100 dark:group-hover:bg-yellow-500/20">
+												<div className="flex gap-3 items-center text-sm text-yellow-900 dark:text-yellow-200 bg-yellow-50 border border-yellow-200 dark:bg-yellow-500/10 dark:border-yellow-500/30 rounded-lg px-3 py-2 transform transition-transform duration-200 group-hover:bg-yellow-100 dark:group-hover:bg-yellow-500/20">
 													<BiNotepad className="text-2xl text-yellow-600 dark:text-yellow-300 flex-shrink-0" aria-hidden />
 													<div className="flex flex-wrap items-center gap-1">
 														<span className="font-semibold text-yellow-800 dark:text-yellow-200">Notes:</span>
@@ -970,7 +970,7 @@ export default function OrderManagement() {
 																	alert(e2?.response?.data?.message || e2?.message || 'Download failed');
 																}
 															}}
-															className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-500 transition-all duration-150 ease-out transform hover:translate-x-1 group/file dark:text-blue-300 dark:hover:text-blue-200"
+															className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-500 transition-transform duration-200 ease-out transform hover:translate-x-1 group/file dark:text-blue-300 dark:hover:text-blue-200"
 															title={f.filename || 'file'}
 														>
 																<IoIosAttach className="text-lg" aria-hidden />
@@ -991,7 +991,7 @@ export default function OrderManagement() {
 									{/* Right: totals and actions */}
 									<div className="sm:text-right sm:w-48 shrink-0 space-y-4">
 										<div>
-											<div className="text-gray-900 dark:text-white font-bold text-2xl group-hover:text-blue-600 dark:group-hover:text-blue-200 transition-colors duration-150">
+											<div className="text-gray-900 dark:text-white font-bold text-2xl group-hover:text-blue-600 dark:group-hover:text-blue-200">
 												{money(total, currency)}
 											</div>
 											<div className={`text-sm ${MUTED_TEXT}`}>Total Amount</div>
@@ -1005,7 +1005,7 @@ export default function OrderManagement() {
 													const ns = nextStatus(o.status);
 													if (ns && ns !== 'completed') updateStatus(o._id, ns);
 												}}
-												className={`w-full px-4 py-3 rounded-xl text-sm font-medium border transition-all duration-150 ease-out transform hover:scale-105 ${
+												className={`w-full px-4 py-3 rounded-xl text-sm font-medium border transform transition-transform duration-200 ease-out hover:scale-105 ${
 													o.status === 'pending'
 														? 'bg-gradient-to-r from-amber-500 to-amber-600 border-amber-500 text-white hover:from-amber-600 hover:to-amber-700 shadow-lg hover:shadow-amber-500/25'
 														: o.status === 'processing'
@@ -1020,7 +1020,7 @@ export default function OrderManagement() {
 										{o.returnRequest && (
 											<button
 												onClick={() => setViewReturnRequestFor(o._id)}
-												className="w-full px-4 py-3 rounded-xl text-sm font-medium border border-amber-500 text-amber-700 bg-white hover:bg-amber-50 transition-all duration-150 ease-out transform hover:scale-105 dark:text-amber-100 dark:border-amber-300 dark:bg-transparent dark:hover:bg-white/5"
+												className="w-full px-4 py-3 rounded-xl text-sm font-medium border border-amber-500 text-amber-700 bg-white hover:bg-amber-50 transform transition-transform duration-200 ease-out hover:scale-105 dark:text-amber-100 dark:border-amber-300 dark:bg-transparent dark:hover:bg-white/5"
 											>
 												View Return Request
 											</button>
@@ -1061,7 +1061,7 @@ export default function OrderManagement() {
 													setDpLoading(false);
 												}
 												}}
-											className="w-full px-4 py-3 rounded-xl text-sm font-medium border transition-all duration-150 bg-gradient-to-r from-amber-500 to-amber-600 border-amber-500 text-white hover:from-amber-600 hover:to-amber-700 shadow-lg hover:shadow-amber-500/25"
+											className="w-full px-4 py-3 rounded-xl text-sm font-medium border transform transition-transform duration-200 bg-gradient-to-r from-amber-500 to-amber-600 border-amber-500 text-white hover:from-amber-600 hover:to-amber-700 shadow-lg hover:shadow-amber-500/25"
 											>
 											{dpLoading ? 'Loading…' : 'View Downpayment'}
 										</button>
@@ -1140,7 +1140,7 @@ export default function OrderManagement() {
 														<button
 															type="button"
 															onClick={() => previewReturnEvidence(ord._id, file)}
-															className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-left transition hover:border-amber-400 hover:bg-amber-50/60 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-amber-300 dark:hover:bg-gray-800/80"
+															className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-left transform transition-transform duration-200 hover:border-amber-400 hover:bg-amber-50/60 focus:outline-none focus:ring-2 focus:ring-amber-400 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-amber-300 dark:hover:bg-gray-800/80"
 														>
 															<div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-400/20">
 																<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

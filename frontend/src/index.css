@@ -205,7 +205,6 @@ input.no-spinner[type="number"] {
 
 /* Ensure the mobile sheet version of the sidebar respects dashboard dark mode */
 [data-sidebar=sidebar][data-mobile="true"] {
-  transition: background-color 0.2s ease, color 0.2s ease;
 }
 .dark [data-sidebar=sidebar][data-mobile="true"] {
   background-color: #0f172a !important;

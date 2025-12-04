@@ -10,13 +10,13 @@ import { getServiceStockInfo, getStockForService, checkStockAvailability, getMax
 // Theme Variables for consistent dark/light mode - WHITE THEME
 const PANEL_SURFACE = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 const SOFT_PANEL = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white";
-const INPUT_SURFACE = "rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400";
+const INPUT_SURFACE = "rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400";
 const MUTED_TEXT = "text-gray-600 dark:text-gray-300";
 const MUTED_TEXT_LIGHT = "text-gray-500 dark:text-gray-400";
-const BACKGROUND_GRADIENT = "bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800";
+const BACKGROUND_GRADIENT = "bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white";
 const CARD_BACKGROUND = "bg-white dark:bg-gray-800";
 const CARD_BORDER = "border border-gray-200 dark:border-gray-700";
-const CARD_HOVER = "hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xl transition-all duration-300";
+const CARD_HOVER = "hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xl";
 const BUTTON_PRIMARY = "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700";
 const BUTTON_SECONDARY = "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-500";
 const BUTTON_FILTER_ACTIVE = "bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700";
@@ -689,7 +689,7 @@ export default function OrderPage() {
     return (
         <div className={`${BACKGROUND_GRADIENT} min-h-screen`}>
             {notif && (
-                <div className={`fixed top-24 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform transition-all duration-300 animate-slide-in-right
+                <div className={`fixed top-24 right-6 z-[100000] px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 backdrop-blur-sm border transform animate-slide-in-right
                     ${notif.type === 'error' 
                         ? 'bg-gradient-to-r from-red-600/90 to-red-700/90 border-red-400/50 text-white' 
                         : 'bg-gradient-to-r from-emerald-600/90 to-emerald-700/90 border-emerald-400/50 text-white'
@@ -733,7 +733,7 @@ export default function OrderPage() {
                                     value={query}
                                     onChange={(e) => setQuery(e.target.value)}
                                     placeholder="Search services by name, description, or unit..."
-                                    className={`block w-full h-14 rounded-2xl ${CARD_BACKGROUND} backdrop-blur-sm border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg shadow-lg transition-all duration-200`}
+                                    className={`block w-full h-14 rounded-2xl ${CARD_BACKGROUND} backdrop-blur-sm border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg shadow-lg`}
                                     aria-label="Search services"
                                 />
                             </div>
@@ -742,7 +742,7 @@ export default function OrderPage() {
                                 <div className="relative z-[60]" ref={filterAnchorRef}>
                                     <button
                                         onClick={() => setShowFilters((v) => !v)}
-                                        className={`inline-flex items-center justify-center gap-3 px-6 h-14 rounded-2xl ${CARD_BACKGROUND} backdrop-blur-sm text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-all duration-200 shadow-lg hover:shadow-xl`}
+                                        className={`inline-flex items-center justify-center gap-3 px-6 h-14 rounded-2xl ${CARD_BACKGROUND} backdrop-blur-sm text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/40 shadow-lg hover:shadow-xl`}
                                         aria-haspopup="true"
                                         aria-expanded={showFilters}
                                     >
@@ -753,7 +753,7 @@ export default function OrderPage() {
 
                                 <button
                                     onClick={() => setShowCart(true)}
-                                    className={`relative inline-flex items-center justify-center gap-3 px-6 h-14 rounded-2xl ${BUTTON_PRIMARY} border border-blue-500 dark:border-blue-600 transition-all duration-200 shadow-lg hover:shadow-xl group`}
+                                    className={`relative inline-flex items-center justify-center gap-3 px-6 h-14 rounded-2xl ${BUTTON_PRIMARY} border border-blue-500 dark:border-blue-600 shadow-lg hover:shadow-xl group`}
                                 >
                                     <div className="relative">
                                         <ShoppingCartIcon className="h-6 w-6" />
@@ -794,7 +794,7 @@ export default function OrderPage() {
                                     <div className="grid grid-cols-2 gap-3">
                                         <button
                                             onClick={() => { setSortKey('name'); setSortDir('asc'); }}
-                                            className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 group ${
+                                            className={`px-4 py-3 rounded-xl border-2 group ${
                                                 sortKey==='name'&&sortDir==='asc' 
                                                     ? 'border-blue-500 text-blue-700 dark:text-blue-200 bg-blue-100 dark:bg-blue-500/20 shadow-lg shadow-blue-500/25' 
                                                     : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-400 dark:hover:border-gray-500'
@@ -804,7 +804,7 @@ export default function OrderPage() {
                                         </button>
                                         <button
                                             onClick={() => { setSortKey('name'); setSortDir('desc'); }}
-                                            className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 group ${
+                                            className={`px-4 py-3 rounded-xl border-2 group ${
                                                 sortKey==='name'&&sortDir==='desc' 
                                                     ? 'border-blue-500 text-blue-700 dark:text-blue-200 bg-blue-100 dark:bg-blue-500/20 shadow-lg shadow-blue-500/25' 
                                                     : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-400 dark:hover:border-gray-500'
@@ -814,7 +814,7 @@ export default function OrderPage() {
                                         </button>
                                         <button
                                             onClick={() => { setSortKey('price'); setSortDir('asc'); }}
-                                            className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 group ${
+                                            className={`px-4 py-3 rounded-xl border-2 group ${
                                                 sortKey==='price'&&sortDir==='asc' 
                                                     ? 'border-blue-500 text-blue-700 dark:text-blue-200 bg-blue-100 dark:bg-blue-500/20 shadow-lg shadow-blue-500/25' 
                                                     : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-400 dark:hover:border-gray-500'
@@ -824,7 +824,7 @@ export default function OrderPage() {
                                         </button>
                                         <button
                                             onClick={() => { setSortKey('price'); setSortDir('desc'); }}
-                                            className={`px-4 py-3 rounded-xl border-2 transition-all duration-200 group ${
+                                            className={`px-4 py-3 rounded-xl border-2 group ${
                                                 sortKey==='price'&&sortDir==='desc' 
                                                     ? 'border-blue-500 text-blue-700 dark:text-blue-200 bg-blue-100 dark:bg-blue-500/20 shadow-lg shadow-blue-500/25' 
                                                     : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:border-gray-400 dark:hover:border-gray-500'
@@ -868,7 +868,7 @@ export default function OrderPage() {
                                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">No Shop Selected</h3>
                                 <p className={`${MUTED_TEXT} text-lg mb-8`}>Please choose a shop to explore our premium printing services</p>
                                 <Link 
-                                    className={`inline-flex items-center gap-3 px-8 py-4 rounded-2xl ${BUTTON_PRIMARY} font-semibold hover:shadow-2xl hover:shadow-blue-500/25 transition-all duration-200 transform hover:scale-105`}
+                                    className={`inline-flex items-center gap-3 px-8 py-4 rounded-2xl ${BUTTON_PRIMARY} font-semibold hover:shadow-2xl hover:shadow-blue-500/25 transform transition-transform duration-200 hover:scale-105`}
                                     to="/customer/select-shop"
                                 >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -938,7 +938,7 @@ export default function OrderPage() {
                                                 return (
                                                     <div 
                                                         key={svc._id} 
-                                                        className={`group cursor-pointer transition-all duration-300 h-full flex flex-col ${canOrder ? 'hover:scale-[1.02]' : 'opacity-75 grayscale'}`}
+                                                        className={`group cursor-pointer h-full flex flex-col transform transition-transform duration-200 ${canOrder ? 'hover:scale-[1.02]' : 'opacity-75 grayscale'}`}
                                                         onClick={() => {
                                                             if (!canOrder) return;
                                                             if (showFilters) setShowFilters(false);
@@ -951,7 +951,7 @@ export default function OrderPage() {
                                                             setNotes('');
                                                         }}
                                                     >
-                                                        <div className={`${CARD_BACKGROUND} rounded-2xl ${CARD_BORDER} overflow-hidden shadow-xl hover:shadow-2xl transition-all duration-300 h-full flex flex-col group-hover:border-blue-300 dark:group-hover:border-blue-600`}>
+                                                        <div className={`${CARD_BACKGROUND} rounded-2xl ${CARD_BORDER} overflow-hidden shadow-xl hover:shadow-2xl h-full flex flex-col group-hover:border-blue-300 dark:group-hover:border-blue-600`}>
                                                             <div className={`relative aspect-[4/3] ${IMAGE_BACKGROUND} overflow-hidden`}>
                                                                 {imgSrc ? (
                                                                     <img 
@@ -1053,9 +1053,9 @@ export default function OrderPage() {
                                                                 <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700">
                                                                     <button 
                                                                         disabled={!canOrder}
-                                                                        className={`w-full py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg ${
+                                                                        className={`w-full py-3 rounded-xl font-semibold shadow-lg ${
                                                                             canOrder 
-                                                                            ? `${BUTTON_PRIMARY} hover:shadow-xl transform hover:scale-105` 
+                                                                            ? `${BUTTON_PRIMARY} hover:shadow-xl transform transition-transform duration-200 hover:scale-105` 
                                                                             : 'bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-300 dark:border-gray-600'
                                                                         }`}
                                                                     >
@@ -1096,7 +1096,7 @@ export default function OrderPage() {
                             <button 
                                 type="button" 
                                 onClick={() => setSelected(null)}
-                                className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors hover:scale-105"
+                                className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors transform transition-transform duration-200 hover:scale-105"
                             >
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
@@ -1275,14 +1275,14 @@ export default function OrderPage() {
                                             ...fl.map((file) => ({ file, preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined })),
                                         ]);
                                     }}
-                                    className={`${DROPZONE_BORDER} ${DROPZONE_HOVER} border-2 border-dashed bg-gray-50/30 dark:bg-gray-700/30 rounded-2xl p-6 text-center backdrop-blur-sm transition-all duration-200`}
+                                    className={`${DROPZONE_BORDER} ${DROPZONE_HOVER} border-2 border-dashed bg-gray-50/30 dark:bg-gray-700/30 rounded-2xl p-6 text-center backdrop-blur-sm`}
                                 >
                                     <svg className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                                     </svg>
                                     <p className={`${MUTED_TEXT} mb-2 font-medium`}>Drag & drop files here</p>
                                     <p className={`${MUTED_TEXT_LIGHT} text-sm mb-4`}>Supports: SVG, PDF, DOC, JPG, PNG, GIF, WEBP</p>
-                                    <label className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl ${BUTTON_SECONDARY} cursor-pointer font-medium transition-all duration-200 shadow-lg hover:shadow-xl`}>
+                                    <label className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl ${BUTTON_SECONDARY} cursor-pointer font-medium shadow-lg hover:shadow-xl`}>
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                                         </svg>
@@ -1356,13 +1356,13 @@ export default function OrderPage() {
                                 <button
                                     type="button"
                                     onClick={() => setSelected(null)}
-                                    className={`px-6 py-3 rounded-xl ${BUTTON_SECONDARY} transition-all duration-200 font-medium`}
+                                    className={`px-6 py-3 rounded-xl ${BUTTON_SECONDARY} font-medium`}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="button"
-                                    className={`px-8 py-3 rounded-xl ${BUTTON_PRIMARY} font-semibold disabled:opacity-60 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2 transform hover:scale-105`}
+                                    className={`px-8 py-3 rounded-xl ${BUTTON_PRIMARY} font-semibold disabled:opacity-60 shadow-lg hover:shadow-xl flex items-center gap-2 transform transition-transform duration-200 hover:scale-105`}
                                     disabled={submitting || (selected.stockInfo?.hasStockLimit && selected.stockInfo.availableStock === 0)}
                                     onClick={addToCart}
                                 >
@@ -1404,7 +1404,7 @@ export default function OrderPage() {
                             </div>
                             <button 
                                 onClick={() => setShowCart(false)}
-                                className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors hover:scale-105"
+                                className="p-2 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-300 dark:border-gray-600 transition-colors transform transition-transform duration-200 hover:scale-105"
                             >
                                 <XMarkIcon className="w-5 h-5" />
                             </button>
@@ -1422,7 +1422,7 @@ export default function OrderPage() {
                             ) : (
                                 <div className="space-y-4">
                                     {cart.map((item, index) => (
-                                        <div key={index} className={`border border-gray-300 dark:border-gray-600 rounded-2xl p-5 ${SOFT_PANEL} hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200`}>
+                                        <div key={index} className={`border border-gray-300 dark:border-gray-600 rounded-2xl p-5 ${SOFT_PANEL} hover:bg-gray-50 dark:hover:bg-gray-700/50`}>
                                             <div className="flex items-start justify-between">
                                                 <div className="flex-1">
                                                     <div className="flex items-start justify-between mb-3">
@@ -1527,7 +1527,7 @@ export default function OrderPage() {
                                                 </div>
                                                 <button 
                                                     onClick={() => removeFromCart(index)}
-                                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 border border-red-500/30 transition-all duration-200"
+                                                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-600 dark:text-red-300 hover:text-red-700 dark:hover:text-red-200 border border-red-500/30"
                                                 >
                                                     <TrashIcon className="w-4 h-4" />
                                                     Remove
@@ -1549,7 +1549,7 @@ export default function OrderPage() {
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={clearCart}
-                                        className={`flex-1 px-6 py-3 rounded-xl ${BUTTON_SECONDARY} transition-all duration-200 font-medium`}
+                                        className={`flex-1 px-6 py-3 rounded-xl ${BUTTON_SECONDARY} font-medium`}
                                     >
                                         Clear Cart
                                     </button>
@@ -1562,7 +1562,7 @@ export default function OrderPage() {
                                             }
                                             await submitOrders();
                                         }}
-                                        className={`flex-1 px-6 py-3 rounded-xl ${BUTTON_PRIMARY} font-semibold disabled:opacity-60 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2`}
+                                        className={`flex-1 px-6 py-3 rounded-xl ${BUTTON_PRIMARY} font-semibold disabled:opacity-60 shadow-lg hover:shadow-xl flex items-center justify-center gap-2`}
                                         disabled={submitting}
                                     >
                                         {submitting ? (
@@ -1630,7 +1630,7 @@ export default function OrderPage() {
                                         if (!file) return;
                                         handleDpFile(file);
                                     }}
-                                    className={`relative ${DROPZONE_BORDER} ${DROPZONE_HOVER} border-2 border-dashed bg-gray-50/30 dark:bg-gray-700/30 rounded-2xl p-8 min-h-[180px] text-center backdrop-blur-sm transition-all duration-200 flex items-center justify-center gap-4 cursor-pointer`}
+                                    className={`relative ${DROPZONE_BORDER} ${DROPZONE_HOVER} border-2 border-dashed bg-gray-50/30 dark:bg-gray-700/30 rounded-2xl p-8 min-h-[180px] text-center backdrop-blur-sm flex items-center justify-center gap-4 cursor-pointer`}
                                 >
                                     <div className="relative z-10 flex flex-col items-center justify-center gap-3">
                                         {dpReceiptFile ? (
@@ -1749,7 +1749,7 @@ export default function OrderPage() {
                                                 href={receiptUrl} 
                                                 target="_blank" 
                                                 rel="noopener noreferrer"
-                                                className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl`}
+                                                className={`inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 text-white font-semibold shadow-lg hover:shadow-xl`}
                                             >
                                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -1764,14 +1764,14 @@ export default function OrderPage() {
                             <div className="flex flex-col gap-3">
                                 <button 
                                     onClick={() => setShowPaymentModal(false)}
-                                    className={`w-full px-6 py-3 rounded-xl ${BUTTON_SECONDARY} transition-all duration-200 font-medium`}
+                                    className={`w-full px-6 py-3 rounded-xl ${BUTTON_SECONDARY} font-medium`}
                                 >
                                     Close
                                 </button>
                                 {(watchedOrderStatus === 'ready' || watchedOrderStatus === 'completed') && (
                                     <button 
                                         onClick={() => setShowPaymentModal(false)}
-                                        className={`w-full px-6 py-3 rounded-xl ${BUTTON_PRIMARY} font-semibold transition-all duration-200 shadow-lg hover:shadow-xl`}
+                                        className={`w-full px-6 py-3 rounded-xl ${BUTTON_PRIMARY} font-semibold shadow-lg hover:shadow-xl`}
                                     >
                                         {watchedOrderStatus === 'ready' ? 'Got It, Pick Up Soon!' : 'View Order History'}
                                     </button>

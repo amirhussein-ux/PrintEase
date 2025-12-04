@@ -84,13 +84,13 @@ const productSettings: Record<string, any> = {
 // Theme Variables for consistent dark/light mode - WHITE THEME
 const PANEL_SURFACE = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-lg dark:border-gray-700 dark:bg-gray-800 dark:text-white";
 const SOFT_PANEL = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white";
-const INPUT_SURFACE = "rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400";
+const INPUT_SURFACE = "rounded-xl border border-gray-300 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400";
 const MUTED_TEXT = "text-gray-600 dark:text-gray-300";
 const MUTED_TEXT_LIGHT = "text-gray-500 dark:text-gray-400";
-const BACKGROUND_GRADIENT = "bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800";
+const BACKGROUND_GRADIENT = "bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white";
 const CARD_BACKGROUND = "bg-white dark:bg-gray-800";
 const CARD_BORDER = "border border-gray-200 dark:border-gray-700";
-const CARD_HOVER = "hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xl transition-all duration-300";
+const CARD_HOVER = "hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-xl";
 const BUTTON_PRIMARY = "bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-700";
 const BUTTON_SECONDARY = "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 dark:hover:border-gray-500";
 const BUTTON_FILTER_ACTIVE = "bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700";
@@ -343,7 +343,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
           >
             <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -398,7 +398,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
               <div className="absolute top-4 right-4 z-10 flex flex-col gap-3">
                 {/* Auto Rotate Toggle */}
                 <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-all duration-200">
+                  <label className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
                     <input
                       type="checkbox"
                       checked={autoRotate}
@@ -470,7 +470,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
                   {/* Reset Camera */}
                   <button
                     onClick={handleResetCamera}
-                    className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                    className="flex items-center gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                   >
                     <TbRotate2 className="w-4 h-4" />
                     Reset View
@@ -503,7 +503,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
         <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
           <button
             onClick={handleOrderNow}
-            className={`${BUTTON_PRIMARY} px-6 py-3 rounded-lg flex items-center gap-2 transition-all duration-200 hover:shadow-lg font-medium`}
+            className={`${BUTTON_PRIMARY} px-6 py-3 rounded-lg flex items-center gap-2 hover:shadow-lg font-medium`}
           >
             <FiShoppingCart /> Order Now
           </button>
@@ -762,7 +762,7 @@ const SavedDesigns: React.FC = () => {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium ${
                     showFilters || productTypeFilter !== 'all' || dimensionFilter !== 'all'
                       ? BUTTON_FILTER_ACTIVE
                       : BUTTON_FILTER_INACTIVE
@@ -778,7 +778,7 @@ const SavedDesigns: React.FC = () => {
                 <button
                   onClick={handleRefreshDesigns}
                   disabled={refreshing}
-                  className={`inline-flex items-center gap-2 px-4 py-2 ${BUTTON_FILTER_INACTIVE} font-medium rounded-lg transition-all duration-200 disabled:opacity-50`}
+                  className={`inline-flex items-center gap-2 px-4 py-2 ${BUTTON_FILTER_INACTIVE} font-medium rounded-lg disabled:opacity-50`}
                 >
                   <FiRefreshCw className={`${refreshing ? 'animate-spin' : ''}`} />
                   {refreshing ? 'Refreshing...' : 'Refresh'}
@@ -786,7 +786,7 @@ const SavedDesigns: React.FC = () => {
                 
                 <a
                   href="/dashboard/customize"
-                  className={`${BUTTON_PRIMARY} inline-flex items-center gap-2 px-6 py-3 font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]`}
+                  className={`${BUTTON_PRIMARY} inline-flex items-center gap-2 px-6 py-2 font-medium rounded-lg shadow-lg hover:shadow-xl transform transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]`}
                 >
                   <span className="text-lg">+</span>
                   New Design
@@ -795,7 +795,7 @@ const SavedDesigns: React.FC = () => {
             </div>
 
             {showFilters && (
-              <div className={`${SOFT_PANEL} backdrop-blur-sm p-6 animate-in slide-in-from-top duration-300 mb-6`}>
+              <div className={`${SOFT_PANEL} backdrop-blur-sm p-6 animate-in slide-in-from-top mb-6`}>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Filter Designs</h3>
                   {(productTypeFilter !== 'all' || dimensionFilter !== 'all') && (
@@ -813,10 +813,10 @@ const SavedDesigns: React.FC = () => {
                     <label className={`block text-sm font-medium ${MUTED_TEXT} mb-3`}>
                       Product Type
                     </label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-4">
                       <button
                         onClick={() => setProductTypeFilter('all')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        className={`px-4 py-2 rounded-lg text-sm font-medium ${
                           productTypeFilter === 'all'
                             ? BUTTON_FILTER_ACTIVE
                             : BUTTON_FILTER_INACTIVE
@@ -826,7 +826,7 @@ const SavedDesigns: React.FC = () => {
                       </button>
                       <button
                         onClick={() => setProductTypeFilter('3d')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                        className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
                           productTypeFilter === '3d'
                             ? 'bg-blue-100 text-blue-700 border border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'
                             : BUTTON_FILTER_INACTIVE
@@ -837,7 +837,7 @@ const SavedDesigns: React.FC = () => {
                       </button>
                       <button
                         onClick={() => setProductTypeFilter('2d')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                        className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
                           productTypeFilter === '2d'
                             ? 'bg-green-100 text-green-700 border border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-700'
                             : BUTTON_FILTER_INACTIVE
@@ -850,7 +850,7 @@ const SavedDesigns: React.FC = () => {
                         <button
                           key={type}
                           onClick={() => setProductTypeFilter(type)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          className={`px-4 py-2 rounded-lg text-sm font-medium ${
                             productTypeFilter === type
                               ? getProductTypeColor(type)
                               : BUTTON_FILTER_INACTIVE
@@ -872,7 +872,7 @@ const SavedDesigns: React.FC = () => {
                           <button
                             key={key}
                             onClick={() => setDimensionFilter(key)}
-                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            className={`px-4 py-2 rounded-lg text-sm font-medium ${
                               dimensionFilter === key
                                 ? BUTTON_FILTER_ACTIVE
                                 : BUTTON_FILTER_INACTIVE
@@ -920,14 +920,14 @@ const SavedDesigns: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <a
                   href="/dashboard/customize"
-                  className={`${BUTTON_PRIMARY} px-8 py-3 font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl`}
+                  className={`${BUTTON_PRIMARY} px-8 py-3 font-medium rounded-lg shadow-lg hover:shadow-xl`}
                 >
                   Create New Design
                 </a>
                 {designs.length > 0 && (
                   <button
                     onClick={clearFilters}
-                    className={`px-8 py-3 ${BUTTON_FILTER_INACTIVE} font-medium rounded-lg transition-all duration-200`}
+                    className={`px-8 py-3 ${BUTTON_FILTER_INACTIVE} font-medium rounded-lg`}
                   >
                     Clear Filters
                   </button>
@@ -949,7 +949,7 @@ const SavedDesigns: React.FC = () => {
                       <img
                         src={getThumbnailUrl(design)}
                         alt={design.name}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
                         onError={(e) => {
                           console.error('❌ Image failed:', design.name);
                           const target = e.target as HTMLImageElement;
@@ -960,7 +960,7 @@ const SavedDesigns: React.FC = () => {
                         }}
                       />
                       
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center p-4">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center p-4">
                         <div className="bg-black/70 backdrop-blur-sm rounded-lg p-3 mb-2">
                           <div className="text-white text-sm font-medium flex items-center gap-2">
                             <FiEye className="w-4 h-4" />
@@ -1045,7 +1045,7 @@ const SavedDesigns: React.FC = () => {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleUseDesign(design)}
-                        className={`${BUTTON_PRIMARY} flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium transition-all duration-200 hover:shadow-lg active:scale-[0.98] group/order`}
+                        className={`${BUTTON_PRIMARY} flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-medium hover:shadow-lg active:scale-[0.98] group/order`}
                       >
                         <FiShoppingCart className="text-lg group-hover/order:scale-110 transition-transform" />
                         Order Now
@@ -1053,7 +1053,7 @@ const SavedDesigns: React.FC = () => {
                       <button
                         onClick={() => handleDownload(design)}
                         disabled={downloadingId === design._id}
-                        className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200 border border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500/50 disabled:opacity-50"
+                        className="p-3 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500/50 disabled:opacity-50"
                         title="Download as PNG"
                       >
                         {downloadingId === design._id ? (
@@ -1064,7 +1064,7 @@ const SavedDesigns: React.FC = () => {
                       </button>
                       <button
                         onClick={() => handleDuplicateDesign(design)}
-                        className="p-3 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-all duration-200 border border-gray-300 dark:border-gray-600 hover:border-green-400 dark:hover:border-green-500/50"
+                        className="p-3 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 border border-gray-300 dark:border-gray-600 hover:border-green-400 dark:hover:border-green-500/50"
                         title="Duplicate Design"
                       >
                         <FiCopy />
@@ -1074,7 +1074,7 @@ const SavedDesigns: React.FC = () => {
                           setDesignToDelete(design._id);
                           setShowDeleteDialog(true);
                         }}
-                        className="p-3 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-all duration-200 border border-gray-300 dark:border-gray-600 hover:border-red-400 dark:hover:border-red-500/50"
+                        className="p-3 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 border border-gray-300 dark:border-gray-600 hover:border-red-400 dark:hover:border-red-500/50"
                         title="Delete"
                       >
                         <FiTrash2 />

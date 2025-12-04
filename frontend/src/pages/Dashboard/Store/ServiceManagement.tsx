@@ -39,7 +39,7 @@ const currencySymbol = (code: string) => {
 const SERVICE_MODAL_PANEL = "rounded-2xl border border-gray-200 bg-white text-gray-900 shadow-2xl dark:border-gray-700 dark:bg-gray-900 dark:text-white backdrop-blur-md";
 const SERVICE_MODAL_HEADER = "flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700";
 const SERVICE_MODAL_LABEL = "block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300";
-const SERVICE_MODAL_INPUT = "w-full rounded-xl border border-gray-200 bg-white/95 px-4 py-3 text-gray-900 placeholder-gray-500 transition-all duration-150 ease-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 hover:shadow-sm dark:border-gray-600 dark:bg-gray-800/80 dark:text-gray-100 dark:placeholder-gray-400 dark:hover:border-blue-400";
+const SERVICE_MODAL_INPUT = "w-full rounded-xl border border-gray-200 bg-white/95 px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-blue-300 hover:shadow-sm dark:border-gray-600 dark:bg-gray-800/80 dark:text-gray-100 dark:placeholder-gray-400 dark:hover:border-blue-400";
 
 interface VariantOption {
   name: string; // e.g., A4, Red, Small
@@ -477,7 +477,7 @@ export default function ServiceManagement() {
           <div className="relative flex items-center gap-3">
             <button
               onClick={() => setShowFilters((v) => !v)}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all duration-150 ease-out backdrop-blur-sm hover:scale-105 active:scale-95 dark:bg-gray-700/80 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600/80 dark:hover:border-gray-500"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 transition-transform duration-200 hover:bg-gray-50 hover:border-gray-300 backdrop-blur-sm hover:scale-105 active:scale-95 dark:bg-gray-700/80 dark:text-white dark:border-gray-600 dark:hover:bg-gray-600/80 dark:hover:border-gray-500"
               aria-haspopup="true"
               aria-expanded={showFilters}
             >
@@ -486,9 +486,9 @@ export default function ServiceManagement() {
             </button>
             <button
               onClick={openCreate}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl border border-blue-500 hover:from-blue-600 hover:to-blue-700 transition-all duration-150 ease-out hover:scale-105 active:scale-95 shadow-lg hover:shadow-blue-500/25 group"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl border border-blue-500 transition-transform duration-200 hover:from-blue-600 hover:to-blue-700 hover:scale-105 active:scale-95 shadow-lg hover:shadow-blue-500/25 group"
             >
-              <PlusIcon className="h-5 w-5 transition-transform duration-150 group-hover:rotate-90" /> 
+              <PlusIcon className="h-5 w-5 group-hover:rotate-90" /> 
               <span className="hidden sm:inline">Add Service</span>
             </button>
 
@@ -497,7 +497,7 @@ export default function ServiceManagement() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="text-lg font-semibold text-gray-900 dark:text-white">Filters & Sort</div>
                   <button
-                    className="text-sm px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition-all duration-150 ease-out hover:scale-105 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50"
+                    className="text-sm px-4 py-2 rounded-lg border border-gray-200 text-gray-700 transition-transform duration-200 hover:bg-gray-100 hover:scale-105 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50"
                     onClick={() => setShowFilters(false)}
                   >
                     Close
@@ -508,7 +508,7 @@ export default function ServiceManagement() {
                     <div className={`text-sm font-medium mb-3 ${MUTED_TEXT}`}>Status</div>
                     <div className="flex items-center gap-3">
                       {(["ALL", "ACTIVE", "DISABLED"] as const).map((s) => (
-                        <label key={s} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 transition-all duration-150 ease-out hover:scale-105 cursor-pointer">
+                        <label key={s} className="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 transition-transform duration-200 hover:scale-105 cursor-pointer">
                           <input
                             type="radio"
                             name="statusFilter"
@@ -529,7 +529,7 @@ export default function ServiceManagement() {
                           setSortKey("name");
                           setSortDir("asc");
                         }}
-                        className={`text-sm px-4 py-3 rounded-xl border transition-all duration-150 ease-out hover:scale-105 ${
+                        className={`text-sm px-4 py-3 rounded-xl border transition-transform duration-200 hover:scale-105 ${
                           sortKey === "name" && sortDir === "asc"
                             ? "border-blue-500 text-blue-700 dark:text-blue-200 bg-blue-100 dark:bg-blue-500/20 scale-105 shadow-lg shadow-blue-500/20"
                             : "border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700/50"
@@ -542,7 +542,7 @@ export default function ServiceManagement() {
                           setSortKey("name");
                           setSortDir("desc");
                         }}
-                        className={`text-sm px-4 py-3 rounded-xl border transition-all duration-150 ease-out hover:scale-105 ${
+                        className={`text-sm px-4 py-3 rounded-xl border transition-transform duration-200 hover:scale-105 ${
                           sortKey === "name" && sortDir === "desc"
                             ? "border-blue-500 text-blue-700 dark:text-blue-200 bg-blue-100 dark:bg-blue-500/20 scale-105 shadow-lg shadow-blue-500/20"
                             : "border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700/50"
@@ -555,7 +555,7 @@ export default function ServiceManagement() {
                           setSortKey("createdAt");
                           setSortDir("desc");
                         }}
-                        className={`text-sm px-4 py-3 rounded-xl border transition-all duration-150 ease-out hover:scale-105 ${
+                        className={`text-sm px-4 py-3 rounded-xl border transition-transform duration-200 hover:scale-105 ${
                           sortKey === "createdAt" && sortDir === "desc"
                             ? "border-blue-500 text-blue-700 dark:text-blue-200 bg-blue-100 dark:bg-blue-500/20 scale-105 shadow-lg shadow-blue-500/20"
                             : "border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700/50"
@@ -568,7 +568,7 @@ export default function ServiceManagement() {
                           setSortKey("createdAt");
                           setSortDir("asc");
                         }}
-                        className={`text-sm px-4 py-3 rounded-xl border transition-all duration-150 ease-out hover:scale-105 ${
+                        className={`text-sm px-4 py-3 rounded-xl border transition-transform duration-200 hover:scale-105 ${
                           sortKey === "createdAt" && sortDir === "asc"
                             ? "border-blue-500 text-blue-700 dark:text-blue-200 bg-blue-100 dark:bg-blue-500/20 scale-105 shadow-lg shadow-blue-500/20"
                             : "border-gray-200 text-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700/50"
@@ -580,7 +580,7 @@ export default function ServiceManagement() {
                   </div>
                   <div className="flex justify-end pt-2">
                     <button
-                      className="text-sm px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-100 transition-all duration-150 ease-out hover:scale-105 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50"
+                      className="text-sm px-4 py-2 rounded-lg border border-gray-200 text-gray-700 transition-transform duration-200 hover:bg-gray-100 hover:scale-105 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50"
                       onClick={() => {
                         setStatusFilter("ALL");
                         setSortKey("name");
@@ -600,22 +600,22 @@ export default function ServiceManagement() {
         <Tab.Group selectedIndex={tabIndex} onChange={(i) => setTabIndex(i)}>
           <Tab.List className="mb-6 flex gap-3 p-1 rounded-2xl border border-gray-200/80 dark:border-gray-600 bg-white/80 dark:bg-gray-800/50 backdrop-blur-sm w-fit shadow-sm dark:shadow-none">
             <Tab
-              className={({ selected }) =>
-                `px-6 py-3 rounded-xl text-sm font-medium transition-all duration-150 ease-out transform ${
+            className={({ selected }) =>
+              `px-6 py-3 rounded-xl text-sm font-medium transition-transform duration-200 ${
                   selected 
                     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 scale-105' 
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100 hover:scale-105 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700/50'
+                : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100 hover:scale-105 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700/50'
                 }`
               }
             >
               Services
             </Tab>
             <Tab
-              className={({ selected }) =>
-                `px-6 py-3 rounded-xl text-sm font-medium transition-all duration-150 ease-out transform ${
+            className={({ selected }) =>
+              `px-6 py-3 rounded-xl text-sm font-medium transition-transform duration-200 ${
                   selected 
                     ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 scale-105' 
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100 hover:scale-105 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700/50'
+                : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100 hover:scale-105 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700/50'
                 }`
               }
             >
@@ -628,12 +628,12 @@ export default function ServiceManagement() {
               {/* Services list */}
 
               {error && (
-                <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-800 px-6 py-4 text-sm backdrop-blur-sm transition-all duration-150 ease-out hover:scale-[1.02] dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
+                <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 text-red-800 px-6 py-4 text-sm backdrop-blur-sm transition-transform duration-200 hover:scale-[1.02] dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100">
                   {error}
                 </div>
               )}
               {showSkeleton && (
-                <div aria-busy="true" className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-4 transition-opacity duration-150 ${showSkeleton && !contentReady ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                <div aria-busy="true" className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-4 ${showSkeleton && !contentReady ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                   {Array.from({ length: 6 }).map((_, i) => (
                     <div key={i} className={`${PANEL_SURFACE} p-6 animate-pulse`}>
                       <div className="flex items-start gap-4">
@@ -654,9 +654,9 @@ export default function ServiceManagement() {
                 </div>
 
               )}
-              <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 transition-opacity duration-150 ${contentReady ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+              <div className={`grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 ${contentReady ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                 {!loading && filtered.length === 0 && (
-                  <div className={`${PANEL_SURFACE} col-span-full p-12 text-center text-gray-700 dark:text-gray-300 transition-all duration-150 ease-out hover:scale-[1.02]`}>
+                  <div className={`${PANEL_SURFACE} col-span-full p-12 text-center text-gray-700 dark:text-gray-300 transition-transform duration-200 hover:scale-[1.02]`}>
                     <div className="text-6xl mb-4">📋</div>
                     <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">No services found</h3>
                     <p className={MUTED_TEXT}>Try adjusting your search or filters to find what you're looking for.</p>
@@ -665,28 +665,28 @@ export default function ServiceManagement() {
                 {filtered.map((s) => (
                   <div
                     key={s.id}
-                    className={`${PANEL_SURFACE} p-6 transition-all duration-150 ease-out hover:scale-[1.05] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group flex flex-col`}
+                    className={`${PANEL_SURFACE} p-6 transition-transform duration-200 hover:scale-[1.05] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group flex flex-col`}
                   >
                     <div className="flex-1 flex flex-col gap-4">
                       {/* 1. Top Section: Image + Title + Price */}
                       <div className="flex items-start gap-4">
-                      {s.imageUrl && (
-                        <div className="shrink-0 transition-all duration-150 ease-out group-hover:scale-110">
+                        { s.imageUrl && (
+                          <div className="shrink-0 transition-transform duration-200 group-hover:scale-110">
                           <img
                             src={s.imageUrl}
                             alt={s.name}
-                            className="h-20 w-20 object-cover rounded-xl border-2 border-gray-500 transition-all duration-150 ease-out group-hover:border-blue-400"
+                            className="h-20 w-20 object-cover rounded-xl border-2 border-gray-500 group-hover:border-blue-400"
                           />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-200 transition-colors duration-150">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-200">
                             {s.name}
                           </h3>
                           <div className="flex gap-1">
                             <span
-                              className={`text-xs px-2 py-1 rounded-full border transition-all duration-150 ease-out transform group-hover:scale-110 ${
+                              className={`text-xs px-2 py-1 rounded-full border transform transition-transform duration-200 group-hover:scale-110 ${
                                 s.active
                                   ? "border-green-300 text-green-700 bg-green-50 group-hover:bg-green-100 dark:border-green-400 dark:text-green-200 dark:bg-green-400/10"
                                   : "border-gray-300 text-gray-700 bg-gray-100 group-hover:bg-gray-200 dark:border-gray-500 dark:text-gray-200 dark:bg-gray-400/10"
@@ -695,29 +695,29 @@ export default function ServiceManagement() {
                               {s.active ? "Active" : "Disabled"}
                             </span>
                             { s.autoDisabled && (
-                              <span className="text-xs px-2 py-1 rounded-full border border-red-300 text-red-700 bg-red-50 transition-all duration-150 ease-out transform group-hover:scale-110 group-hover:bg-red-100 dark:border-red-400 dark:text-red-300 dark:bg-red-400/10">
+                              <span className="text-xs px-2 py-1 rounded-full border border-red-300 text-red-700 bg-red-50 transform transition-transform duration-200 group-hover:scale-110 group-hover:bg-red-100 dark:border-red-400 dark:text-red-300 dark:bg-red-400/10">
                                 Auto-Disabled
                               </span>
                             )}
                           </div>
                         </div>
-                        <p className={`${MUTED_TEXT} text-sm mb-3 line-clamp-2 group-hover:text-gray-800 dark:group-hover:text-gray-200 transition-colors duration-150`}>
+                        <p className={`${MUTED_TEXT} text-sm mb-3 line-clamp-2 group-hover:text-gray-800 dark:group-hover:text-gray-200`}>
                           {s.description}
                         </p>
                         <div className="flex items-center gap-3 text-sm">
-                          <span className="text-blue-700 dark:text-blue-200 font-semibold bg-blue-100 dark:bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-500/30 transition-all duration-150 group-hover:bg-blue-200 dark:group-hover:bg-blue-500/20">
+                          <span className="text-blue-700 dark:text-blue-200 font-semibold bg-blue-100 dark:bg-blue-500/10 px-3 py-1 rounded-lg border border-blue-200 dark:border-blue-500/30 group-hover:bg-blue-200 dark:group-hover:bg-blue-500/20">
                             {money(s.basePrice, s.currency || 'PHP')} {s.unit}
                           </span>
                           {s.requiredInventory ? (
-                            <span className="text-purple-700 dark:text-purple-200 bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-lg border border-purple-200 dark:border-purple-500/30 text-xs transition-all duration-150 group-hover:bg-purple-100 dark:group-hover:bg-purple-500/20">
+                            <span className="text-purple-700 dark:text-purple-200 bg-purple-50 dark:bg-purple-500/10 px-2 py-1 rounded-lg border border-purple-200 dark:border-purple-500/30 text-xs group-hover:bg-purple-100 dark:group-hover:bg-purple-500/20">
                               Product Linked
                             </span>
                           ) : s.inventoryStatus ? (
-                            <span className="text-blue-700 dark:text-blue-200 bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-200 dark:border-blue-500/30 text-xs transition-all duration-150 group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20">
+                            <span className="text-blue-700 dark:text-blue-200 bg-blue-50 dark:bg-blue-500/10 px-2 py-1 rounded-lg border border-blue-200 dark:border-blue-500/30 text-xs group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20">
                               Linked via attributes
                             </span>
                           ) : (
-                            <span className="text-yellow-700 dark:text-yellow-200 bg-yellow-50 dark:bg-yellow-500/10 px-2 py-1 rounded-lg border border-yellow-200 dark:border-yellow-500/30 text-xs transition-all duration-150 group-hover:bg-yellow-100 dark:group-hover:bg-yellow-500/20">
+                            <span className="text-yellow-700 dark:text-yellow-200 bg-yellow-50 dark:bg-yellow-500/10 px-2 py-1 rounded-lg border border-yellow-200 dark:border-yellow-500/30 text-xs group-hover:bg-yellow-100 dark:group-hover:bg-yellow-500/20">
                               No product linked
                             </span>
                           )}
@@ -727,7 +727,7 @@ export default function ServiceManagement() {
 
                     {/* 2. Inventory Section (Now Full Width) */}
                     {s.inventoryStatus && (
-                      <div className={`mt-4 p-3 rounded-xl border text-xs transition-all duration-150 group-hover:scale-[1.02] ${
+                      <div className={`mt-4 p-3 rounded-xl border text-xs transition-transform duration-200 group-hover:scale-[1.02] ${
                         s.inventoryStatus.isLowStock 
                           ? 'bg-red-50 text-red-700 border-red-200 group-hover:bg-red-100 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/30' 
                           : 'bg-green-50 text-green-700 border-green-200 group-hover:bg-green-100 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/30'
@@ -741,18 +741,18 @@ export default function ServiceManagement() {
                     )}
 
                     {s.disableReason && (
-                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 transition-all duration-150 group-hover:bg-red-100 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-200">
+                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 group-hover:bg-red-100 dark:bg-red-500/10 dark:border-red-500/30 dark:text-red-200">
                         <strong>Disable Reason:</strong> {s.disableReason}
                       </div>
                     )}
 
                     {/* 3. Attributes Section (Already Full Width) */}
                     {s.variants && s.variants.length > 0 && (
-                      <div className="mt-4 p-3 bg-gray-100 rounded-xl border border-gray-200 transition-all duration-150 group-hover:scale-[1.02] dark:bg-gray-700/30 dark:border-gray-600">
+                      <div className="mt-4 p-3 bg-gray-100 rounded-xl border border-gray-200 transition-transform duration-200 group-hover:scale-[1.02] dark:bg-gray-700/30 dark:border-gray-600">
                         <div className={`text-xs mb-2 font-medium ${MUTED_TEXT}`}>Attributes:</div>
                         <div className="space-y-2">
                           {s.variants.map((v) => (
-                            <div key={v.label} className="text-xs text-gray-700 group-hover:text-gray-900 transition-colors duration-150 dark:text-gray-300 dark:group-hover:text-gray-200">
+                            <div key={v.label} className="text-xs text-gray-700 group-hover:text-gray-900 dark:text-gray-300 dark:group-hover:text-gray-200">
                               <span className="font-semibold">{v.label}:</span> {v.options.map((o) => o.name).join(", ")}
                             </div>
                           ))}
@@ -765,7 +765,7 @@ export default function ServiceManagement() {
                     <div className="mt-6 flex gap-2">
                       <button
                         onClick={() => toggleActive(s.id)}
-                        className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-150 ease-out transform hover:scale-105 active:scale-95 ${
+                      className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium transform transition-transform duration-200 hover:scale-105 active:scale-95 ${
                           s.active
                             ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/30'
                             : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200 dark:bg-gray-500/10 dark:text-gray-300 dark:border-gray-500/30'
@@ -776,13 +776,13 @@ export default function ServiceManagement() {
                       </button>
                       <button
                         onClick={() => openEdit(s)}
-                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-4 py-3 text-sm font-medium transition-all duration-150 ease-out transform hover:scale-105 active:scale-95 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30 dark:hover:bg-blue-500/20"
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 px-4 py-3 text-sm font-medium transform transition-transform duration-200 hover:scale-105 active:scale-95 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/30 dark:hover:bg-blue-500/20"
                       >
                         <PencilSquareIcon className="h-4 w-4" /> Edit
                       </button>
                       <button
                         onClick={() => setShowDeleteConfirm(s.id)}
-                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 px-4 py-3 text-sm font-medium transition-all duration-150 ease-out transform hover:scale-105 active:scale-95 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/30 dark:hover:bg-red-500/20"
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 px-4 py-3 text-sm font-medium transform transition-transform duration-200 hover:scale-105 active:scale-95 dark:bg-red-500/10 dark:text-red-300 dark:border-red-500/30 dark:hover:bg-red-500/20"
                       >
                         <TrashIcon className="h-4 w-4" /> Delete
                       </button>
@@ -803,21 +803,21 @@ export default function ServiceManagement() {
                   </div>
                 )}
                 {deletedServices.map((s) => (
-                  <div key={s.id} className={`${PANEL_SURFACE} p-6 transition-all duration-150 ease-out hover:scale-[1.05] hover:border-red-500/50 hover:shadow-2xl hover:shadow-red-500/10 group`}>
+                  <div key={s.id} className={`${PANEL_SURFACE} p-6 hover:scale-[1.05] hover:border-red-500/50 hover:shadow-2xl hover:shadow-red-500/10 group`}>
                     <div className="flex items-start gap-4">
                       {s.imageUrl && (
-                        <img src={s.imageUrl} alt={s.name} className="h-16 w-16 object-cover rounded-xl border-2 border-gray-300 transition-all duration-150 ease-out group-hover:border-red-400 dark:border-gray-500" />
+                        <img src={s.imageUrl} alt={s.name} className="h-16 w-16 object-cover rounded-xl border-2 border-gray-300 group-hover:border-red-400 dark:border-gray-500" />
                       )}
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-red-600 dark:group-hover:text-red-200 transition-colors duration-150">{s.name}</h3>
-                          <span className="text-xs px-2 py-1 rounded-full border border-red-300 text-red-700 bg-red-50 transition-all duration-150 ease-out transform group-hover:scale-110 group-hover:bg-red-100 dark:border-red-400 dark:text-red-300 dark:bg-red-400/10">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-red-600 dark:group-hover:text-red-200">{s.name}</h3>
+                          <span className="text-xs px-2 py-1 rounded-full border border-red-300 text-red-700 bg-red-50 transform group-hover:scale-110 group-hover:bg-red-100 dark:border-red-400 dark:text-red-300 dark:bg-red-400/10">
                             Deleted
                           </span>
                         </div>
-                        <p className={`${MUTED_TEXT} text-sm mb-3 group-hover:text-gray-900 dark:group-hover:text-gray-200 transition-colors duration-150`}>{s.description}</p>
+                        <p className={`${MUTED_TEXT} text-sm mb-3 group-hover:text-gray-900 dark:group-hover:text-gray-200`}>{s.description}</p>
                         {s.deletedAt && (
-                          <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 transition-all duration-150 group-hover:bg-yellow-100 dark:text-yellow-200 dark:bg-yellow-500/10 dark:border-yellow-500/30">
+                          <div className="text-xs text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 group-hover:bg-yellow-100 dark:text-yellow-200 dark:bg-yellow-500/10 dark:border-yellow-500/30">
                             ⏳ Permanent deletion in {Math.max(0, 30 - Math.floor((Date.now() - new Date(s.deletedAt).getTime()) / (1000 * 60 * 60 * 24)))} days
                           </div>
                         )}
@@ -826,7 +826,7 @@ export default function ServiceManagement() {
                     <div className="mt-6">
                       <button
                         onClick={() => restoreService(s.id)}
-                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 px-4 py-3 text-sm font-medium transition-all duration-150 ease-out transform hover:scale-105 active:scale-95 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/30"
+                        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 px-4 py-3 text-sm font-medium transform hover:scale-105 active:scale-95 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/30"
                       >
                         <CheckCircleIcon className="h-4 w-4" /> Restore Service
                       </button>
@@ -854,13 +854,13 @@ export default function ServiceManagement() {
       {/* Delete confirmation */}
       <Transition show={!!showDeleteConfirm} as={Fragment}>
         <Dialog onClose={() => setShowDeleteConfirm(null)} className="relative z-50">
-          <Transition.Child as={Fragment} enter="ease-out duration-150" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
+          <Transition.Child as={Fragment} enter="ease-out" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in" leaveFrom="opacity-100" leaveTo="opacity-0">
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
           </Transition.Child>
           <div className="fixed inset-0 overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-4 sm:p-6 md:p-8">
-              <Transition.Child as={Fragment} enter="ease-out duration-150" enterFrom="opacity-0 translate-y-2 sm:translate-y-0 sm:scale-95" enterTo="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-150" leaveFrom="opacity-100 translate-y-0 sm:scale-100" leaveTo="opacity-0 translate-y-2 sm:translate-y-0 sm:scale-95">
-                <DialogPanel className="w-full max-w-md rounded-2xl bg-white border border-gray-200 shadow-2xl p-6 backdrop-blur-sm transition-all duration-150 ease-out hover:scale-105 dark:bg-gray-800 dark:border-gray-600">
+              <Transition.Child as={Fragment} enter="ease-out" enterFrom="opacity-0 translate-y-2 sm:translate-y-0 sm:scale-95" enterTo="opacity-100 translate-y-0 sm:scale-100" leave="ease-in" leaveFrom="opacity-100 translate-y-0 sm:scale-100" leaveTo="opacity-0 translate-y-2 sm:translate-y-0 sm:scale-95">
+                <DialogPanel className="w-full max-w-md rounded-2xl bg-white border border-gray-200 shadow-2xl p-6 backdrop-blur-sm hover:scale-105 dark:bg-gray-800 dark:border-gray-600">
                   <div className="text-center">
                     <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-50 mb-4 dark:bg-red-500/10">
                       <TrashIcon className="h-6 w-6 text-red-500 dark:text-red-400" />
@@ -870,13 +870,13 @@ export default function ServiceManagement() {
                   </div>
                   <div className="flex justify-end gap-3">
                     <button 
-                      className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transition-all duration-150 ease-out transform hover:scale-105 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50" 
+                      className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-gray-700 hover:bg-gray-100 transform hover:scale-105 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700/50" 
                       onClick={() => setShowDeleteConfirm(null)}
                     >
                       Cancel
                     </button>
                     <button
-                      className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white hover:bg-red-500 transition-all duration-150 ease-out transform hover:scale-105"
+                      className="flex-1 px-4 py-3 rounded-xl bg-red-600 text-white hover:bg-red-500 transform hover:scale-105"
                       onClick={() => {
                         if (showDeleteConfirm) removeService(showDeleteConfirm);
                         setShowDeleteConfirm(null);
@@ -1385,5 +1385,5 @@ function ServiceModal({
 }
 
 const PANEL_SURFACE = "rounded-2xl border border-gray-200/80 dark:border-gray-600 bg-white/90 dark:bg-gray-800/60 backdrop-blur-sm shadow-sm dark:shadow-none";
-const INPUT_SURFACE = "rounded-xl border border-gray-300 dark:border-gray-600 bg-white/95 dark:bg-gray-800/80 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-150";
+const INPUT_SURFACE = "rounded-xl border border-gray-300 dark:border-gray-600 bg-white/95 dark:bg-gray-800/80 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500";
 const MUTED_TEXT = "text-gray-600 dark:text-gray-300";

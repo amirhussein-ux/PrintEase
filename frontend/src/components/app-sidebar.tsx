@@ -244,7 +244,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     navSubActiveText: isDarkMode ? "text-white font-medium" : "text-gray-900 font-medium",
   }
 
-  const primaryNavContainer = `flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150`;
+  const primaryNavContainer = `flex items-center gap-3 w-full px-3 py-2 rounded-md`;
   const primaryNavWrapper = `${primaryNavContainer} ${theme.navHoverBg} ${theme.navHoverText} ${theme.navText}`;
   const navLinkBase = `flex items-center gap-2 flex-1 min-w-0 group-data-[state=collapsed]:justify-center`;
   const navIconWrapper = `flex items-center justify-center size-6 rounded-md flex-shrink-0 ${theme.navIcon}`;
@@ -252,15 +252,15 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
   const getPrimaryNavLinkClass = (isActive: boolean) =>
     `${navLinkBase} ${isActive ? `${theme.navActiveText} font-semibold` : theme.navText}`;
   const getFlatNavClass = (isActive: boolean) =>
-    `flex items-center gap-2 flex-1 min-w-0 w-full px-3 py-2 rounded-md transition-all duration-150 group-data-[state=collapsed]:justify-center ${theme.navHoverBg} ${theme.navHoverText} ${
+    `flex items-center gap-2 flex-1 min-w-0 w-full px-3 py-2 rounded-md group-data-[state=collapsed]:justify-center ${theme.navHoverBg} ${theme.navHoverText} ${
       isActive ? `${theme.navActiveBg} ${theme.navActiveText} font-semibold` : theme.navText
     }`;
   const getSubNavClass = (isActive: boolean) =>
-    `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 ${theme.navSubHoverBg} ${
+    `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm ${theme.navSubHoverBg} ${
       isActive ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
     }`;
   const getStatusButtonClass = (active: boolean) =>
-    `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 ${theme.navSubHoverBg} ${
+    `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm ${theme.navSubHoverBg} ${
       active ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
     }`;
   const sidebarFooterClasses = isDarkMode
@@ -275,7 +275,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
       >
           <SidebarHeader>
               <div
-                className={`flex items-center gap-3 w-full px-3 py-2 rounded-md transition-all duration-150 ${theme.headerHoverBg} ${theme.headerHoverText} ${theme.headerText}`}
+                className={`flex items-center gap-3 w-full px-3 py-2 rounded-md ${theme.headerHoverBg} ${theme.headerHoverText} ${theme.headerText}`}
                 onClick={handleHeaderClick}
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -335,7 +335,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
                   <NavLink
                     to="/owner/create-shop"
                     className={({ isActive }) =>
-                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 ${theme.navSubHoverBg} ${
+                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm ${theme.navSubHoverBg} ${
                         isActive ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
                       }`
                     }
@@ -350,7 +350,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
                   <NavLink
                     to="/customer/select-shop"
                     className={({ isActive }) =>
-                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm transition-all duration-150 ${theme.navSubHoverBg} ${
+                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm ${theme.navSubHoverBg} ${
                         isActive ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
                       }`
                     }

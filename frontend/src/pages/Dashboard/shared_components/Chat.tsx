@@ -153,14 +153,14 @@ const normalizeId = (value: unknown): string => {
 
 const PANEL_SURFACE = "rounded-2xl border border-gray-200/80 bg-white text-gray-900 shadow-lg dark:border-white/10 dark:bg-gray-800/70 dark:text-white";
 const SOFT_PANEL = "rounded-2xl border border-gray-200 /70 bg-white text-gray-900 shadow-sm dark:border-white/10 dark:bg-gray-900/40 dark:text-white";
-const INPUT_SURFACE = "rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400";
+const INPUT_SURFACE = "rounded-xl border border-gray-200 bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-400";
 const MUTED_TEXT = "text-gray-600 dark:text-gray-300";
 const CUSTOMER_CHAT_PAGE = "bg-gradient-to-b from-gray-50 via-white to-gray-100 text-gray-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white";
 const CUSTOMER_CHAT_HERO = "rounded-3xl border border-gray-200 bg-white/90 backdrop-blur-sm shadow-2xl dark:border-slate-800 dark:bg-slate-900/70";
 const CUSTOMER_CHAT_STREAM = "rounded-3xl border border-gray-200 bg-white/80 backdrop-blur-lg shadow-inner dark:border-slate-800 dark:bg-slate-950/60";
 const CUSTOMER_CHAT_INPUT_PANEL = "rounded-3xl border border-gray-200 bg-white/90 backdrop-blur-sm shadow-xl dark:border-slate-800 dark:bg-slate-900/80";
-const CUSTOMER_CHAT_TEXTAREA = "flex-1 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-gray-900 placeholder-gray-500 transition focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900/60 dark:text-white dark:placeholder-slate-400";
-const CUSTOMER_CHAT_ICON_BUTTON = "px-4 py-3 rounded-2xl border font-semibold transition-colors";
+const CUSTOMER_CHAT_TEXTAREA = "flex-1 rounded-2xl border border-gray-200 bg-white/95 px-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 dark:border-slate-700 dark:bg-slate-900/60 dark:text-white dark:placeholder-slate-400";
+const CUSTOMER_CHAT_ICON_BUTTON = "px-4 py-3 rounded-2xl border font-semibold";
 const CUSTOMER_CHAT_BUBBLE_SELF = "bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-3xl rounded-br-none shadow-lg";
 const CUSTOMER_CHAT_BUBBLE_STORE = "bg-gray-100 text-gray-900 rounded-3xl rounded-bl-none shadow-sm dark:bg-slate-800 dark:text-white";
 const isImageFile = (fileName?: string, fileType?: string) => {
@@ -338,7 +338,7 @@ const ReturnRequestCard: React.FC<ReturnRequestCardProps> = ({ payload, variant,
   }, [payload.orderId, evidenceList]);
 
   return (
-    <div className={`rounded-2xl border p-4 space-y-3 transition-colors duration-200 ${containerBase}`}>
+    <div className={`rounded-2xl border p-4 space-y-3 ${containerBase}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className={`text-[11px] uppercase tracking-wide ${detailMuted}`}>
@@ -431,7 +431,7 @@ const ReturnRequestCard: React.FC<ReturnRequestCardProps> = ({ payload, variant,
                       Loading…
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 bg-black/20 opacity-0 hover:opacity-100" />
                   <div className={`absolute bottom-1 left-1 right-1 text-[10px] font-semibold drop-shadow truncate ${isDarkSurface ? 'text-white' : 'text-gray-900'}`}>
                     {file.filename || (isVideo ? 'Video evidence' : 'Photo evidence')}
                   </div>
@@ -454,7 +454,7 @@ const ReturnRequestCard: React.FC<ReturnRequestCardProps> = ({ payload, variant,
 
       {variant === 'owner' && enableDecisionActions && resolvedStatus === 'pending' && payload.orderId && (
         <div className="space-y-3">
-          <div className={`rounded-2xl border text-sm transition-all duration-300 ease-in-out overflow-hidden ${showRejectReason ? 'border-rose-100 bg-rose-50/80 p-3 dark:border-rose-400/40 dark:bg-rose-500/10' : 'border-transparent bg-transparent max-h-0 p-0'}`}>
+          <div className={`rounded-2xl border text-sm overflow-hidden ${showRejectReason ? 'border-rose-100 bg-rose-50/80 p-3 dark:border-rose-400/40 dark:bg-rose-500/10' : 'border-transparent bg-transparent max-h-0 p-0'}`}>
               <p className="text-xs font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-200">Rejection Reason</p>
               <textarea
                 ref={rejectReasonRef}
@@ -522,10 +522,10 @@ const ReturnRequestCard: React.FC<ReturnRequestCardProps> = ({ payload, variant,
           type="button"
           onClick={onNavigate}
           className={`${isDarkSurface
-            ? 'w-full px-4 py-2 rounded-xl bg-white/90 text-gray-900 font-semibold hover:bg-white transition'
+            ? 'w-full px-4 py-2 rounded-xl bg-white/90 text-gray-900 font-semibold hover:bg-white'
             : variant === 'owner'
-              ? 'w-full px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-500 transition'
-              : 'w-full px-4 py-2 rounded-xl bg-gray-900 text-white font-semibold hover:bg-gray-800 transition'}`}
+              ? 'w-full px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-500'
+              : 'w-full px-4 py-2 rounded-xl bg-gray-900 text-white font-semibold hover:bg-gray-800'}`}
         >
           View Return Request
         </button>
@@ -1170,7 +1170,7 @@ const OwnerChat: React.FC = () => {
             onClick={() => openPreview(m.fileUrl!, m.fileName || 'Image', m.fileType)}
           >
             <img src={m.fileUrl} alt={m.fileName} className="w-full h-auto max-h-64 object-cover" />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center text-white text-sm font-medium opacity-0 group-hover:opacity-100">
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 flex items-center justify-center text-white text-sm font-medium opacity-0 group-hover:opacity-100">
               Click to enlarge
             </div>
           </div>
@@ -1210,11 +1210,11 @@ const OwnerChat: React.FC = () => {
     return (
 
       <div
-        className="fixed max-w-full top-16 right-0 bottom-0 left-0 flex flex-col p-4 md:p-10 box-border overflow-hidden transition-[left] duration-300 ease-in-out"
+        className="fixed max-w-full top-16 right-0 bottom-0 left-0 flex flex-col p-4 md:p-10 box-border overflow-hidden"
         style={!isMobile ? { left: sidebarOffset } : undefined}
       >
         <div
-          className={`${PANEL_SURFACE} backdrop-blur-lg mb-6 cursor-pointer rounded-full border-2 border-gray-300 dark:border-white/10 select-none transition-colors duration-300 hover:border-blue-400 hover:bg-white/90 dark:hover:border-blue-300/40 dark:hover:bg-gray-900/40`}
+          className={`${PANEL_SURFACE} backdrop-blur-lg mb-6 cursor-pointer rounded-full border-2 border-gray-300 dark:border-white/10 select-none hover:border-blue-400 hover:bg-white/90 dark:hover:border-blue-300/40 dark:hover:bg-gray-900/40`}
           onClick={() => setChatMode(prev => prev === 'customers' ? 'staff' : 'customers')}
         >
           <div className="flex items-center justify-between gap-4 flex-wrap p-3">
@@ -1263,7 +1263,7 @@ const OwnerChat: React.FC = () => {
                       : selectedParticipant.id === p.id)
                   : false;
                 return (
-                <div key={p.chatId || p.id} onClick={() => handleSelectParticipant(p)} className={`p-4 border-b border-gray-100 dark:border-white/5 cursor-pointer transition-all ${isActive ? 'bg-blue-50 text-blue-900 border-l-4 border-l-blue-500 dark:bg-blue-600/20 dark:text-white' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}>
+                <div key={p.chatId || p.id} onClick={() => handleSelectParticipant(p)} className={`p-4 border-b border-gray-100 dark:border-white/5 cursor-pointer ${isActive ? 'bg-blue-50 text-blue-900 border-l-4 border-l-blue-500 dark:bg-blue-600/20 dark:text-white' : 'hover:bg-gray-50 dark:hover:bg-white/5'}`}>
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-semibold text-gray-900 dark:text-white truncate">{p.name}</h3>
                       {p.unreadCount>0 && <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full min-w-6 text-center">{p.unreadCount}</span>}
@@ -1367,7 +1367,7 @@ const OwnerChat: React.FC = () => {
                 style={{minHeight:'50px',maxHeight:'120px'}}
               />
               <button type="button" onClick={()=>fileInputRef.current?.click()} disabled={!isConnected} className={`px-4 py-3 rounded-xl border ${isConnected? 'border-gray-200 text-gray-700 bg-white hover:bg-gray-50 dark:border-white/10 dark:bg-gray-700 dark:text-white' : 'border-gray-200 text-gray-400 bg-gray-100 cursor-not-allowed dark:border-white/10 dark:bg-gray-800 dark:text-gray-500'}`}><AiOutlinePaperClip className="w-5 h-5" /></button>
-              <button type="submit" disabled={!newMessage.trim()||!isConnected} className={`px-6 py-3 rounded-xl text-white transition ${newMessage.trim()&&isConnected? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500' : 'bg-gray-400 text-gray-200 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400'}`}><AiOutlineSend className="w-5 h-5" /></button>
+              <button type="submit" disabled={!newMessage.trim()||!isConnected} className={`px-6 py-3 rounded-xl text-white ${newMessage.trim()&&isConnected? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500' : 'bg-gray-400 text-gray-200 cursor-not-allowed dark:bg-gray-600 dark:text-gray-400'}`}><AiOutlineSend className="w-5 h-5" /></button>
               </div>
               <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" disabled={!isConnected} />
               <div className={`text-xs mt-2 text-center ${MUTED_TEXT}`}>{!isConnected? 'Connecting to server...' : 'Press Enter to send • Shift+Enter for new line'}</div>
@@ -1744,7 +1744,7 @@ const CustomerChat: React.FC = () => {
             onClick={() => openCustomerPreview(m.fileUrl!, m.fileName || 'Image', m.fileType)}
           >
             <img src={m.fileUrl} alt={m.fileName} className="w-full h-auto max-h-64 object-cover" />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center text-white text-sm font-medium opacity-0 group-hover:opacity-100">
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center text-white text-sm font-medium opacity-0 group-hover:opacity-100">
               Tap to view
             </div>
           </div>
