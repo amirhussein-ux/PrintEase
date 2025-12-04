@@ -116,6 +116,28 @@ const formatStockDisplay = (availableStock: number | null, hasStockLimit: boolea
   return <span className="text-emerald-700 dark:text-emerald-300 font-medium">In Stock: {availableStock}</span>;
 };
 
+// ✅ ADDED: Missing function to handle downpayment file upload
+const handleDpFile = (file: File | null, setDpReceiptFile: React.Dispatch<React.SetStateAction<File | null>>, setDpReceiptPreview: React.Dispatch<React.SetStateAction<string | null>>) => {
+  if (!file) {
+    setDpReceiptFile(null);
+    setDpReceiptPreview(null);
+    return;
+  }
+  
+  setDpReceiptFile(file);
+  
+  // Create preview if it's an image
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setDpReceiptPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  } else {
+    setDpReceiptPreview(null);
+  }
+};
+
 export default function OrderPage() {
     const { token, continueAsGuest } = useAuth();
     const location = useLocation() as { state: LocationState };
@@ -550,6 +572,7 @@ export default function OrderPage() {
         }, 0);
     }, [cart]);
 
+    // ✅ FIXED: submitOrders function now properly handles FormData for downpayment
     async function submitOrders(downPayment?: { required?: boolean; amount?: number; method?: string; reference?: string; receipt?: File | null }) {
         if (!derivedStoreId) return;
         try {
@@ -601,15 +624,29 @@ export default function OrderPage() {
                     fd.append('files', file.file, file.file.name);
                 }
 
+                // ✅ FIXED: Properly append downpayment fields
                 if (downPayment && downPayment.required) {
                     fd.append('downPaymentRequired', 'true');
-                    if (typeof downPayment.amount === 'number') fd.append('downPaymentAmount', String(downPayment.amount));
-                    if (downPayment.method) fd.append('downPaymentMethod', downPayment.method);
-                    if (downPayment.reference) fd.append('downPaymentReference', downPayment.reference);
-                    if (downPayment.receipt) fd.append('receipt', downPayment.receipt, downPayment.receipt.name);
+                    if (typeof downPayment.amount === 'number') {
+                        fd.append('downPaymentAmount', String(downPayment.amount));
+                    }
+                    if (downPayment.method) {
+                        fd.append('downPaymentMethod', downPayment.method);
+                    }
+                    if (downPayment.reference) {
+                        fd.append('downPaymentReference', downPayment.reference);
+                    }
+                    if (downPayment.receipt) {
+                        // ✅ FIXED: Append receipt with correct field name 'receipt' (singular)
+                        fd.append('receipt', downPayment.receipt, downPayment.receipt.name);
+                    }
                 }
 
-                const response = await api.post('/orders', fd);
+                const response = await api.post('/orders', fd, {
+                    headers: {
+                        'Content-Type': 'multipart/form-data',
+                    },
+                });
                 orderIds.push(response.data._id);
             }
 
@@ -1628,7 +1665,7 @@ export default function OrderPage() {
                                         if (!fl.length) return;
                                         const file = fl[0];
                                         if (!file) return;
-                                        handleDpFile(file);
+                                        handleDpFile(file, setDpReceiptFile, setDpReceiptPreview);
                                     }}
                                     className={`relative ${DROPZONE_BORDER} ${DROPZONE_HOVER} border-2 border-dashed bg-gray-50/30 dark:bg-gray-700/30 rounded-2xl p-8 min-h-[180px] text-center backdrop-blur-sm flex items-center justify-center gap-4 cursor-pointer`}
                                 >
@@ -1659,11 +1696,11 @@ export default function OrderPage() {
                                         type="file" 
                                         accept="image/*,.pdf"
                                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                                        onChange={(e) => handleDpFile(e.target.files ? e.target.files[0] : null)}
+                                        onChange={(e) => handleDpFile(e.target.files ? e.target.files[0] : null, setDpReceiptFile, setDpReceiptPreview)}
                                     />
 
                                     {dpReceiptFile && (
-                                        <button type="button" onClick={() => handleDpFile(null)} className="absolute top-3 right-3 z-30 text-red-400 hover:text-red-300 bg-black/30 backdrop-blur-sm px-2 py-1 rounded-md">
+                                        <button type="button" onClick={() => handleDpFile(null, setDpReceiptFile, setDpReceiptPreview)} className="absolute top-3 right-3 z-30 text-red-400 hover:text-red-300 bg-black/30 backdrop-blur-sm px-2 py-1 rounded-md">
                                             ✕
                                         </button>
                                     )}
