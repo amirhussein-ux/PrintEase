@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -81,6 +81,8 @@ type Review = {
   createdAt: string;
 };
 
+const CUSTOMER_STORE_EVENT = 'customer-store-updated';
+
 function isError(e: unknown): e is Error {
   return e instanceof Error;
 }
@@ -121,6 +123,20 @@ export default function SelectShop() {
   const [selectionNonce, setSelectionNonce] = useState<number>(0);
   const mapRef = useRef<L.Map | null>(null);
   const { user } = useAuth();
+  const persistCustomerStoreSelection = useCallback((store: PrintStore) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem('customerStoreId', store._id);
+      window.localStorage.setItem('customerStore', JSON.stringify(store));
+    } catch (err) {
+      console.error('Failed to persist selected store', err);
+    }
+    try {
+      window.dispatchEvent(new CustomEvent(CUSTOMER_STORE_EVENT, { detail: { storeId: store._id } }));
+    } catch {
+      /* no-op */
+    }
+  }, []);
 
   // Animation variants
   const fadeInUp = {
@@ -665,9 +681,7 @@ export default function SelectShop() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  // SAVE TO LOCALSTORAGE - CRITICAL FIX
-                                  localStorage.setItem("customerStoreId", store._id);
-                                  console.log("Saved store to localStorage:", store._id);
+                                  persistCustomerStoreSelection(store);
                                   navigate('/dashboard/customer', { state: { storeId: store._id } });
                                 }}
                                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-500 transition-colors border border-blue-500"
@@ -971,9 +985,7 @@ export default function SelectShop() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => {
-                        // SAVE TO LOCALSTORAGE - CRITICAL FIX
-                        localStorage.setItem("customerStoreId", selectedStore._id);
-                        console.log("Saved store to localStorage from modal:", selectedStore._id);
+                        persistCustomerStoreSelection(selectedStore);
                         navigate('/dashboard/customer', { state: { storeId: selectedStore._id } });
                       }}
                       className="w-full py-4 bg-blue-600 text-white rounded-xl font-semibold text-lg hover:bg-blue-500 transition-colors flex items-center justify-center gap-3 border border-blue-500"

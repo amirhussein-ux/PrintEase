@@ -1179,7 +1179,7 @@ const CustomerChat: React.FC = () => {
   };
 
   const renderChatContent = () => {
-    const baseState = "flex-1 flex flex-col items-center justify-center p-8 text-center";
+      const baseState = "h-full flex flex-col items-center justify-center p-8 text-center";
     if (connectionError) {
       return (
         <div className={`${baseState} text-red-600 dark:text-red-300`}>
@@ -1282,9 +1282,11 @@ const CustomerChat: React.FC = () => {
           </div>
         </div>
 
-        <div className={`${CUSTOMER_CHAT_STREAM} px-5 py-4 min-h-[320px] max-h-[65vh] overflow-y-auto chat-scroll`}>
-          {renderChatContent()}
-          <div ref={messagesEndRef} />
+        <div className={`${CUSTOMER_CHAT_STREAM} px-5 py-4 min-h-[360px] h-[60vh] lg:h-[65vh] overflow-hidden flex`}>
+          <div className="flex-1 overflow-y-auto chat-scroll">
+            {renderChatContent()}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
         <form

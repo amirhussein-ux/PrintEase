@@ -30,6 +30,17 @@ import { IoStorefrontOutline } from "react-icons/io5";
 // ADD THIS IMPORT FOR SAVED DESIGNS ICON
 import { FiSave } from "react-icons/fi";
 
+const CUSTOMER_STORE_EVENT = 'customer-store-updated'
+
+const toLetterCase = (value?: string) => {
+  if (!value) return ""
+  return value
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : ""))
+    .join(" ")
+}
+
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
   isDarkMode?: boolean
   onToggleTheme?: () => void
@@ -96,6 +107,15 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
       return rawOwner ? (JSON.parse(rawOwner) as StoreInfo) : null
     } catch { return null }
   })
+  const syncStoreFromStorage = React.useCallback(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = window.localStorage.getItem('customerStore')
+      setStore(raw ? (JSON.parse(raw) as StoreInfo) : null)
+    } catch {
+      setStore(null)
+    }
+  }, [setStore])
   const navigate = useNavigate()
 
   const isCustomer = user?.role === 'customer'
@@ -146,6 +166,22 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     loadContext()
     return () => { cancelled = true }
   }, [user, isCustomer, store])
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleCustomEvent = () => syncStoreFromStorage()
+    const handleStorage = (event: StorageEvent) => {
+      if (!event.key || event.key === 'customerStore' || event.key === 'customerStoreId') {
+        syncStoreFromStorage()
+      }
+    }
+    window.addEventListener(CUSTOMER_STORE_EVENT, handleCustomEvent as EventListener)
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener(CUSTOMER_STORE_EVENT, handleCustomEvent as EventListener)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [syncStoreFromStorage])
 
   const storeLinks = [
     { title: "Dashboard", to: "/dashboard/owner", icon: MdOutlineDashboard },
@@ -259,18 +295,21 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
                     <div className={`text-xs truncate ${theme.headerMuted}`}>
                       {
                         (() => {
+                          const fallback = toLetterCase(user?.address?.trim()) || 'No address set'
                           const a = store?.address
-                          if (!a) return user?.address || 'No address set'
-                          if (typeof a === 'string') return a
+                          if (!a) return fallback
+                          if (typeof a === 'string') return toLetterCase(a.trim()) || fallback
                           const city = a.city || ''
                           const state = a.state || ''
                           const line = a.addressLine || ''
                           const parts = [] as string[]
                           if (city) parts.push(city)
                           if (state) parts.push(state)
-                          if (parts.length) return parts.join(', ')
-                          if (line) return line
-                          return user?.address || 'No address set'
+                          if (parts.length) {
+                            return toLetterCase(parts.join(', ').trim()) || fallback
+                          }
+                          if (line) return toLetterCase(line.trim()) || fallback
+                          return fallback
                         })()
                       }
                     </div>
