@@ -10,6 +10,8 @@ const {
   listArchivedItems,  // Renamed from listDeletedItems
   restoreArchivedItem, // Renamed from restoreDeletedItem
   purgeArchivedItem,   // Renamed from purgeDeletedItem
+  getStockForServices, // ✅ NEW: Get stock for services
+  checkStockAvailability, // ✅ NEW: Check stock before ordering
 } = require('../controllers/inventoryController');
 
 const router = express.Router();
@@ -29,5 +31,12 @@ router.delete('/deleted/:deletedId', protect, auditLogger('purge', 'Inventory'),
 
 // Public Routes
 router.get('/store/:storeId', listByStore);
+
+// ✅ NEW ROUTES FOR STOCK MANAGEMENT
+// Get stock information for services in a store (public - no auth needed for customers)
+router.get('/store/:storeId/stock-for-services', getStockForServices);
+
+// Check stock availability before ordering (public - no auth needed)
+router.post('/check-stock-availability', checkStockAvailability);
 
 module.exports = router;

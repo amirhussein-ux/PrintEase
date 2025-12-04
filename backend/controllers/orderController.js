@@ -15,14 +15,18 @@ function computeUnitPrice(service, selectedOptions = []) {
   return base + deltas;
 }
 
-async function reduceInventoryForOrder(order) {
+// ✅ UPDATED: Validate stock before deducting
+async function validateAndReserveStock(order, options = { checkOnly: false }) {
   try {
+    const stockIssues = [];
+    const reservations = [];
+
     for (const item of order.items) {
       let reqInvId = item.requiredInventory;
       let qtyPerUnit = item.inventoryQuantityPerUnit;
       const matchedIds = new Set();
 
-      // Load service once for fallbacks and option processing
+      // Load service for fallbacks and option processing
       const svc = await Service.findById(item.service);
       if (svc && svc.requiredInventory && !reqInvId) {
         reqInvId = svc.requiredInventory;
@@ -39,183 +43,401 @@ async function reduceInventoryForOrder(order) {
         }
       }
 
-      // New logic: match each selected option's optionName to an inventory item name
+      // Match each selected option's optionName to an inventory item name
       if (Array.isArray(item.selectedOptions)) {
         for (const opt of item.selectedOptions) {
-          const optName = opt.optionName || opt.label; // fallback label
+          const optName = opt.optionName || opt.label;
           if (!optName) continue;
-            const inv = await InventoryItem.findOne({ store: order.store, name: optName });
-            if (inv) matchedIds.add(String(inv._id));
+          const inv = await InventoryItem.findOne({ store: order.store, name: optName });
+          if (inv) matchedIds.add(String(inv._id));
         }
       }
 
-      if (matchedIds.size === 0) continue; // nothing to deduct
+      if (matchedIds.size === 0) {
+        // No inventory linked to this item
+        reservations.push({
+          serviceId: item.service,
+          serviceName: item.serviceName,
+          status: 'no_inventory_linked',
+          message: 'No inventory tracking for this item'
+        });
+        continue;
+      }
 
-      // Deduct for each matched inventory item (assume same qtyPerUnit or fallback 1)
+      // Check and reserve each matched inventory item
       for (const id of matchedIds) {
         const invItem = await InventoryItem.findById(id);
-        if (!invItem) continue;
-        const perUnit = qtyPerUnit || 1; // default 1 if unspecified
-        const quantityToReduce = item.quantity * perUnit;
-        if (invItem.amount < quantityToReduce) {
-          throw new Error(`Insufficient inventory for ${invItem.name}. Required: ${quantityToReduce}, Available: ${invItem.amount}`);
+        if (!invItem) {
+          stockIssues.push({
+            serviceId: item.service,
+            serviceName: item.serviceName,
+            inventoryId: id,
+            issue: 'inventory_item_not_found'
+          });
+          continue;
         }
-        invItem.amount = Math.max(0, invItem.amount - quantityToReduce);
-        await invItem.save();
+
+        const perUnit = qtyPerUnit || 1;
+        const quantityToReduce = item.quantity * perUnit;
+        
+        if (invItem.amount < quantityToReduce) {
+          stockIssues.push({
+            serviceId: item.service,
+            serviceName: item.serviceName,
+            inventoryId: invItem._id,
+            inventoryName: invItem.name,
+            required: quantityToReduce,
+            available: invItem.amount,
+            issue: 'insufficient_stock'
+          });
+        } else if (!options.checkOnly) {
+          // Actually deduct the inventory
+          invItem.amount = Math.max(0, invItem.amount - quantityToReduce);
+          await invItem.save();
+          
+          reservations.push({
+            serviceId: item.service,
+            serviceName: item.serviceName,
+            inventoryId: invItem._id,
+            inventoryName: invItem.name,
+            quantityDeducted: quantityToReduce,
+            remainingStock: invItem.amount,
+            status: 'reserved'
+          });
+        } else {
+          // Just check, don't deduct
+          reservations.push({
+            serviceId: item.service,
+            serviceName: item.serviceName,
+            inventoryId: invItem._id,
+            inventoryName: invItem.name,
+            required: quantityToReduce,
+            available: invItem.amount,
+            status: 'available'
+          });
+        }
       }
     }
+
+    return { stockIssues, reservations };
+  } catch (error) {
+    console.error('Stock validation error:', error);
+    throw error;
+  }
+}
+
+async function reduceInventoryForOrder(order) {
+  try {
+    const result = await validateAndReserveStock(order, { checkOnly: false });
+    
+    if (result.stockIssues.length > 0) {
+      const issue = result.stockIssues[0];
+      throw new Error(
+        `Insufficient inventory for ${issue.inventoryName || 'item'}. ` +
+        `Required: ${issue.required}, Available: ${issue.available}`
+      );
+    }
+    
+    return result.reservations;
   } catch (error) {
     console.error('Error reducing inventory:', error);
     throw error;
   }
 }
 
-  exports.createOrder = async (req, res) => {
-    try {
-      const requester = req.user; // may be guest
-      if (!requester) return res.status(401).json({ message: 'Unauthorized' });
-      const isGuest = requester.role === 'guest';
-      const userId = isGuest ? undefined : requester.id;
+// ✅ UPDATED: Check stock before creating order
+exports.createOrder = async (req, res) => {
+  try {
+    const requester = req.user; // may be guest
+    if (!requester) return res.status(401).json({ message: 'Unauthorized' });
+    const isGuest = requester.role === 'guest';
+    const userId = isGuest ? undefined : requester.id;
 
-      let { storeId, serviceId, quantity, notes, selectedOptions, currency } = req.body;
-      if (!storeId || !serviceId) return res.status(400).json({ message: 'storeId and serviceId are required' });
+    let { storeId, serviceId, quantity, notes, selectedOptions, currency } = req.body;
+    if (!storeId || !serviceId) return res.status(400).json({ message: 'storeId and serviceId are required' });
 
-      const qty = Number.parseInt(quantity, 10) || 1;
-      if (qty < 1) return res.status(400).json({ message: 'Quantity must be >= 1' });
+    const qty = Number.parseInt(quantity, 10) || 1;
+    if (qty < 1) return res.status(400).json({ message: 'Quantity must be >= 1' });
 
-      let options = [];
-      if (typeof selectedOptions === 'string') {
-        try { options = JSON.parse(selectedOptions); } catch { options = []; }
-      } else if (Array.isArray(selectedOptions)) {
-        options = selectedOptions;
+    let options = [];
+    if (typeof selectedOptions === 'string') {
+      try { options = JSON.parse(selectedOptions); } catch { options = []; }
+    } else if (Array.isArray(selectedOptions)) {
+      options = selectedOptions;
+    }
+
+    const store = await PrintStore.findById(storeId).populate("owner"); // important: get store owner
+    if (!store) return res.status(404).json({ message: 'Store not found' });
+
+    const service = await Service.findById(serviceId);
+    if (!service || String(service.store) !== String(store._id)) {
+      return res.status(404).json({ message: 'Service not found in store' });
+    }
+
+    // ✅ NEW: Check if service has stock limit and validate quantity
+    let maxAllowedQuantity = 9999; // Default high value for unlimited
+    let hasStockLimit = false;
+    let stockInfo = null;
+
+    // Check if service has inventory linked
+    if (service.requiredInventory) {
+      const inventoryItem = await InventoryItem.findById(service.requiredInventory);
+      if (inventoryItem) {
+        const inventoryPerUnit = service.inventoryQuantityPerUnit || 1;
+        maxAllowedQuantity = Math.floor(inventoryItem.amount / inventoryPerUnit);
+        hasStockLimit = true;
+        stockInfo = {
+          availableStock: inventoryItem.amount,
+          inventoryPerUnit,
+          maxAllowedQuantity,
+          inventoryName: inventoryItem.name
+        };
       }
-
-      const store = await PrintStore.findById(storeId).populate("owner"); // important: get store owner
-      if (!store) return res.status(404).json({ message: 'Store not found' });
-
-      const service = await Service.findById(serviceId);
-      if (!service || String(service.store) !== String(store._id)) {
-        return res.status(404).json({ message: 'Service not found in store' });
-      }
-
-      const enrichedOptions = (options || []).map((o) => {
-        let optionName = o.optionName;
-        let priceDelta = o.priceDelta;
-        if ((priceDelta === undefined || optionName === undefined) && Array.isArray(service.variants)) {
-          const variant = service.variants.find((v) => v.label === o.label);
-          if (variant && Number.isInteger(o.optionIndex) && variant.options[o.optionIndex]) {
-            optionName = variant.options[o.optionIndex].name;
-            priceDelta = variant.options[o.optionIndex].priceDelta || 0;
-          }
-        }
-        return { label: o.label, optionIndex: o.optionIndex, optionName, priceDelta: Number(priceDelta) || 0 };
+    } else {
+      // Fallback: try to find inventory by service name
+      const inventoryItem = await InventoryItem.findOne({ 
+        store: store._id, 
+        name: service.name 
       });
+      if (inventoryItem) {
+        maxAllowedQuantity = Math.floor(inventoryItem.amount);
+        hasStockLimit = true;
+        stockInfo = {
+          availableStock: inventoryItem.amount,
+          inventoryPerUnit: 1,
+          maxAllowedQuantity,
+          inventoryName: inventoryItem.name
+        };
+      }
+    }
 
-      const unitPrice = computeUnitPrice(service, enrichedOptions);
-      const total = unitPrice * qty;
+    // ✅ Validate quantity against stock limit
+    if (hasStockLimit && qty > maxAllowedQuantity) {
+      return res.status(400).json({
+        message: `Quantity exceeds available stock. Maximum allowed: ${maxAllowedQuantity}`,
+        maxAllowedQuantity,
+        availableStock: stockInfo.availableStock,
+        requestedQuantity: qty
+      });
+    }
 
-      const orderDoc = {
-        user: userId,
-        guestId: isGuest ? requester.id : undefined,
-        store: store._id,
-        items: [
-          {
-            service: service._id,
-            serviceName: service.name,
-            unit: service.unit,
-            currency: currency || service.currency || 'PHP',
-            quantity: qty,
-            unitPrice,
-            selectedOptions: enrichedOptions,
-            totalPrice: total,
-            requiredInventory: service.requiredInventory || undefined,
-            inventoryQuantityPerUnit: service.inventoryQuantityPerUnit || undefined,
-          },
-        ],
-        notes: notes || '',
-        subtotal: total,
-        currency: currency || service.currency || 'PHP',
-      };
-
-      // Handle file uploads for order attachments
-      const filesMeta = [];
-      const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
-      const fileArray = (req.files && req.files.files) || [];
-      if (Array.isArray(fileArray) && fileArray.length > 0) {
-        for (const f of fileArray) {
-          const uploadStream = bucket.openUploadStream(f.originalname, { contentType: f.mimetype });
-          uploadStream.end(f.buffer);
-          const fileId = await new Promise((resolve, reject) => {
-            uploadStream.on('finish', () => resolve(uploadStream.id));
-            uploadStream.on('error', reject);
-          });
-          filesMeta.push({ fileId, filename: f.originalname, mimeType: f.mimetype, size: f.size });
+    const enrichedOptions = (options || []).map((o) => {
+      let optionName = o.optionName;
+      let priceDelta = o.priceDelta;
+      if ((priceDelta === undefined || optionName === undefined) && Array.isArray(service.variants)) {
+        const variant = service.variants.find((v) => v.label === o.label);
+        if (variant && Number.isInteger(o.optionIndex) && variant.options[o.optionIndex]) {
+          optionName = variant.options[o.optionIndex].name;
+          priceDelta = variant.options[o.optionIndex].priceDelta || 0;
         }
       }
-      orderDoc.files = filesMeta;
+      return { label: o.label, optionIndex: o.optionIndex, optionName, priceDelta: Number(priceDelta) || 0 };
+    });
 
-      // Handle optional downpayment receipt upload and fields
-      if (req.body && (req.body.downPaymentRequired === 'true' || req.body.downPaymentRequired === true)) {
-        orderDoc.downPaymentRequired = true;
-        const dpAmt = Number(req.body.downPaymentAmount);
-        if (!Number.isNaN(dpAmt)) orderDoc.downPaymentAmount = dpAmt;
-        orderDoc.downPaymentMethod = req.body.downPaymentMethod || undefined;
-        orderDoc.downPaymentReference = req.body.downPaymentReference || undefined;
+    const unitPrice = computeUnitPrice(service, enrichedOptions);
+    const total = unitPrice * qty;
 
-        const receiptArray = (req.files && req.files.receipt) || [];
-        // Require a receipt when down payment is required
-        if (!Array.isArray(receiptArray) || receiptArray.length === 0) {
-          return res.status(400).json({ message: 'Down payment receipt is required for bulk orders.' });
-        }
+    const orderDoc = {
+      user: userId,
+      guestId: isGuest ? requester.id : undefined,
+      store: store._id,
+      items: [
+        {
+          service: service._id,
+          serviceName: service.name,
+          unit: service.unit,
+          currency: currency || service.currency || 'PHP',
+          quantity: qty,
+          unitPrice,
+          selectedOptions: enrichedOptions,
+          totalPrice: total,
+          requiredInventory: service.requiredInventory || undefined,
+          inventoryQuantityPerUnit: service.inventoryQuantityPerUnit || undefined,
+        },
+      ],
+      notes: notes || '',
+      subtotal: total,
+      currency: currency || service.currency || 'PHP',
+      // ✅ NEW: Store stock info for reference
+      stockInfo: hasStockLimit ? {
+        inventoryName: stockInfo.inventoryName,
+        availableBefore: stockInfo.availableStock,
+        quantityDeducted: qty * (stockInfo.inventoryPerUnit || 1),
+        availableAfter: stockInfo.availableStock - (qty * (stockInfo.inventoryPerUnit || 1))
+      } : undefined,
+    };
 
-        const rf = receiptArray[0];
-        const uploadStream = bucket.openUploadStream(rf.originalname, { contentType: rf.mimetype });
-        uploadStream.end(rf.buffer);
-        const receiptId = await new Promise((resolve, reject) => {
+    // Handle file uploads for order attachments
+    const filesMeta = [];
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
+    const fileArray = (req.files && req.files.files) || [];
+    if (Array.isArray(fileArray) && fileArray.length > 0) {
+      for (const f of fileArray) {
+        const uploadStream = bucket.openUploadStream(f.originalname, { contentType: f.mimetype });
+        uploadStream.end(f.buffer);
+        const fileId = await new Promise((resolve, reject) => {
           uploadStream.on('finish', () => resolve(uploadStream.id));
           uploadStream.on('error', reject);
         });
-        orderDoc.downPaymentReceipt = receiptId;
-        orderDoc.downPaymentPaid = true;
-        orderDoc.downPaymentPaidAt = new Date();
+        filesMeta.push({ fileId, filename: f.originalname, mimeType: f.mimetype, size: f.size });
+      }
+    }
+    orderDoc.files = filesMeta;
+
+    // Handle optional downpayment receipt upload and fields
+    if (req.body && (req.body.downPaymentRequired === 'true' || req.body.downPaymentRequired === true)) {
+      orderDoc.downPaymentRequired = true;
+      const dpAmt = Number(req.body.downPaymentAmount);
+      if (!Number.isNaN(dpAmt)) orderDoc.downPaymentAmount = dpAmt;
+      orderDoc.downPaymentMethod = req.body.downPaymentMethod || undefined;
+      orderDoc.downPaymentReference = req.body.downPaymentReference || undefined;
+
+      const receiptArray = (req.files && req.files.receipt) || [];
+      // Require a receipt when down payment is required
+      if (!Array.isArray(receiptArray) || receiptArray.length === 0) {
+        return res.status(400).json({ message: 'Down payment receipt is required for bulk orders.' });
       }
 
-      const order = await Order.create(orderDoc);
+      const rf = receiptArray[0];
+      const uploadStream = bucket.openUploadStream(rf.originalname, { contentType: rf.mimetype });
+      uploadStream.end(rf.buffer);
+      const receiptId = await new Promise((resolve, reject) => {
+        uploadStream.on('finish', () => resolve(uploadStream.id));
+        uploadStream.on('error', reject);
+      });
+      orderDoc.downPaymentReceipt = receiptId;
+      orderDoc.downPaymentPaid = true;
+      orderDoc.downPaymentPaidAt = new Date();
+    }
 
-      // ------------------------------
-      // Real-time notification section (and save to DB)
-      // ------------------------------
-      try {
-        const io = req.app.get("io");
-        const onlineUsers = req.app.get("onlineUsers");
+    // ✅ NEW: Create temporary order object to validate stock
+    const tempOrder = {
+      store: store._id,
+      items: orderDoc.items
+    };
+    
+    // Validate stock before creating the order
+    const stockValidation = await validateAndReserveStock(tempOrder, { checkOnly: true });
+    if (stockValidation.stockIssues.length > 0) {
+      const issue = stockValidation.stockIssues[0];
+      return res.status(400).json({
+        message: `Insufficient stock for ${issue.inventoryName || 'item'}. Available: ${issue.available}, Required: ${issue.required}`,
+        available: issue.available,
+        required: issue.required,
+        maxAllowedQuantity: Math.floor(issue.available / (service.inventoryQuantityPerUnit || 1))
+      });
+    }
 
-        const ownerId = store.owner?._id?.toString();
-        if (ownerId) {
-          const notificationPayload = {
-            user: store.owner._id,
-            type: "owner",
-            title: "New Order",
-            description: `A new order was placed for ${service.name} (x${qty}).`,
-          };
+    // Create the actual order
+    const order = await Order.create(orderDoc);
 
-          // Save notification in database
-          const notificationDoc = await Notification.create(notificationPayload);
+    // Immediately deduct inventory for confirmed orders
+    try {
+      await reduceInventoryForOrder(order);
+    } catch (invError) {
+      // If inventory deduction fails, delete the order and return error
+      await Order.findByIdAndDelete(order._id);
+      return res.status(400).json({ 
+        message: `Order creation failed: ${invError.message}` 
+      });
+    }
 
-          // Emit to owner if online
-          if (onlineUsers[ownerId]) {
-            io.to(onlineUsers[ownerId]).emit("newNotification", notificationDoc);
+    // ------------------------------
+    // Real-time notification section (and save to DB)
+    // ------------------------------
+    try {
+      const io = req.app.get("io");
+      const onlineUsers = req.app.get("onlineUsers");
+
+      const ownerId = store.owner?._id?.toString();
+      if (ownerId) {
+        const notificationPayload = {
+          user: store.owner._id,
+          type: "owner",
+          title: "New Order",
+          description: `A new order was placed for ${service.name} (x${qty}).`,
+        };
+
+        // Save notification in database
+        const notificationDoc = await Notification.create(notificationPayload);
+
+        // Emit to owner if online
+        if (onlineUsers[ownerId]) {
+          io.to(onlineUsers[ownerId]).emit("newNotification", notificationDoc);
+        }
+      }
+    } catch (notifyErr) {
+      console.error("Notification emit error:", notifyErr);
+    }
+
+    res.status(201).json(order);
+  } catch (err) {
+    console.error('createOrder error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ✅ NEW HELPER: Get stock info for all services in a store
+exports.getServiceStockInfo = async (req, res) => {
+  try {
+    const { storeId } = req.params;
+    if (!storeId) return res.status(400).json({ message: 'storeId is required' });
+
+    const services = await Service.find({ store: storeId, active: true });
+    const stockInfo = await Promise.all(
+      services.map(async (service) => {
+        let availableStock = null;
+        let maxAllowedQuantity = 9999;
+        let inventoryItemId = null;
+        let inventoryItemName = null;
+
+        if (service.requiredInventory) {
+          const inventoryItem = await InventoryItem.findById(service.requiredInventory);
+          if (inventoryItem) {
+            inventoryItemId = inventoryItem._id;
+            inventoryItemName = inventoryItem.name;
+            availableStock = inventoryItem.amount;
+            maxAllowedQuantity = Math.floor(
+              inventoryItem.amount / (service.inventoryQuantityPerUnit || 1)
+            );
+          }
+        } else {
+          // Fallback: try to find by service name
+          const inventoryItem = await InventoryItem.findOne({ 
+            store: storeId, 
+            name: service.name 
+          });
+          if (inventoryItem) {
+            inventoryItemId = inventoryItem._id;
+            inventoryItemName = inventoryItem.name;
+            availableStock = inventoryItem.amount;
+            maxAllowedQuantity = Math.floor(inventoryItem.amount);
           }
         }
-      } catch (notifyErr) {
-        console.error("Notification emit error:", notifyErr);
-      }
 
-  res.status(201).json(order);
-    } catch (err) {
-      console.error('createOrder error:', err);
-      res.status(500).json({ message: err.message });
-    }
-  };
+        return {
+          serviceId: service._id,
+          serviceName: service.name,
+          hasStockLimit: availableStock !== null,
+          availableStock,
+          maxAllowedQuantity,
+          inventoryItemId,
+          inventoryItemName,
+          inventoryPerUnit: service.inventoryQuantityPerUnit || 1
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      storeId,
+      stockInfo
+    });
+  } catch (err) {
+    console.error('Error getting service stock info:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
 
 exports.getMyOrders = async (req, res) => {
   try {
