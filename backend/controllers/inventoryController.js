@@ -2,7 +2,7 @@ const InventoryItem = require('../models/inventoryItemModel');
 const DeletedInventoryItem = require('../models/deletedInventoryItemModel'); 
 const Service = require('../models/serviceModel'); // Add Service import
 const { getManagedStore, AccessError } = require('../utils/storeAccess');
-const AuditLog = require('../models/AuditLog');
+const getStoreAuditModel = require('../models/StoreAuditLog');
 
 const STORE_STAFF_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
@@ -17,19 +17,21 @@ const handleError = (res, err) => {
 // Helper for audit logging
 const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
   try {
-    await AuditLog.create({
+    const StoreAudit = getStoreAuditModel(store._id);
+    
+    await StoreAudit.create({
       action,
       resource,
       resourceId,
       user: req.user?.email || req.user?.username || 'System',
       userRole: req.user?.role || 'unknown',
-      storeId: store._id,
       details,
       ipAddress: req.ip || req.connection.remoteAddress
     });
-    console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
+    
+    console.log(`✅ ${action} audit log created for store ${store._id}: ${resource}: ${resourceId}`);
   } catch (auditErr) {
-    console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);
+    console.error(`❌ Failed to create ${action} audit log for store ${store._id}:`, auditErr.message);
   }
 };
 

@@ -2,23 +2,25 @@ const Service = require('../models/serviceModel');
 const InventoryItem = require('../models/inventoryItemModel');
 const mongoose = require('mongoose');
 const { getManagedStore, AccessError } = require('../utils/storeAccess');
-const AuditLog = require('../models/AuditLog');
+const getStoreAuditModel = require('../models/StoreAuditLog');
 
 const EMPLOYEE_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
 // Helper for audit logging
 const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
   try {
-    await AuditLog.create({
+    const StoreAudit = getStoreAuditModel(store._id);
+    
+    await StoreAudit.create({
       action,
       resource,
       resourceId,
       user: req.user?.email || req.user?.username || 'System',
       userRole: req.user?.role || 'unknown',
-      storeId: store._id,
       details,
       ipAddress: req.ip || req.connection.remoteAddress
     });
+    
     console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
   } catch (auditErr) {
     console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);

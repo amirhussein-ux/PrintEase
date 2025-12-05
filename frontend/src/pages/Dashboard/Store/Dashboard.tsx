@@ -224,9 +224,9 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 flex flex-col items-center border-2 hover:shadow-xl dark:hover:shadow-gray-900/50 ${
       restock 
-        ? "border-red-500 dark:border-red-400 animate-pulse bg-red-50 dark:bg-red-900/20" 
+        ? "border-red-500 dark:border-red-400 bg-red-50 dark:bg-red-900/20" 
         : "border-gray-100 dark:border-gray-700"
-    }`}>
+    } ${restock ? 'animate-pulse' : ''}`}>
       <h3 className="text-sm font-bold uppercase mb-3 text-gray-700 dark:text-gray-300 tracking-wide">{type}</h3>
       
       <div className="relative w-full h-48 mb-3">
@@ -734,20 +734,6 @@ const AuditTrailSection = ({
                         </span>
                       </div>
                     </div>
-                    
-                    {/* Show raw details only for debugging */}
-                    {process.env.NODE_ENV === 'development' && (
-                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <details className="text-xs">
-                          <summary className="cursor-pointer text-gray-500 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-400">
-                            Raw Details (Debug)
-                          </summary>
-                          <pre className="mt-2 p-2 bg-gray-50 dark:bg-gray-900 rounded text-gray-600 dark:text-gray-400 overflow-x-auto">
-                            {JSON.stringify(parsedDetails, null, 2)}
-                          </pre>
-                        </details>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>

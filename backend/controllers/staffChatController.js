@@ -2,24 +2,35 @@ const mongoose = require("mongoose");
 const StaffChat = require("../models/staffChatModel");
 const User = require("../models/userModel");
 const Employee = require("../models/employeeModel");
-const AuditLog = require('../models/AuditLog');
+const getStoreAuditModel = require('../models/StoreAuditLog');
 
 // Helper for audit logging
 const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
   try {
-    await AuditLog.create({
+    // ✅ Staff chat is for employees/owners only, but add safety check
+    const userRole = req.user?.role;
+    
+    // Skip logging if it's a customer or guest (shouldn't happen in staff chat)
+    if (userRole === 'customer' || userRole === 'guest') {
+      return; // Don't log customer/guest actions
+    }
+    
+    // Only log for employees/owners/system
+    const StoreAudit = getStoreAuditModel(store._id);
+    
+    await StoreAudit.create({
       action,
       resource,
       resourceId,
       user: req.user?.email || req.user?.username || 'System',
-      userRole: req.user?.role || 'unknown',
-      storeId: store?._id,
+      userRole: userRole || 'unknown',
       details,
       ipAddress: req.ip || req.connection.remoteAddress
     });
-    console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
+    
+    console.log(`✅ [Store ${store._id}] ${action} ${resource}:${resourceId}`);
   } catch (auditErr) {
-    console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);
+    console.error(`❌ Failed audit log for store ${store._id}:`, auditErr.message);
   }
 };
 
