@@ -329,14 +329,15 @@ export default function OrderManagement() {
 
 	useEffect(() => {
 		let cancelled = false;
-		async function loadStoreAndOrders() {
+		async function resolveStore() {
 			if (!hasStoreAccess) {
+				setStoreId(null);
+				setOrders([]);
 				setLoading(false);
 				setError('You do not have permission to manage orders.');
 				return;
 			}
 			try {
-				setLoading(true);
 				setError(null);
 				const storeRes = await api.get('/print-store/mine');
 				if (cancelled) return;
@@ -344,29 +345,53 @@ export default function OrderManagement() {
 				if (!sid) {
 					setStoreId(null);
 					setOrders([]);
+					setLoading(false);
 					return;
 				}
 				setStoreId(sid);
-				const ordRes = await api.get(`/orders/store/${sid}`);
+			} catch (e) {
 				if (cancelled) return;
-				setOrders(Array.isArray(ordRes.data) ? ordRes.data : []);
-			} catch (e: unknown) {
 				const err = e as { response?: { status?: number; data?: { message?: string } } };
 				if (err?.response?.status === 404) {
 					setError('No print store found.');
 					setStoreId(null);
 				} else {
-					setError(err?.response?.data?.message || 'Failed to load orders');
+					setError(err?.response?.data?.message || 'Failed to load your store');
 				}
-			} finally {
-				if (!cancelled) setLoading(false);
+				setOrders([]);
+				setLoading(false);
 			}
 		}
-		loadStoreAndOrders();
+		resolveStore();
 		return () => {
 			cancelled = true;
 		};
 	}, [hasStoreAccess]);
+
+	useEffect(() => {
+		if (!hasStoreAccess || !storeId) return;
+		let cancelled = false;
+		const fetchOrdersForTab = async () => {
+			setLoading(true);
+			setError(null);
+			try {
+				const params = new URLSearchParams({ tab: activeTab });
+				const ordRes = await api.get(`/orders/store/${storeId}?${params.toString()}`);
+				if (cancelled) return;
+				setOrders(Array.isArray(ordRes.data) ? ordRes.data : []);
+			} catch (e) {
+				if (cancelled) return;
+				const err = e as { response?: { data?: { message?: string } } };
+				setError(err?.response?.data?.message || 'Failed to load orders');
+			} finally {
+				if (!cancelled) setLoading(false);
+			}
+		};
+		fetchOrdersForTab();
+		return () => {
+			cancelled = true;
+		};
+	}, [storeId, activeTab, hasStoreAccess]);
 	// Crossfade skeleton -> content
 	useEffect(() => {
 		if (loading) {
@@ -1170,7 +1195,7 @@ export default function OrderManagement() {
 					const request = ord?.returnRequest;
 					if (!ord || !request) return null;
 					return (
-						<div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => setViewReturnRequestFor(null)}>
+						<div className="fixed inset-0 z-[50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => setViewReturnRequestFor(null)}>
 							<div className={`${PANEL_SURFACE} relative w-full max-w-3xl p-6 bg-white dark:bg-gray-900`} onClick={(e) => e.stopPropagation()}>
 								<button
 									onClick={() => setViewReturnRequestFor(null)}

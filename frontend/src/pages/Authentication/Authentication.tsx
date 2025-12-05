@@ -54,7 +54,7 @@ export default function AuthenticationPage() {
                 rgba(30, 58, 138, 0.8) 65%,
                 rgba(30, 58, 138, 0) 100%
               ),
-              url("https://www.cmyk.ph/wp-content/uploads/2020/02/digi-vs-offset-post-img.jpg");
+              url("https://imgproxy.divecdn.com/6lOFYUXhTNGLzmwD0BE8EROJg-qkfUcdRUoQGXS8ev8/g:nowe:3:132/c:1568:886/rs:fill:1400:788:1/Z3M6Ly9kaXZlc2l0ZS1zdG9yYWdlL2RpdmVpbWFnZS9HUF8yLmpwZw==.webp");
             background-size: cover;
             background-position: center;
           }

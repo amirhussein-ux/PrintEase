@@ -977,18 +977,30 @@ const OwnerChat: React.FC = () => {
       pendingMessagesRef.current.delete(messageKey);
       const senderId = normalizeId(msg.senderId || currentUserId);
       setMessages(prev => {
-        const filtered = prev.filter(m => !(m.text === msg.text && !m._id && m.senderId === currentUserId));
         const nextMessage = { ...msg, senderId, chatId, senderName: "You", isRead: false };
-        const existingIndex = filtered.findIndex(m => {
-          if (msg._id && m._id === msg._id) return true;
-          return m.senderId === senderId && m.createdAt === msg.createdAt && (m.text || "") === (msg.text || "") && (m.fileName || "") === (msg.fileName || "");
-        });
-        if (existingIndex >= 0) {
-          const clone = [...filtered];
-          clone[existingIndex] = nextMessage;
-          return clone;
+        const optimisticIndex = prev.findIndex(m => 
+          !m._id && 
+          m.senderId === senderId && 
+          (m.text || '') === (msg.text || '') && 
+          (m.fileName || '') === (msg.fileName || '')
+        );
+
+        if (optimisticIndex > -1) {
+          const newMessages = [...prev];
+          newMessages[optimisticIndex] = nextMessage;
+          return newMessages;
         }
-        return [...filtered, nextMessage];
+
+        if(msg._id) {
+          const serverIndex = prev.findIndex(m => m._id === msg._id);
+          if (serverIndex > -1) {
+            const newMessages = [...prev];
+            newMessages[serverIndex] = nextMessage;
+            return newMessages;
+          }
+        }
+        
+        return [...prev, nextMessage];
       });
       setParticipants(prev => prev.map(p => p.chatId === chatId ? { ...p, lastMessage: msg.text || msg.fileName || "File", lastMessageTime: msg.createdAt } : p));
     });
@@ -1010,18 +1022,30 @@ const OwnerChat: React.FC = () => {
       pendingMessagesRef.current.delete(messageKey);
       const senderId = normalizeId(msg.senderId || currentUserId);
       setMessages(prev => {
-        const filtered = prev.filter(m => !(m.text === msg.text && !m._id && m.senderId === currentUserId));
         const nextMessage = { ...msg, senderId, chatId: msg.chatId, senderName: "You" };
-        const existingIndex = filtered.findIndex(m => {
-          if (msg._id && m._id === msg._id) return true;
-          return m.senderId === senderId && m.createdAt === msg.createdAt && (m.text || "") === (msg.text || "") && (m.fileName || "") === (msg.fileName || "");
-        });
-        if (existingIndex >= 0) {
-          const clone = [...filtered];
-          clone[existingIndex] = nextMessage;
-          return clone;
+        const optimisticIndex = prev.findIndex(m => 
+          !m._id && 
+          m.senderId === senderId && 
+          (m.text || '') === (msg.text || '') && 
+          (m.fileName || '') === (msg.fileName || '')
+        );
+
+        if (optimisticIndex > -1) {
+          const newMessages = [...prev];
+          newMessages[optimisticIndex] = nextMessage;
+          return newMessages;
         }
-        return [...filtered, nextMessage];
+
+        if(msg._id) {
+          const serverIndex = prev.findIndex(m => m._id === msg._id);
+          if (serverIndex > -1) {
+            const newMessages = [...prev];
+            newMessages[serverIndex] = nextMessage;
+            return newMessages;
+          }
+        }
+        
+        return [...prev, nextMessage];
       });
       setParticipants(prev => prev.map(p => p.chatId === msg.chatId ? { ...p, lastMessage: msg.text || msg.fileName || "File", lastMessageTime: msg.createdAt } : p));
     });
@@ -1911,18 +1935,34 @@ const CustomerChat: React.FC = () => {
       pendingMessagesRef.current.delete(key);
       const senderId = normalizeId(msg.senderId || customerId);
       setMessages(prev => {
-        const filtered = prev.filter(m => !(m.text===msg.text && !m._id && m.senderId===customerId));
         const nextMessage = { ...msg, senderId, chatId: msg.chatId, senderName: 'You', isRead:false };
-        const existingIndex = filtered.findIndex(m => {
-          if (msg._id && m._id === msg._id) return true;
-          return m.senderId === senderId && m.createdAt === msg.createdAt && (m.text || "") === (msg.text || "") && (m.fileName || "") === (msg.fileName || "");
-        });
-        if (existingIndex >= 0) {
-          const clone = [...filtered];
-          clone[existingIndex] = nextMessage;
-          return clone;
+        
+        // Find and replace the optimistic message, which has no `_id` yet
+        const optimisticIndex = prev.findIndex(m => 
+          !m._id && 
+          m.senderId === senderId && 
+          (m.text || '') === (msg.text || '') && 
+          (m.fileName || '') === (msg.fileName || '')
+        );
+
+        if (optimisticIndex > -1) {
+          const newMessages = [...prev];
+          newMessages[optimisticIndex] = nextMessage;
+          return newMessages;
         }
-        return [...filtered, nextMessage];
+
+        // Fallback: if message from server has an ID, check if we already have it
+        if(msg._id) {
+          const serverIndex = prev.findIndex(m => m._id === msg._id);
+          if (serverIndex > -1) {
+            const newMessages = [...prev];
+            newMessages[serverIndex] = nextMessage; // Update in place
+            return newMessages;
+          }
+        }
+        
+        // Otherwise, add as a new message
+        return [...prev, nextMessage];
       });
     });
     socket.on("userTyping", ({ isTyping: typing, userId, conversationId }: { isTyping: boolean; userId: string; conversationId?: string }) => {
@@ -2286,6 +2326,7 @@ const CustomerChat: React.FC = () => {
                 </button>
               </div>
             </div>
+            <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.doc,.docx,.txt" disabled={!canInteract} />
             <div className="text-xs text-gray-500 mt-3 text-center dark:text-slate-300">
               {connectionError
                 ? 'Fix connection issues to send messages'

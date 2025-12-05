@@ -208,6 +208,7 @@ export default function TrackOrders() {
   const [pendingHighlightOrder, setPendingHighlightOrder] = useState<string | null>(null);
   const orderCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const filterHydratedRef = useRef(false);
   const lastFocusParamRef = useRef<string | null>(null);
   const { socket } = useSocket();
   const { user } = useAuth();
@@ -230,6 +231,24 @@ export default function TrackOrders() {
     setDpLoading(false);
     if (dpCanvasRef.current) dpCanvasRef.current = null;
   }, [clearDpPreviewBlob]);
+
+  const loadOrders = useCallback(async () => {
+    const requestId = ++ordersRequestIdRef.current;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get('/orders/mine');
+      if (!isMountedRef.current || requestId !== ordersRequestIdRef.current) return;
+      setOrders(Array.isArray(res.data) ? res.data : []);
+    } catch (e: unknown) {
+      if (!isMountedRef.current || requestId !== ordersRequestIdRef.current) return;
+      const err = e as { response?: { data?: { message?: string } }; message?: string };
+      setError(err?.response?.data?.message || err?.message || 'Failed to load orders');
+    } finally {
+      if (!isMountedRef.current || requestId !== ordersRequestIdRef.current) return;
+      setLoading(false);
+    }
+  }, []);
 
   // Close modal on ESC and lock body scroll when open
   useEffect(() => {
@@ -292,26 +311,16 @@ export default function TrackOrders() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        setLoading(true);
-        setError(null);
-        const res = await api.get('/orders/mine');
-        if (cancelled) return;
-        setOrders(Array.isArray(res.data) ? res.data : []);
-      } catch (e: unknown) {
-        const err = e as { response?: { data?: { message?: string } }; message?: string };
-        if (!cancelled) setError(err?.response?.data?.message || err?.message || 'Failed to load orders');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    void loadOrders();
+  }, [loadOrders]);
+
+  useEffect(() => {
+    if (!filterHydratedRef.current) {
+      filterHydratedRef.current = true;
+      return;
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    void loadOrders();
+  }, [activeFilter, loadOrders]);
 
   // Sync filter from query param (?status=processing etc.)
   useEffect(() => {
@@ -341,7 +350,6 @@ export default function TrackOrders() {
   // Fetch (and cache) store info; return it immediately for use in rendering or PDF
   const getStoreInfo = useCallback(async (storeId: string) => {
     if (!storeId) return null;
-    if (storeCache[storeId]) return storeCache[storeId];
     try {
       const res = await api.get('/print-store/list');
       const list = (Array.isArray(res.data) ? res.data : []) as Array<{
@@ -363,7 +371,7 @@ export default function TrackOrders() {
     } catch {
       return null;
     }
-  }, [storeCache]);
+  }, []);
 
   // Live socket update for receipt_ready (after ensureStoreInfo is defined)
   useEffect(() => {
@@ -856,11 +864,15 @@ export default function TrackOrders() {
                 <button
                   key={value}
                   onClick={() => {
-                    setActiveFilter(value);
                     const params = new URLSearchParams();
                     if (value !== 'all') params.set('status', value);
                     const qs = params.toString();
                     navigate(`/dashboard/my-orders${qs ? `?${qs}` : ''}`, { replace: false });
+                    if (value === activeFilter) {
+                      void loadOrders();
+                      return;
+                    }
+                    setActiveFilter(value);
                   }}
                   className={`flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border-2 ${
                     active
@@ -1535,7 +1547,7 @@ export default function TrackOrders() {
       })()}
 
       {evidencePreview.open && (
-        <div className="fixed inset-0 z-[65] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={closeEvidencePreview}>
+        <div className="fixed inset-0 z-[510] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={closeEvidencePreview}>
           <div className={`${TRACK_CARD} relative w-full max-w-3xl`} onClick={(e) => e.stopPropagation()}>
             <button
               onClick={closeEvidencePreview}
