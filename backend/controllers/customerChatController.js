@@ -3,24 +3,35 @@ const CustomerChat = require("../models/customerChatModel");
 const User = require("../models/userModel");
 const FAQ = require("../models/faqModel"); // NEW: Import FAQ model
 const { findOrMigrateCustomerChat } = require("../utils/customerChatHelper");
-const AuditLog = require('../models/AuditLog');
+const getStoreAuditModel = require('../models/StoreAuditLog');
 
 // Helper for audit logging
 const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
   try {
-    await AuditLog.create({
+    // ✅ ONLY log for owners/employees, NOT for customers
+    const userRole = req.user?.role;
+    
+    // Skip logging if it's a customer or guest
+    if (userRole === 'customer' || userRole === 'guest') {
+      return; // Don't log customer/guest actions
+    }
+    
+    // Only log for employees/owners/system
+    const StoreAudit = getStoreAuditModel(store._id);
+    
+    await StoreAudit.create({
       action,
       resource,
       resourceId,
       user: req.user?.email || req.user?.username || 'System',
-      userRole: req.user?.role || 'unknown',
-      storeId: store._id,
+      userRole: userRole || 'unknown',
       details,
       ipAddress: req.ip || req.connection.remoteAddress
     });
-    console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
+    
+    console.log(`✅ [Store ${store._id}] ${action} ${resource}:${resourceId}`);
   } catch (auditErr) {
-    console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);
+    console.error(`❌ Failed audit log for store ${store._id}:`, auditErr.message);
   }
 };
 

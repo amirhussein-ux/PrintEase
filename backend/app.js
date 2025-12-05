@@ -35,6 +35,7 @@ const PrintStore = require("./models/printStoreModel");
 const Employee = require("./models/employeeModel");
 const FAQ = require("./models/faqModel"); // ADD THIS LINE
 const { findOrMigrateCustomerChat } = require("./utils/customerChatHelper");
+const storeAuditRoutes = require('./routes/storeAuditRoutes');
 
 const PORT = process.env.PORT || 8000;
 
@@ -73,22 +74,9 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/customer-chat", customerChatRoutes);
 app.use("/api/staff-chat", staffChatRoutes);
 app.use("/api/analytics", analyticsRoutes);
-app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/audit-logs', storeAuditRoutes);
 app.use("/api/saved-designs", savedDesignRoutes);
-app.use("/api/faq", faqRoutes); // ADD THIS LINE
-
-// --- Test Audit Logs Route ---
-const AuditLog = require('./models/AuditLog');
-app.get("/test-audit", async (req, res) => {
-  try {
-    const logs = await AuditLog.find().sort({timestamp: -1}).limit(10);
-    console.log('Recent audit logs:', logs);
-    res.json({ logs });
-  } catch (error) {
-    console.error('Error fetching audit logs:', error);
-    res.status(500).json({ error: 'Failed to fetch audit logs' });
-  }
-});
+app.use("/api/faq", faqRoutes); 
 
 // --- Server setup ---
 const server = http.createServer(app);

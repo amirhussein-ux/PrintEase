@@ -6,28 +6,31 @@ const InventoryItem = require('../models/inventoryItemModel');
 const crypto = require('crypto');
 const Notification = require('../models/notificationModel');
 const { getManagedStore, AccessError } = require('../utils/storeAccess');
-const AuditLog = require('../models/AuditLog');
+const getStoreAuditModel = require('../models/StoreAuditLog');
 
 const EMPLOYEE_ROLES = ['Operations Manager', 'Front Desk', 'Inventory & Supplies', 'Printer Operator'];
 
 // Helper for audit logging
 const logAudit = async (req, store, action, resource, resourceId, details = {}) => {
   try {
-    await AuditLog.create({
+    const StoreAudit = getStoreAuditModel(store._id);
+    
+    await StoreAudit.create({
       action,
       resource,
       resourceId,
       user: req.user?.email || req.user?.username || 'System',
       userRole: req.user?.role || 'unknown',
-      storeId: store._id,
       details,
       ipAddress: req.ip || req.connection.remoteAddress
     });
-    console.log(`✅ ${action} audit log created for ${resource}: ${resourceId}`);
+    
+    console.log(`✅ ${action} audit log created for store ${store._id}: ${resource}: ${resourceId}`);
   } catch (auditErr) {
-    console.error(`❌ Failed to create ${action} audit log:`, auditErr.message);
+    console.error(`❌ Failed to create ${action} audit log for store ${store._id}:`, auditErr.message);
   }
 };
+
 const RETURN_REQUEST_WINDOW_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function computeUnitPrice(service, selectedOptions = []) {
