@@ -1,3 +1,4 @@
+// backend/middleware/authMiddleware.js
 const jwt = require("jsonwebtoken");
 const User = require("../models/userModel");
 const Employee = require('../models/employeeModel');
@@ -49,4 +50,6 @@ const protect = async (req, res, next) => {
     }
 };
 
+// Export as both named and default
 module.exports = { protect };
+module.exports.default = protect; // Also export as default for compatibility
