@@ -1518,8 +1518,8 @@ const OwnerChat: React.FC = () => {
           </div>
         </div>
         
-        {showFAQPanel && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        {showFAQPanel && typeof document !== 'undefined' && createPortal(
+          <div className="fixed inset-0 z-[350] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
               <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                 <div>
@@ -1702,7 +1702,8 @@ const OwnerChat: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
         
         {previewModal.isOpen && typeof document !== 'undefined' && createPortal(

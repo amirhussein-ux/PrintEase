@@ -604,7 +604,7 @@ exports.updateOrderStatus = async (req, res) => {
 
       if (newStatus === 'ready') {
         order.pickupToken = crypto.randomBytes(16).toString('hex');
-        order.pickupTokenExpires = new Date(Date.now() + 48 * 60 * 60 * 1000);
+        order.pickupTokenExpires = undefined;
         order.pickupVerifiedAt = undefined;
       }
       if (newStatus === 'completed') {
@@ -886,7 +886,6 @@ exports.confirmPickupByToken = async (req, res) => {
     if (!token) return res.status(400).json({ message: 'Token required' });
     const order = await Order.findOne({ pickupToken: token }).populate({ path: 'store', populate: { path: 'owner' } });
     if (!order) return res.status(404).json({ message: 'Invalid token' });
-    if (!order.pickupTokenExpires || order.pickupTokenExpires < new Date()) return res.status(400).json({ message: 'Token expired' });
 
     order.pickupVerifiedAt = new Date();
     order.pickupToken = undefined;
@@ -963,7 +962,16 @@ exports.submitReturnRequest = async (req, res) => {
       }
     }
 
-    if (order.returnRequest && order.returnRequest.status === 'pending') {
+    const existingReturnRequest = order.returnRequest;
+    const hasEvidence = Array.isArray(existingReturnRequest?.evidence) && existingReturnRequest.evidence.length > 0;
+    const hasReason = Boolean(existingReturnRequest?.reason && existingReturnRequest.reason.trim().length > 0);
+    const hasPendingReturnRequest = Boolean(
+      existingReturnRequest &&
+      existingReturnRequest.status === 'pending' &&
+      (hasReason || hasEvidence)
+    );
+
+    if (hasPendingReturnRequest) {
       return res.status(400).json({ message: 'A return/refund request is already pending review.' });
     }
 
@@ -998,7 +1006,7 @@ exports.submitReturnRequest = async (req, res) => {
     await order.save();
 
     // AUDIT LOG: Order Status Updated by Staff
-    await logAudit(req, store, 'update', 'order', order._id, {
+    await logAudit(req, order.store, 'update', 'order', order._id, {
       orderId: order._id,
       oldStatus: oldStatus,
       newStatus: order.status,
@@ -1174,9 +1182,24 @@ exports.downloadOrderFile = async (req, res) => {
 exports.downloadDownPaymentReceipt = async (req, res) => {
   try {
     const { id } = req.params;
-    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
-    const order = await Order.findOne({ _id: id, store: store._id });
-    if (!order) return res.status(404).json({ message: 'Order not found' });
+    const requester = req.user;
+    if (!requester) return res.status(401).json({ message: 'Unauthorized' });
+
+    let order;
+    if (requester.role === 'customer' || requester.role === 'guest') {
+      const query = { _id: id };
+      if (requester.role === 'guest') {
+        query.guestId = requester.id || requester._id;
+      } else {
+        query.user = requester._id || requester.id;
+      }
+      order = await Order.findOne(query);
+      if (!order) return res.status(403).json({ message: 'Not authorized to view this receipt' });
+    } else {
+      const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
+      order = await Order.findOne({ _id: id, store: store._id });
+      if (!order) return res.status(404).json({ message: 'Order not found' });
+    }
     if (!order.downPaymentReceipt) return res.status(404).json({ message: 'Down payment receipt not found' });
 
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });
@@ -1205,9 +1228,24 @@ exports.downloadDownPaymentReceipt = async (req, res) => {
 exports.previewDownPaymentReceipt = async (req, res) => {
   try {
     const { id } = req.params;
-    const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
-    const order = await Order.findOne({ _id: id, store: store._id });
-    if (!order) return res.status(404).json({ message: 'Order not found' });
+    const requester = req.user;
+    if (!requester) return res.status(401).json({ message: 'Unauthorized' });
+
+    let order;
+    if (requester.role === 'customer' || requester.role === 'guest') {
+      const query = { _id: id };
+      if (requester.role === 'guest') {
+        query.guestId = requester.id || requester._id;
+      } else {
+        query.user = requester._id || requester.id;
+      }
+      order = await Order.findOne(query);
+      if (!order) return res.status(403).json({ message: 'Not authorized to view this receipt' });
+    } else {
+      const store = await getManagedStore(req, { allowEmployeeRoles: EMPLOYEE_ROLES });
+      order = await Order.findOne({ _id: id, store: store._id });
+      if (!order) return res.status(404).json({ message: 'Order not found' });
+    }
     if (!order.downPaymentReceipt) return res.status(404).json({ message: 'Down payment receipt not found' });
 
     const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'uploads' });

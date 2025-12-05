@@ -95,6 +95,8 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
   const [customerOrdersOpen, setCustomerOrdersOpen] = React.useState<boolean>(() =>
     typeof window !== 'undefined' ? window.location.pathname.includes('/dashboard/my-orders') : false
   )
+  const [processingSpinActive, setProcessingSpinActive] = React.useState(false)
+  const processingSpinTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { user } = useAuth()
   const [store, setStore] = React.useState<StoreInfo | null>(() => {
@@ -197,6 +199,24 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     }
   }
 
+  const triggerProcessingSpin = React.useCallback(() => {
+    setProcessingSpinActive(true)
+    if (processingSpinTimeoutRef.current) {
+      clearTimeout(processingSpinTimeoutRef.current)
+    }
+    processingSpinTimeoutRef.current = setTimeout(() => {
+      setProcessingSpinActive(false)
+    }, 3000)
+  }, [])
+
+  React.useEffect(() => {
+    return () => {
+      if (processingSpinTimeoutRef.current) {
+        clearTimeout(processingSpinTimeoutRef.current)
+      }
+    }
+  }, [])
+
   // Navigation data
   const storeLinks = [
     { title: "Dashboard", to: "/dashboard/owner", icon: MdOutlineDashboard },
@@ -225,8 +245,13 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     avatar: user?.avatarUrl || '',
   }
 
+  const handleCustomerOrdersToggle = React.useCallback((next: boolean) => {
+    setCustomerOrdersOpen(next)
+    triggerProcessingSpin()
+  }, [triggerProcessingSpin])
+
   // Status icons - Now properly defined for both store and customer views
-  const statusIcon = {
+  const statusIcon = React.useMemo(() => ({
     notStarted: <HiOutlineClock className="size-4" title="Not started" />,
     inProgress: <FaSpinner className="size-4 animate-spin" title="In progress" />,
     readyForPickup: <FaBoxOpen className="size-4" title="Ready for pick-up" />,
@@ -234,10 +259,15 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     returnRefund: <HiOutlineRefresh className="size-4" title="Return / Refund" />,
     // Customer specific status icons
     pending: <HiOutlineClock className="size-4" title="Pending" />,
-    processing: <FaSpinner className="size-4 animate-spin" title="Processing" />,
+    processing: (
+      <FaSpinner
+        className={cn('size-4', processingSpinActive ? 'animate-spin' : '')}
+        title="Processing"
+      />
+    ),
     ready: <FaBoxOpen className="size-4" title="Ready for pick-up" />,
     return_refund: <HiOutlineRefresh className="size-4" title="Return / Refund" />,
-  }
+  }), [processingSpinActive])
 
   // Theme configuration
   const theme = {
@@ -764,7 +794,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
 
               <Collapsible 
                 open={customerOrdersOpen} 
-                onOpenChange={setCustomerOrdersOpen}
+                onOpenChange={handleCustomerOrdersToggle}
                 className="group/collapsible"
               >
                 <div className={getCollapsibleHeaderClass(customerOrdersOpen, location.pathname.startsWith('/dashboard/my-orders'))}>

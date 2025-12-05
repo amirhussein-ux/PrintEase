@@ -1362,7 +1362,7 @@ const OwnerDashboardContent: React.FC = () => {
 
         {/* Modal with dark mode */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/70 dark:bg-black/80 flex items-center justify-center z-50 p-4 transition-colors duration-300">
+          <div className="fixed inset-0 z-[500] bg-black/70 dark:bg-black/80 flex items-center justify-center z-50 p-4 transition-colors duration-300">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl dark:shadow-gray-900/50 w-full max-w-4xl p-6 relative transition-colors duration-300">
               <button 
                 className="absolute top-4 right-4 cursor-pointer text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 transition-colors"

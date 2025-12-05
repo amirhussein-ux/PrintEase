@@ -749,7 +749,7 @@ const FAQManagement: React.FC = () => {
 
         {/* Add FAQ Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[500] p-4">
             <div className={`${MODAL_PANEL} w-full max-w-2xl max-h-[90vh] overflow-hidden transition-all duration-200 hover:scale-[1.01]`}>
               <div className={`${MODAL_HEADER}`}>
                 <div>
@@ -918,7 +918,7 @@ const FAQManagement: React.FC = () => {
 
         {/* Edit FAQ Modal */}
         {showEditModal && selectedFAQ && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[500] p-4">
             <div className={`${MODAL_PANEL} w-full max-w-2xl max-h-[90vh] overflow-hidden transition-all duration-200 hover:scale-[1.01]`}>
               <div className={`${MODAL_HEADER}`}>
                 <div>

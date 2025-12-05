@@ -72,6 +72,13 @@ type Order = {
     completed?: string;
   };
   returnRequest?: ReturnRequest;
+  downPaymentRequired?: boolean;
+  downPaymentAmount?: number;
+  downPaymentPaid?: boolean;
+  downPaymentPaidAt?: string;
+  downPaymentMethod?: string;
+  downPaymentReceipt?: string | null;
+  downPaymentReference?: string | null;
   storeName?: string;
 };
 
@@ -181,6 +188,11 @@ export default function TrackOrders() {
   const [showReceiptFor, setShowReceiptFor] = useState<string | null>(null);
   const [returnRequestFor, setReturnRequestFor] = useState<string | null>(null);
   const [viewReturnRequestFor, setViewReturnRequestFor] = useState<string | null>(null);
+  const [dpPreviewOrder, setDpPreviewOrder] = useState<Order | null>(null);
+  const [dpPreviewUrl, setDpPreviewUrl] = useState<string | null>(null);
+  const [dpPreviewMime, setDpPreviewMime] = useState<string | null>(null);
+  const [dpPreviewFilename, setDpPreviewFilename] = useState<string | null>(null);
+  const [dpLoading, setDpLoading] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [returnDetails, setReturnDetails] = useState('');
   const [returnEvidenceFiles, setReturnEvidenceFiles] = useState<File[]>([]);
@@ -188,12 +200,36 @@ export default function TrackOrders() {
   const [returnSubmitting, setReturnSubmitting] = useState(false);
   const [evidencePreview, setEvidencePreview] = useState<{ open: boolean; loading: boolean; fileName?: string; mime?: string; url?: string; error?: string }>({ open: false, loading: false });
   const evidencePreviewUrlRef = useRef<string | null>(null);
+  const dpCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const dpPreviewUrlRef = useRef<string | null>(null);
+  const ordersRequestIdRef = useRef(0);
+  const isMountedRef = useRef(true);
+  const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
+  const [pendingHighlightOrder, setPendingHighlightOrder] = useState<string | null>(null);
+  const orderCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFocusParamRef = useRef<string | null>(null);
   const { socket } = useSocket();
   const { user } = useAuth();
   const [contactingReturnId, setContactingReturnId] = useState<string | null>(null);
   const [storeCache, setStoreCache] = useState<Record<string, { name: string; addressLine?: string; city?: string; state?: string; country?: string; postal?: string; mobile?: string }>>({});
   const location = useLocation();
   const navigate = useNavigate();
+  const clearDpPreviewBlob = useCallback(() => {
+    if (dpPreviewUrlRef.current) {
+      URL.revokeObjectURL(dpPreviewUrlRef.current);
+      dpPreviewUrlRef.current = null;
+    }
+  }, []);
+  const closeDownpaymentPreview = useCallback(() => {
+    clearDpPreviewBlob();
+    setDpPreviewOrder(null);
+    setDpPreviewUrl(null);
+    setDpPreviewMime(null);
+    setDpPreviewFilename(null);
+    setDpLoading(false);
+    if (dpCanvasRef.current) dpCanvasRef.current = null;
+  }, [clearDpPreviewBlob]);
 
   // Close modal on ESC and lock body scroll when open
   useEffect(() => {
@@ -209,6 +245,51 @@ export default function TrackOrders() {
       document.body.style.overflow = previousOverflow;
     };
   }, [enlargeQrFor]);
+
+  useEffect(() => {
+    if (!dpPreviewUrl || !dpPreviewMime?.startsWith('image/')) return;
+    const canvas = dpCanvasRef.current;
+    if (!canvas) return;
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const maxHeight = Math.min(window.innerHeight * 0.6, 800);
+        const scale = Math.min(1, maxHeight / (img.height || 1));
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      } catch (err) {
+        console.warn('Failed to render downpayment preview', err);
+      }
+    };
+    img.src = dpPreviewUrl;
+    return () => {
+      img.onload = null;
+    };
+  }, [dpPreviewUrl, dpPreviewMime]);
+
+  useEffect(() => {
+    return () => {
+      clearDpPreviewBlob();
+    };
+  }, [clearDpPreviewBlob]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,6 +325,15 @@ export default function TrackOrders() {
       setActiveFilter(status as FilterValue);
     } else if (status === 'all') {
       setActiveFilter('all');
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const focusParam = params.get('focus') || params.get('focusOrder');
+    if (focusParam && focusParam !== lastFocusParamRef.current) {
+      lastFocusParamRef.current = focusParam;
+      setPendingHighlightOrder(focusParam);
     }
   }, [location.search]);
 
@@ -318,6 +408,24 @@ export default function TrackOrders() {
     return map;
   }, [orders]);
 
+  const triggerOrderHighlight = useCallback((orderId: string) => {
+    setHighlightOrderId(orderId);
+    if (highlightTimeoutRef.current) {
+      clearTimeout(highlightTimeoutRef.current);
+    }
+    highlightTimeoutRef.current = window.setTimeout(() => {
+      setHighlightOrderId((prev) => (prev === orderId ? null : prev));
+    }, 6000);
+  }, []);
+
+  const scrollToOrderCard = useCallback((orderId: string) => {
+    const node = orderCardRefs.current[orderId];
+    if (!node || typeof node.scrollIntoView !== 'function') return false;
+    node.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+    triggerOrderHighlight(orderId);
+    return true;
+  }, [triggerOrderHighlight]);
+
   const filtered = useMemo(() => {
     if (activeFilter === 'all') return orders;
     if (activeFilter === 'return_refund') {
@@ -329,6 +437,50 @@ export default function TrackOrders() {
     }
     return orders.filter((o) => o.status === activeFilter);
   }, [orders, activeFilter]);
+
+  useEffect(() => {
+    if (!pendingHighlightOrder || loading) return;
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    const cleanupParams = () => {
+      const params = new URLSearchParams(location.search);
+      let mutated = false;
+      ['focus', 'focusOrder'].forEach((key) => {
+        if (params.has(key)) {
+          params.delete(key);
+          mutated = true;
+        }
+      });
+      if (mutated) {
+        const next = params.toString();
+        navigate(next ? `${location.pathname}?${next}` : location.pathname, { replace: true });
+      }
+    };
+    const attemptScroll = (attempt = 0) => {
+      if (cancelled) return;
+      const success = scrollToOrderCard(pendingHighlightOrder);
+      if (success) {
+        setPendingHighlightOrder(null);
+        lastFocusParamRef.current = null;
+        cleanupParams();
+        return;
+      }
+      if (attempt < 20) {
+        retryTimer = window.setTimeout(() => attemptScroll(attempt + 1), 200);
+      } else {
+        setPendingHighlightOrder(null);
+        lastFocusParamRef.current = null;
+        cleanupParams();
+      }
+    };
+    attemptScroll();
+    return () => {
+      cancelled = true;
+      if (retryTimer) {
+        clearTimeout(retryTimer);
+      }
+    };
+  }, [pendingHighlightOrder, scrollToOrderCard, navigate, location.pathname, location.search, loading]);
 
   function itemSummary(it: OrderItem) {
     const opts = (it.selectedOptions || [])
@@ -415,6 +567,34 @@ export default function TrackOrders() {
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
       setEvidencePreview(prev => ({ ...prev, loading: false, error: e?.response?.data?.message || e?.message || 'Failed to preview file' }));
+    }
+  };
+
+  const handleViewDownpayment = async (order: Order) => {
+    setDpPreviewOrder(order);
+    setDpLoading(true);
+    setDpPreviewMime(null);
+    setDpPreviewFilename(null);
+    clearDpPreviewBlob();
+    setDpPreviewUrl(null);
+    try {
+      const res = await api.get(`/orders/${order._id}/downpayment/preview`, { responseType: 'blob' });
+      const contentType = res.headers['content-type'] || 'application/octet-stream';
+      const blob = new Blob([res.data], { type: contentType });
+      const url = URL.createObjectURL(blob);
+      dpPreviewUrlRef.current = url;
+      setDpPreviewUrl(url);
+      setDpPreviewMime(blob.type || contentType);
+      const cd = res.headers['content-disposition'] || '';
+      const match = /filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i.exec(cd);
+      const headerName = decodeURIComponent((match?.[1] || match?.[2] || '').trim());
+      setDpPreviewFilename(headerName || `downpayment-${order._id}`);
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } }; message?: string };
+      setToast({ type: 'error', message: e?.response?.data?.message || e?.message || 'Failed to load downpayment receipt' });
+      closeDownpaymentPreview();
+    } finally {
+      setDpLoading(false);
     }
   };
 
@@ -705,7 +885,7 @@ export default function TrackOrders() {
         {/* Status */}
         {loading && (
           <div className="mb-6">
-            <div className={`${TRACK_CARD} text-center w-full`}>
+            <div className={`${TRACK_CARD} text-center w-full p-20`}>
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
               <div className="text-gray-600 text-sm dark:text-gray-300">Loading your orders...</div>
             </div>
@@ -738,8 +918,19 @@ export default function TrackOrders() {
             const currency = o.currency || first?.currency || 'PHP';
             const returnWindow = getReturnWindowState(o);
             const canRequestReturn = o.status === 'completed' && !o.returnRequest && o.paymentStatus !== 'refunded';
+            const isHighlighted = highlightOrderId === o._id;
             return (
-              <div key={o._id} className={`${TRACK_CARD} p-6 shadow-xl hover:shadow-2xl`}>
+              <div
+                key={o._id}
+                ref={(el) => {
+                  if (el) {
+                    orderCardRefs.current[o._id] = el;
+                  } else {
+                    delete orderCardRefs.current[o._id];
+                  }
+                }}
+                className={`${TRACK_CARD} p-6 shadow-xl hover:shadow-2xl scroll-mt-28 md:scroll-mt-36 ${isHighlighted ? 'ring-2 ring-amber-400 shadow-amber-400/30' : ''}`}
+              >
                 <div className="flex flex-col lg:flex-row lg:items-start gap-6">
                   {/* Left Content */}
                   <div className="flex-1 min-w-0 space-y-4">
@@ -870,6 +1061,16 @@ export default function TrackOrders() {
                           className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-600/60 bg-white text-amber-700 hover:bg-amber-50 hover:shadow-md dark:border-amber-300/60 dark:bg-slate-800 dark:text-amber-100"
                         >
                           View Return Request
+                        </button>
+                      )}
+
+                      {o.downPaymentReceipt && o.downPaymentReference && (
+                        <button
+                          onClick={() => handleViewDownpayment(o)}
+                          disabled={dpLoading && dpPreviewOrder?._id === o._id}
+                          className={`w-full px-4 py-2.5 rounded-xl text-sm font-semibold border border-amber-600 bg-amber-600 text-white hover:bg-amber-500 hover:shadow-lg hover:shadow-amber-500/20 dark:border-amber-400 dark:bg-amber-500 dark:hover:bg-amber-400 ${dpLoading && dpPreviewOrder?._id === o._id ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          {dpLoading && dpPreviewOrder?._id === o._id ? 'Loading…' : 'View Downpayment'}
                         </button>
                       )}
 
@@ -1065,7 +1266,7 @@ export default function TrackOrders() {
       {returnRequestFor && (() => {
         const ord = orders.find((o) => o._id === returnRequestFor);
         return (
-          <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={closeReturnModal}>
+          <div className="fixed inset-0 z-[500] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={closeReturnModal}>
             <div className={`${TRACK_CARD} relative p-6 w-full max-w-md`} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center dark:bg-amber-500/20 dark:text-amber-200">
@@ -1200,7 +1401,7 @@ export default function TrackOrders() {
         const request = ord?.returnRequest;
         if (!ord || !request) return null;
         return (
-          <div className="fixed inset-0 z-60 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => setViewReturnRequestFor(null)}>
+          <div className="fixed inset-0 z-[500] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => setViewReturnRequestFor(null)}>
             <div className={`${TRACK_CARD} relative p-6 w-full max-w-lg`} onClick={(e) => e.stopPropagation()}>
               <div className="flex items-start gap-4">
                 <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center dark:bg-amber-500/20 dark:text-amber-200">
@@ -1403,10 +1604,101 @@ export default function TrackOrders() {
         </div>
       )}
 
+      {dpPreviewOrder && (
+        <div className="fixed inset-0 z-[500] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={closeDownpaymentPreview}>
+          <div className={`${TRACK_CARD} relative w-full max-w-3xl`} onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={closeDownpaymentPreview}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              aria-label="Close downpayment preview"
+            >
+              ✕
+            </button>
+            <div className="space-y-4 p-4 sm:p-6">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Down Payment Receipt</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Order <span className="font-mono text-blue-600 dark:text-blue-300">{shortId(dpPreviewOrder._id)}</span>
+                </p>
+              </div>
+              <div className="min-h-[280px] rounded-xl border border-gray-200 bg-gray-50 flex items-center justify-center p-4 dark:border-gray-700 dark:bg-slate-900/60">
+                {dpLoading ? (
+                  <div className="flex flex-col items-center gap-3 text-gray-600 dark:text-gray-300">
+                    <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                    <p className="text-sm">Loading receipt…</p>
+                  </div>
+                ) : dpPreviewUrl && dpPreviewMime?.startsWith('image/') ? (
+                  <canvas
+                    ref={(el) => {
+                      dpCanvasRef.current = el;
+                    }}
+                    className="max-h-[60vh] w-full object-contain rounded-lg"
+                  />
+                ) : dpPreviewUrl && dpPreviewMime?.includes('pdf') ? (
+                  <iframe title="Downpayment receipt" src={dpPreviewUrl} className="w-full h-[60vh] rounded-lg border border-gray-200 dark:border-gray-700" />
+                ) : dpPreviewUrl ? (
+                  <div className="text-center text-sm text-gray-600 dark:text-gray-300">
+                    Preview unavailable.{' '}
+                    <a className="text-amber-600 underline dark:text-amber-300" href={dpPreviewUrl} target="_blank" rel="noreferrer">
+                      Open in new tab
+                    </a>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 dark:text-gray-300">No preview available.</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  Reference: <span className="font-medium text-gray-900 dark:text-white">{dpPreviewOrder.downPaymentReference || '—'}</span>
+                </div>
+                <div className="flex items-center gap-3 justify-end">
+                  <button
+                    onClick={() => {
+                      if (!dpPreviewUrl || dpLoading) return;
+                      if (dpPreviewMime?.startsWith('image/') && dpCanvasRef.current) {
+                        try {
+                          const canvas = dpCanvasRef.current;
+                          const link = document.createElement('a');
+                          link.href = canvas.toDataURL('image/png');
+                          const baseName = dpPreviewFilename?.split('.').slice(0, -1).join('.') || shortId(dpPreviewOrder._id);
+                          link.download = `${baseName}-downpayment.png`;
+                          document.body.appendChild(link);
+                          link.click();
+                          link.remove();
+                          return;
+                        } catch (err) {
+                          console.warn('Failed to export receipt canvas', err);
+                        }
+                      }
+                      const link = document.createElement('a');
+                      link.href = dpPreviewUrl;
+                      link.download = dpPreviewFilename || `${shortId(dpPreviewOrder._id)}-downpayment`;
+                      document.body.appendChild(link);
+                      link.click();
+                      link.remove();
+                    }}
+                    disabled={!dpPreviewUrl || dpLoading}
+                    className={`${TRACK_INPUT_BUTTON} bg-blue-600 text-white border-blue-600 hover:bg-blue-500 disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    Download
+                  </button>
+                  <button
+                    onClick={closeDownpaymentPreview}
+                    className={`${TRACK_INPUT_BUTTON} bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-slate-800 dark:text-gray-200 dark:border-gray-600`}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* QR Modal */}
       {enlargeQrFor && (
         <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
           aria-modal="true"
           role="dialog"
           onClick={() => setEnlargeQrFor(null)}
@@ -1482,7 +1774,7 @@ export default function TrackOrders() {
         if (!ord) return null;
         const first = ord.items[0];
         return (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal>
+          <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal>
             <div className={`${TRACK_CARD} relative p-6 w-[92vw] max-w-md`}>
               <button
                 className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 text-sm font-bold rounded-lg text-gray-700 cursor-pointer hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DashboardLayout from '../shared_components/DashboardLayout';
 import api from '../../../lib/api';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -231,6 +231,11 @@ export default function OrderManagement() {
 	const dpCanvasRef = useRef<HTMLCanvasElement | null>(null);
 	const [evidencePreview, setEvidencePreview] = useState<{ open: boolean; loading: boolean; fileName?: string; mime?: string; url?: string; error?: string }>({ open: false, loading: false });
 	const evidencePreviewUrlRef = useRef<string | null>(null);
+	const orderCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+	const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const lastFocusParamRef = useRef<string | null>(null);
+	const [highlightOrderId, setHighlightOrderId] = useState<string | null>(null);
+	const [pendingHighlightOrder, setPendingHighlightOrder] = useState<string | null>(null);
 
 	// Draw image into canvas when preview URL changes
 	useEffect(() => {
@@ -267,6 +272,14 @@ export default function OrderManagement() {
 		};
 	}, []);
 
+	useEffect(() => {
+		return () => {
+			if (highlightTimeoutRef.current) {
+				clearTimeout(highlightTimeoutRef.current);
+			}
+		};
+	}, []);
+
 	const [loading, setLoading] = useState(true);
 	// UI transition helpers
 	const [showSkeleton, setShowSkeleton] = useState(true);
@@ -292,6 +305,15 @@ export default function OrderManagement() {
 	useEffect(() => {
 		const st = getStatusFromSearch(location.search);
 		setActiveTab(st);
+	}, [location.search]);
+
+	useEffect(() => {
+		const params = new URLSearchParams(location.search);
+		const focusParam = params.get('focus') || params.get('focusOrder');
+		if (focusParam && focusParam !== lastFocusParamRef.current) {
+			lastFocusParamRef.current = focusParam;
+			setPendingHighlightOrder(focusParam);
+		}
 	}, [location.search]);
 
 	useEffect(() => {
@@ -387,6 +409,24 @@ export default function OrderManagement() {
 		return map;
 	}, [orders]);
 
+	const triggerOrderHighlight = useCallback((orderId: string) => {
+		setHighlightOrderId(orderId);
+		if (highlightTimeoutRef.current) {
+			clearTimeout(highlightTimeoutRef.current);
+		}
+		highlightTimeoutRef.current = window.setTimeout(() => {
+			setHighlightOrderId((prev) => (prev === orderId ? null : prev));
+		}, 6000);
+	}, []);
+
+	const scrollToOrderCard = useCallback((orderId: string) => {
+		const node = orderCardRefs.current[orderId];
+		if (!node || typeof node.scrollIntoView !== 'function') return false;
+		node.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+		triggerOrderHighlight(orderId);
+		return true;
+	}, [triggerOrderHighlight]);
+
 	// Filter orders based on active tab, search query, and date filter
 	const filtered = useMemo(() => {
 		const list = orders.filter((order) => {
@@ -442,6 +482,51 @@ export default function OrderManagement() {
 
 		return list;
 	}, [orders, activeTab, searchQuery, dateFilter]);
+
+	useEffect(() => {
+		if (!pendingHighlightOrder || loading) return;
+		let cancelled = false;
+		let retryTimer: ReturnType<typeof setTimeout> | null = null;
+		const cleanupParams = () => {
+			const params = new URLSearchParams(location.search);
+			let mutated = false;
+			['focus', 'focusOrder'].forEach((key) => {
+				if (params.has(key)) {
+					params.delete(key);
+					mutated = true;
+				}
+			});
+			if (mutated) {
+				const next = params.toString();
+				navigate(next ? `${location.pathname}?${next}` : location.pathname, { replace: true });
+			}
+		};
+		const attemptScroll = (attempt = 0) => {
+			if (cancelled) return;
+				const success = scrollToOrderCard(pendingHighlightOrder);
+				if (success) {
+				setPendingHighlightOrder(null);
+				lastFocusParamRef.current = null;
+				cleanupParams();
+				return;
+			}
+			if (attempt < 20) {
+				retryTimer = window.setTimeout(() => attemptScroll(attempt + 1), 200);
+			} else {
+				setPendingHighlightOrder(null);
+				lastFocusParamRef.current = null;
+				cleanupParams();
+			}
+		};
+		const initialScrollTimer = setTimeout(() => attemptScroll(), 350);
+		return () => {
+			cancelled = true;
+			clearTimeout(initialScrollTimer);
+			if (retryTimer) {
+				clearTimeout(retryTimer);
+			}
+		};
+	}, [pendingHighlightOrder, scrollToOrderCard, navigate, location.pathname, location.search, loading]);
 
 	async function updateStatus(id: string, status: Exclude<OrderStatus, 'cancelled'>) {
 		try {
@@ -565,7 +650,7 @@ export default function OrderManagement() {
 				{dpPreviewOrder && (() => {
 					const ord = dpPreviewOrder;
 					return (
-						<div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
+						<div className="fixed inset-0 z-[500] bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
 							// close modal on backdrop click
 							try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
 							setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
@@ -874,10 +959,18 @@ export default function OrderManagement() {
 						const canAdvance = nextStatus(o.status);
 						const total = o.subtotal ?? first?.totalPrice ?? 0;
 						const currency = o.currency || first?.currency || 'PHP';
+						const isHighlighted = highlightOrderId === o._id;
 						return (
-							<div 
-								key={o._id} 
-								className={`${PANEL_SURFACE} p-6 transform transition-transform duration-200 ease-out hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group`}
+							<div
+								key={o._id}
+								ref={(el) => {
+									if (el) {
+										orderCardRefs.current[o._id] = el;
+									} else {
+										delete orderCardRefs.current[o._id];
+									}
+								}}
+								className={`${PANEL_SURFACE} p-6 transform transition-transform duration-200 ease-out hover:scale-[1.02] hover:border-blue-500/50 hover:shadow-2xl hover:shadow-blue-500/10 group scroll-mt-32 md:scroll-mt-40 ${isHighlighted ? 'ring-2 ring-amber-400 shadow-amber-400/30 scale-[1.01]' : ''}`}
 							>
 								<div className="flex flex-col sm:flex-row sm:items-start gap-4">
 									{/* Left: main info */}
@@ -1291,7 +1384,7 @@ export default function OrderManagement() {
 			{dpPreviewOrder && (() => {
 				const ord = dpPreviewOrder;
 				return (
-					<div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
+					<div className="fixed inset-0 z-[500] bg-black/60 dark:bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" onClick={() => {
 						try { if (dpPreviewUrl) URL.revokeObjectURL(dpPreviewUrl); } catch (e) { console.warn('revoke failed', e); }
 						setDpPreviewOrder(null); setDpPreviewUrl(null); setDpPreviewMime(null); setDpPreviewFilename(null);
 					}}>
