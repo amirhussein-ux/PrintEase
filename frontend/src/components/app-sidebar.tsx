@@ -30,6 +30,11 @@ import { IoStorefrontOutline } from "react-icons/io5";
 import { HiOutlineRefresh } from 'react-icons/hi';
 import { FiSave } from "react-icons/fi";
 import { cn } from "@/lib/utils"
+import { 
+  Plus, Edit, Trash2, Search, Filter, CheckCircle, 
+  XCircle, ArrowUpDown, MessageSquare, Tag, 
+  Eye, EyeOff, Copy, BarChart3, RefreshCw 
+} from "lucide-react";
 
 const CUSTOMER_STORE_EVENT = 'customer-store-updated'
 
@@ -202,6 +207,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
       { title: "Products", to: "/dashboard/inventory/products" },
       { title: "Employees", to: "/dashboard/inventory/employees" },
     ] },
+    { title: "FAQ Management", to: "/dashboard/store/faq", icon: MessageSquare },
     { title: "Chat", to: "/dashboard/chat-store", icon: BsChatDots },
   ]
 
