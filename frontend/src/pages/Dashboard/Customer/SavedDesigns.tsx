@@ -213,6 +213,100 @@ function ProductModel3D({
   );
 }
 
+// --- UPDATED: 2D Product Preview Component (Matching Customize) ---
+function Product2DPreview({
+  decalImage,
+  position,
+  scale,
+  dimensions,
+  backgroundColor
+}: {
+  decalImage: string | null;
+  position: [number, number];
+  scale: number;
+  dimensions: { width: number; height: number };
+  backgroundColor: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 400, height: 400 });
+
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current) {
+        const { width, height } = containerRef.current.getBoundingClientRect();
+        setContainerSize({ width, height });
+      }
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  const scaleFactor = Math.min(
+    containerSize.width / dimensions.width,
+    containerSize.height / dimensions.height
+  ) * 0.9;
+
+  const displayWidth = dimensions.width * scaleFactor;
+  const displayHeight = dimensions.height * scaleFactor;
+
+  const imageWidth = displayWidth * scale;
+  const imageHeight = displayHeight * scale;
+  const imageLeft = (displayWidth - imageWidth) * position[0];
+  const imageTop = (displayHeight - imageHeight) * (1 - position[1]);
+
+  return (
+    <div 
+      ref={containerRef} 
+      className="w-full h-full flex items-center justify-center relative"
+    >
+      <div 
+        className="relative border-2 border-gray-300 dark:border-gray-700 rounded-lg shadow-2xl"
+        style={{
+          width: displayWidth,
+          height: displayHeight,
+          backgroundColor,
+          boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)'
+        }}
+      >
+        <div className="absolute inset-0 opacity-20">
+          <div className="w-full h-full" style={{
+            backgroundImage: `linear-gradient(to right, #999 1px, transparent 1px),
+                             linear-gradient(to bottom, #999 1px, transparent 1px)`,
+            backgroundSize: '20px 20px'
+          }} />
+        </div>
+
+        {decalImage && (
+          <div
+            className="absolute border-2 border-blue-400/50 rounded-lg overflow-hidden"
+            style={{
+              width: imageWidth,
+              height: imageHeight,
+              left: imageLeft,
+              top: imageTop,
+              boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
+            }}
+          >
+            <img
+              src={decalImage}
+              alt="Design"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white"></div>
+            <div className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white"></div>
+          </div>
+        )}
+
+        <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-gray-600 dark:text-gray-400 text-sm font-mono">
+          {dimensions.width}mm × {dimensions.height}mm
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface PreviewModalProps {
   design: SavedDesign;
   onClose: () => void;
@@ -248,6 +342,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
 
   const previewImage = getPreviewImage();
   const is3DProduct = ['Mug', 'T-Shirt'].includes(design.productType);
+  const is2DProduct = ['Mousepad', 'Sticker', 'Phone Case'].includes(design.productType);
 
   useEffect(() => {
     if (is3DProduct && previewImage) {
@@ -485,6 +580,20 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ design, onClose }) => {
                   <span className="text-blue-600 dark:text-blue-300 font-semibold ml-2">Scroll</span> to zoom
                 </p>
               </div>
+            </div>
+          ) : is2DProduct && variation && productInfo ? (
+            // UPDATED: Use the same 2D preview component as Customize
+            <div className="h-[500px] rounded-xl overflow-hidden border border-gray-300 dark:border-gray-700 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+              <Product2DPreview
+                decalImage={previewImage}
+                position={[
+                  design.customization?.position?.x || productInfo.decalDefaults.position[0],
+                  design.customization?.position?.y || productInfo.decalDefaults.position[1]
+                ]}
+                scale={design.customization?.scale || productInfo.decalDefaults.scale}
+                dimensions={productInfo.dimensions}
+                backgroundColor={variation.colorCode}
+              />
             </div>
           ) : (
             <div className="flex flex-col items-center">
@@ -964,7 +1073,7 @@ const SavedDesigns: React.FC = () => {
                         <div className="bg-black/70 backdrop-blur-sm rounded-lg p-3 mb-2">
                           <div className="text-white text-sm font-medium flex items-center gap-2">
                             <FiEye className="w-4 h-4" />
-                            View 3D Preview
+                            View {['Mug', 'T-Shirt'].includes(design.productType) ? '3D' : '2D'} Preview
                           </div>
                         </div>
                       </div>

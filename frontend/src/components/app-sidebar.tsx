@@ -27,9 +27,14 @@ import { BsChatDots } from "react-icons/bs";
 import { HiOutlineClock } from 'react-icons/hi';
 import { FaSpinner, FaBoxOpen, FaCheckCircle } from 'react-icons/fa';
 import { IoStorefrontOutline } from "react-icons/io5";
-// ADD THIS IMPORT FOR SAVED DESIGNS ICON
 import { HiOutlineRefresh } from 'react-icons/hi';
 import { FiSave } from "react-icons/fi";
+import { cn } from "@/lib/utils"
+import { 
+  Plus, Edit, Trash2, Search, Filter, CheckCircle, 
+  XCircle, ArrowUpDown, MessageSquare, Tag, 
+  Eye, EyeOff, Copy, BarChart3, RefreshCw 
+} from "lucide-react";
 
 const CUSTOMER_STORE_EVENT = 'customer-store-updated'
 
@@ -49,18 +54,9 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 
 function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppSidebarProps) {
   const { state, setOpen } = useSidebar()
-  const handleHeaderClick = () => {
-    if (state === 'collapsed') {
-      setOpen(true)
-    } else if (canEditShop || isCustomer) {
-      setShopOpen((v) => {
-        const next = !v
-        try { window.localStorage.setItem('sidebarShopOpen', String(next)) } catch { void 0 }
-        return next
-      })
-    }
-  }
   const location = useLocation()
+  const navigate = useNavigate()
+  
   type StoreInfo = {
     _id?: string
     name?: string
@@ -77,15 +73,16 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
         }
     logoFileId?: string
   }
+
+  // State management
   const [shopOpen, setShopOpen] = React.useState<boolean>(() => {
     try {
       const raw = typeof window !== 'undefined' ? window.localStorage.getItem('sidebarShopOpen') : null
       if (raw !== null) return raw === 'true'
-    } catch {
-      // ignore
-    }
+    } catch { /* ignore */ }
     return false
   })
+
   const [inventoryOpen, setInventoryOpen] = React.useState<boolean>(() =>
     typeof window !== "undefined" ? window.location.pathname.includes("/dashboard/inventory") : true
   )
@@ -98,6 +95,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
   const [customerOrdersOpen, setCustomerOrdersOpen] = React.useState<boolean>(() =>
     typeof window !== 'undefined' ? window.location.pathname.includes('/dashboard/my-orders') : false
   )
+
   const { user } = useAuth()
   const [store, setStore] = React.useState<StoreInfo | null>(() => {
     try {
@@ -108,6 +106,17 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
       return rawOwner ? (JSON.parse(rawOwner) as StoreInfo) : null
     } catch { return null }
   })
+
+  // Role checks
+  const isCustomer = user?.role === 'customer'
+  const isOwner = user?.role === 'owner';
+  const isOperationsManager = user?.employeeRole === 'Operations Manager';
+  const isPrinterOperator = user?.employeeRole === 'Printer Operator';
+  const isInventoryAndSupplies = user?.employeeRole === 'Inventory and Supplies';
+  const isFrontDesk = user?.employeeRole === 'Front Desk';
+  const canEditShop = isOwner || isOperationsManager;
+
+  // Store sync
   const syncStoreFromStorage = React.useCallback(() => {
     if (typeof window === 'undefined') return
     try {
@@ -117,17 +126,8 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
       setStore(null)
     }
   }, [setStore])
-  const navigate = useNavigate()
 
-  const isCustomer = user?.role === 'customer'
-  const isOwner = user?.role === 'owner';
-  const isOperationsManager = user?.employeeRole === 'Operations Manager';
-  const isPrinterOperator = user?.employeeRole === 'Printer Operator';
-  const isInventoryAndSupplies = user?.employeeRole === 'Inventory and Supplies';
-  const isFrontDesk = user?.employeeRole === 'Front Desk';
-
-  const canEditShop = isOwner || isOperationsManager;
-
+  // Effects
   React.useEffect(() => {
     if (location.pathname.includes("/dashboard/inventory")) setInventoryOpen(true)
     if (location.pathname.includes("/dashboard/services")) setServicesOpen(true)
@@ -184,6 +184,20 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     }
   }, [syncStoreFromStorage])
 
+  // Event handlers
+  const handleHeaderClick = () => {
+    if (state === 'collapsed') {
+      setOpen(true)
+    } else if (canEditShop || isCustomer) {
+      setShopOpen((v) => {
+        const next = !v
+        try { window.localStorage.setItem('sidebarShopOpen', String(next)) } catch { void 0 }
+        return next
+      })
+    }
+  }
+
+  // Navigation data
   const storeLinks = [
     { title: "Dashboard", to: "/dashboard/owner", icon: MdOutlineDashboard },
     { title: "Order Management", to: "/dashboard/orders", icon: LuPackage },
@@ -193,18 +207,14 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
       { title: "Products", to: "/dashboard/inventory/products" },
       { title: "Employees", to: "/dashboard/inventory/employees" },
     ] },
+    { title: "FAQ Management", to: "/dashboard/store/faq", icon: MessageSquare },
     { title: "Chat", to: "/dashboard/chat-store", icon: BsChatDots },
   ]
 
   const visibleStoreLinks = storeLinks.filter(link => {
     if (isOwner || isOperationsManager) return true;
-
-    if (link.title === 'Inventory') {
-      return !isPrinterOperator && !isFrontDesk;
-    }
-    if (link.title === 'Service Management') {
-      return !isPrinterOperator && !isFrontDesk && !isInventoryAndSupplies;
-    }
+    if (link.title === 'Inventory') return !isPrinterOperator && !isFrontDesk;
+    if (link.title === 'Service Management') return !isPrinterOperator && !isFrontDesk && !isInventoryAndSupplies;
     return true;
   });
 
@@ -215,497 +225,671 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     avatar: user?.avatarUrl || '',
   }
 
+  // Status icons - Now properly defined for both store and customer views
   const statusIcon = {
     notStarted: <HiOutlineClock className="size-4" title="Not started" />,
-    inProgress: <FaSpinner className="size-4 spin" title="In progress" />,
+    inProgress: <FaSpinner className="size-4 animate-spin" title="In progress" />,
     readyForPickup: <FaBoxOpen className="size-4" title="Ready for pick-up" />,
     completed: <FaCheckCircle className="size-4" title="Completed" />,
     returnRefund: <HiOutlineRefresh className="size-4" title="Return / Refund" />,
+    // Customer specific status icons
+    pending: <HiOutlineClock className="size-4" title="Pending" />,
+    processing: <FaSpinner className="size-4 animate-spin" title="Processing" />,
+    ready: <FaBoxOpen className="size-4" title="Ready for pick-up" />,
+    return_refund: <HiOutlineRefresh className="size-4" title="Return / Refund" />,
   }
 
+  // Theme configuration
   const theme = {
-    sidebarWrapper: isDarkMode
-      ? "[&_[data-sidebar=sidebar]]:bg-gray-900 [&_[data-sidebar=sidebar]]:text-white [&_[data-sidebar=sidebar]]:border-r [&_[data-sidebar=sidebar]]:border-slate-800"
-      : "[&_[data-sidebar=sidebar]]:bg-white [&_[data-sidebar=sidebar]]:text-gray-900 [&_[data-sidebar=sidebar]]:border-r [&_[data-sidebar=sidebar]]:border-gray-200 [&_[data-sidebar=sidebar]]:shadow-sm",
-    headerText: isDarkMode ? "text-white/90" : "text-gray-700",
-    headerHoverBg: isDarkMode ? "hover:bg-white/10" : "hover:bg-gray-100",
-    headerHoverText: isDarkMode ? "hover:text-white" : "hover:text-gray-900",
-    headerMuted: isDarkMode ? "text-white/70" : "text-gray-500",
-    navText: isDarkMode ? "text-white/80" : "text-gray-700",
-    navHoverBg: isDarkMode ? "hover:bg-white/10" : "hover:bg-gray-100",
-    navHoverText: isDarkMode ? "hover:text-white" : "hover:text-gray-900",
-    navActiveBg: isDarkMode ? "bg-white/10" : "bg-gray-200",
-    navActiveText: isDarkMode ? "text-white" : "text-gray-900",
-    navIcon: isDarkMode ? "text-white/90" : "text-gray-700",
-    navToggleBtn: isDarkMode ? "text-white/80" : "text-gray-500",
-    navSubText: isDarkMode ? "text-white/70" : "text-gray-600",
-    navSubHoverBg: isDarkMode ? "hover:bg-white/10" : "hover:bg-gray-100",
-    navSubActiveBg: isDarkMode ? "bg-white/10" : "bg-gray-100",
-    navSubActiveText: isDarkMode ? "text-white font-medium" : "text-gray-900 font-medium",
+    sidebarBg: isDarkMode ? "bg-gray-900" : "bg-white",
+    sidebarBorder: isDarkMode ? "border-gray-800" : "border-gray-200",
+    sidebarText: isDarkMode ? "text-gray-100" : "text-gray-900",
+    sidebarMuted: isDarkMode ? "text-gray-400" : "text-gray-500",
+    
+    // Cards and surfaces
+    cardBg: isDarkMode ? "bg-gray-800/50" : "bg-gray-50",
+    cardBorder: isDarkMode ? "border-gray-700" : "border-gray-200",
+    
+    // Interactive states
+    hoverBg: isDarkMode ? "hover:bg-white/10" : "hover:bg-gray-100",
+    activeBg: isDarkMode ? "bg-white/10" : "bg-gray-200",
+    activeText: isDarkMode ? "text-white" : "text-gray-900",
+    
+    // Navigation specific
+    navIcon: isDarkMode ? "text-gray-300" : "text-gray-600",
+    navActiveIcon: isDarkMode ? "text-white" : "text-gray-900",
+    navSubBg: isDarkMode ? "bg-gray-800/30" : "bg-gray-50/80",
+    
+    // Accent colors
+    accentBorder: isDarkMode ? "border-blue-500/30" : "border-blue-200",
+    accentGlow: isDarkMode ? "shadow-lg shadow-blue-500/10" : "shadow-md shadow-blue-100",
   }
 
-  const primaryNavContainer = `flex items-center gap-3 w-full px-3 py-2 rounded-md`;
-  const primaryNavWrapper = `${primaryNavContainer} ${theme.navHoverBg} ${theme.navHoverText} ${theme.navText}`;
-  const navLinkBase = `flex items-center gap-2 flex-1 min-w-0 group-data-[state=collapsed]:justify-center`;
-  const navIconWrapper = `flex items-center justify-center size-6 rounded-md flex-shrink-0 ${theme.navIcon}`;
-  const navToggleButton = `p-1 rounded-md cursor-pointer ${theme.navToggleBtn}`;
-  const getPrimaryNavLinkClass = (isActive: boolean) =>
-    `${navLinkBase} ${isActive ? `${theme.navActiveText} font-semibold` : theme.navText}`;
-  const getFlatNavClass = (isActive: boolean) =>
-    `flex items-center gap-2 flex-1 min-w-0 w-full px-3 py-2 rounded-md group-data-[state=collapsed]:justify-center ${theme.navHoverBg} ${theme.navHoverText} ${
-      isActive ? `${theme.navActiveBg} ${theme.navActiveText} font-semibold` : theme.navText
-    }`;
-  const getSubNavClass = (isActive: boolean) =>
-    `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm ${theme.navSubHoverBg} ${
-      isActive ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
-    }`;
-  const getStatusButtonClass = (active: boolean) =>
-    `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm ${theme.navSubHoverBg} ${
-      active ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
-    }`;
-  const sidebarFooterClasses = isDarkMode
-    ? "[&_button[data-slot=sidebar-menu-button]]:hover:bg-white/10 [&_button[data-slot=sidebar-menu-button]]:hover:text-white"
-    : "[&_button[data-slot=sidebar-menu-button]]:hover:bg-gray-100 [&_button[data-slot=sidebar-menu-button]]:hover:text-gray-900"
+  // Style classes - UPDATED FOR BETTER CENTERING
+  const getNavItemClass = (isActive: boolean) => cn(
+    "group flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+    "hover:translate-x-0.5 hover:shadow-sm",
+    theme.hoverBg,
+    isActive ? cn(
+      theme.activeBg,
+      theme.activeText,
+      "font-semibold",
+      "border-l-2 border-blue-500",
+      "shadow-inner"
+    ) : theme.sidebarText,
+    "group-data-[state=collapsed]:justify-center group-data-[state=collapsed]:px-2"
+  )
+
+  const getSubNavItemClass = (isActive: boolean) => cn(
+    "flex items-center gap-2.5 px-4 py-2 rounded-md text-sm transition-all",
+    "hover:pl-5 hover:shadow-sm",
+    theme.hoverBg,
+    isActive ? cn(
+      theme.activeBg,
+      theme.activeText,
+      "font-medium",
+      "border-l-2 border-blue-400"
+    ) : theme.sidebarMuted,
+    "ml-1"
+  )
+
+  const getCollapsibleHeaderClass = (isOpen: boolean, isActive: boolean) => cn(
+    "flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg transition-all",
+    "hover:translate-x-0.5 hover:shadow-sm",
+    theme.hoverBg,
+    isActive && cn(
+      theme.activeBg,
+      theme.activeText,
+      "font-semibold"
+    ),
+    isOpen && "mb-1",
+    "group-data-[state=collapsed]:justify-center group-data-[state=collapsed]:px-2"
+  )
+
+  const getIconClass = (isActive: boolean) => cn(
+    "flex-shrink-0 size-5 transition-colors",
+    isActive ? theme.navActiveIcon : theme.navIcon,
+    "group-data-[state=collapsed]:mx-auto" // Center the icon when collapsed
+  )
+
+  const getStatusButtonClass = (active: boolean) => cn(
+    "flex items-center gap-2.5 px-4 py-2 rounded-md text-sm transition-all",
+    "hover:pl-5",
+    theme.hoverBg,
+    active ? cn(
+      theme.activeBg,
+      theme.activeText,
+      "font-medium",
+      "border-l-2 border-blue-400"
+    ) : theme.sidebarMuted,
+    "ml-1"
+  )
+
+  const getShopHeaderClass = () => cn(
+    "group flex items-center gap-3 px-3 py-3.5 rounded-xl transition-all cursor-pointer",
+    theme.cardBg,
+    theme.cardBorder,
+    "border",
+    theme.accentGlow,
+    "hover:shadow-lg hover:-translate-y-0.5",
+    (canEditShop || isCustomer) && "hover:bg-gray-800/20 dark:hover:bg-gray-700/50",
+    "group-data-[state=collapsed]:justify-center group-data-[state=collapsed]:px-2"
+  )
+
+  // Helper function to get status icon
+  const getStatusIcon = (status: string) => {
+    switch(status) {
+      case 'pending':
+        return statusIcon.pending || statusIcon.notStarted;
+      case 'processing':
+        return statusIcon.processing || statusIcon.inProgress;
+      case 'ready':
+        return statusIcon.ready || statusIcon.readyForPickup;
+      case 'completed':
+        return statusIcon.completed;
+      case 'return_refund':
+        return statusIcon.return_refund || statusIcon.returnRefund;
+      default:
+        return statusIcon.notStarted;
+    }
+  }
 
   return (
-      <Sidebar
-        collapsible="icon"
-        className={`select-none ${theme.sidebarWrapper}`}
-        {...props}
-      >
-          <SidebarHeader>
-              <div
-                className={`flex items-center gap-3 w-full px-3 py-2 rounded-md ${theme.headerHoverBg} ${theme.headerHoverText} ${theme.headerText}`}
-                onClick={handleHeaderClick}
-              >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <Avatar className="size-8">
-                    {store?.logoFileId ? (
-                      <AvatarImage
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/print-store/logo/${store.logoFileId}`}
-                        alt={store?.name || user?.store || user?.fullName || 'Shop'}
-                      />
-                    ) : user?.avatarUrl ? (
-                      <AvatarImage src={user.avatarUrl} alt={user.fullName || user?.email || 'Shop'} />
-                    ) : (
-                      <AvatarFallback>{(user?.firstName || 'S').charAt(0)}</AvatarFallback>
-                    )}
-                  </Avatar>
-
-                  <div className="truncate group-data-[state=collapsed]:hidden">
-                    <div className="text-sm font-semibold truncate">{store?.name || user?.store || (isCustomer ? 'Shop' : 'Your Shop')}</div>
-                    <div className={`text-xs truncate ${theme.headerMuted}`}>
-                      {
-                        (() => {
-                          const fallback = toLetterCase(user?.address?.trim()) || 'No address set'
-                          const a = store?.address
-                          if (!a) return fallback
-                          if (typeof a === 'string') return toLetterCase(a.trim()) || fallback
-                          const city = a.city || ''
-                          const state = a.state || ''
-                          const line = a.addressLine || ''
-                          const parts = [] as string[]
-                          if (city) parts.push(city)
-                          if (state) parts.push(state)
-                          if (parts.length) {
-                            return toLetterCase(parts.join(', ').trim()) || fallback
-                          }
-                          if (line) return toLetterCase(line.trim()) || fallback
-                          return fallback
-                        })()
-                      }
-                    </div>
-                  </div>
-                </div>
-
-                {(canEditShop || isCustomer) && (
-                <div className="flex-shrink-0 group-data-[state=collapsed]:hidden">
-                  <button
-                    aria-expanded={shopOpen}
-                    className={`p-1 rounded-md cursor-pointer ${theme.navToggleBtn}`}
-                    title="Toggle Shop Info"
-                  >
-                    <IoIosArrowForward className={`size-4 transition-transform duration-200 ${shopOpen ? 'rotate-90' : ''}`} />
-                  </button>
-                </div>
+    <Sidebar
+      collapsible="icon"
+      className={cn(
+        "select-none transition-all duration-300",
+        theme.sidebarBg,
+        "border-r",
+        theme.sidebarBorder,
+        "shadow-xl"
+      )}
+      {...props}
+    >
+      <SidebarHeader className="px-3 py-4 group-data-[state=collapsed]:px-2">
+        <div
+          className={getShopHeaderClass()}
+          onClick={handleHeaderClick}
+        >
+          <div className="relative">
+            <Avatar className={cn(
+              "size-10 ring-2 ring-gray-300/50 dark:ring-gray-700/50",
+              "group-data-[state=collapsed]:size-9" // Smaller in collapsed state
+            )}>
+              {store?.logoFileId ? (
+                <AvatarImage
+                  src={`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/print-store/logo/${store.logoFileId}`}
+                  alt={store?.name || user?.store || user?.fullName || 'Shop'}
+                  className="object-cover"
+                />
+              ) : user?.avatarUrl ? (
+                <AvatarImage 
+                  src={user.avatarUrl} 
+                  alt={user.fullName || user?.email || 'Shop'} 
+                  className="object-cover"
+                />
+              ) : (
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
+                  {(user?.firstName || 'S').charAt(0)}
+                </AvatarFallback>
               )}
+            </Avatar>
+            <div className={cn(
+              "absolute -bottom-1 -right-1 size-3 rounded-full border-2",
+              isCustomer ? "bg-green-500 border-gray-900" : "bg-blue-500 border-gray-900",
+              "group-data-[state=collapsed]:hidden"
+            )} />
+          </div>
+
+          <div className="flex-1 min-w-0 space-y-0.5 group-data-[state=collapsed]:hidden">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-bold truncate">
+                {store?.name || user?.store || (isCustomer ? 'Selected Store' : 'My Store')}
               </div>
-              {canEditShop && shopOpen && (
-                <div className="mt-2 ml-6 mr-1 space-y-2 group-data-[state=collapsed]:hidden">
-                  <NavLink
-                    to="/owner/create-shop"
-                    className={({ isActive }) =>
-                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm ${theme.navSubHoverBg} ${
-                        isActive ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
-                      }`
-                    }
-                  >
-                    <span className="size-4"><MdOutlineEdit /></span>
-                    <span className="truncate group-data-[state=collapsed]:hidden">Edit Shop</span>
-                  </NavLink>
-                </div>
+              {(canEditShop || isCustomer) && (
+                <IoIosArrowForward className={cn(
+                  "size-3.5 transition-transform duration-200",
+                  theme.sidebarMuted,
+                  shopOpen && "rotate-90"
+                )} />
               )}
-              {isCustomer && shopOpen && (
-                <div className="mt-2 ml-6 mr-1 space-y-1 group-data-[state=collapsed]:hidden">
-                  <NavLink
-                    to="/customer/select-shop"
-                    className={({ isActive }) =>
-                      `flex items-center gap-2 w-full px-3 py-1 rounded-md text-sm ${theme.navSubHoverBg} ${
-                        isActive ? `${theme.navSubActiveBg} ${theme.navSubActiveText}` : theme.navSubText
-                      }`
-                    }
-                  >
-                    <span className="size-4"><IoStorefrontOutline /></span>
-                    <span className="truncate group-data-[state=collapsed]:hidden">Change Store</span>
-                  </NavLink>
-                </div>
-              )}
-          </SidebarHeader>
-
-        <SidebarContent>
-          <div className="px-2">
-            <nav className="space-y-1">
-              {!isCustomer && visibleStoreLinks.map((link) => {
-                const Icon = link.icon
-
-                if (link.title === "Inventory") {
-                  return (
-                    <div key={link.title}>
-                      <Collapsible open={inventoryOpen} onOpenChange={setInventoryOpen}>
-                        <div className={primaryNavWrapper}>
-                          <NavLink
-                            to={link.to}
-                            className={({ isActive }) => `${getPrimaryNavLinkClass(isActive)} bg-transparent`}
-                          >
-                            <span className={navIconWrapper}>
-                              <Icon className="size-4" />
-                            </span>
-                            <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">{link.title}</span>
-                          </NavLink>
-
-                          <div className="flex-shrink-0 group-data-[state=collapsed]:hidden">
-                            <CollapsibleTrigger asChild>
-                              <button
-                                aria-expanded={inventoryOpen}
-                                className={navToggleButton}
-                                title="Toggle Inventory"
-                              >
-                                <IoIosArrowForward className={`size-4 transition-transform duration-200 ${inventoryOpen ? 'rotate-90' : ''}`} />
-                              </button>
-                            </CollapsibleTrigger>
-                          </div>
-                        </div>
-
-                        <CollapsibleContent>
-                          <div className="ml-6 mt-1 space-y-1 group-data-[state=collapsed]:hidden">
-                            <NavLink to="/dashboard/inventory/analytics" className={({ isActive }) => getSubNavClass(isActive)}>
-                              <span className="size-4"><GoGraph /></span>
-                              <span className="truncate group-data-[state=collapsed]:hidden">Analytics</span>
-                            </NavLink>
-
-                            <NavLink to="/dashboard/inventory/products" className={({ isActive }) => getSubNavClass(isActive)}>
-                              <span className="size-4"><AiOutlineProduct /></span>
-                              <span className="truncate group-data-[state=collapsed]:hidden">Products</span>
-                            </NavLink>
-
-                            {!isInventoryAndSupplies && (
-                              <NavLink to="/dashboard/inventory/employees" className={({ isActive }) => getSubNavClass(isActive)}>
-                                <span className="size-4"><LuUsers /></span>
-                                <span className="truncate group-data-[state=collapsed]:hidden">Employees</span>
-                              </NavLink>
-                            )}
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  )
+            </div>
+            <div className={cn(
+              "text-xs truncate leading-tight",
+              theme.sidebarMuted,
+              "line-clamp-2"
+            )}>
+              {(() => {
+                const fallback = toLetterCase(user?.address?.trim()) || 'No address set'
+                const a = store?.address
+                if (!a) return fallback
+                if (typeof a === 'string') return toLetterCase(a.trim()) || fallback
+                const city = a.city || ''
+                const state = a.state || ''
+                const line = a.addressLine || ''
+                const parts = [] as string[]
+                if (city) parts.push(city)
+                if (state) parts.push(state)
+                if (parts.length) {
+                  return toLetterCase(parts.join(', ').trim()) || fallback
                 }
+                if (line) return toLetterCase(line.trim()) || fallback
+                return fallback
+              })()}
+            </div>
+          </div>
+        </div>
 
-                if (link.title === "Order Management") {
-                  return (
-                    <div key={link.title}>
-                      <Collapsible open={ordersOpen} onOpenChange={setOrdersOpen}>
-                        <div className={primaryNavWrapper}>
-                          <NavLink
-                            to={link.to}
-                            className={({ isActive }) => `${getPrimaryNavLinkClass(isActive)} bg-transparent`}
-                          >
-                            <span className={navIconWrapper}>
-                              <Icon className="size-4" />
-                            </span>
-                            <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">{link.title}</span>
-                          </NavLink>
+        {/* Shop Actions */}
+        {shopOpen && (canEditShop || isCustomer) && (
+          <div className="mt-3 space-y-1.5 px-1 group-data-[state=collapsed]:hidden animate-in fade-in slide-in-from-top-2 duration-200">
+            {canEditShop && (
+              <NavLink
+                to="/owner/create-shop"
+                className={({ isActive }) => cn(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
+                  "hover:translate-x-0.5 hover:shadow-sm",
+                  theme.hoverBg,
+                  isActive && cn(theme.activeBg, theme.activeText, "font-medium")
+                )}
+              >
+                <MdOutlineEdit className="size-4" />
+                <span>Edit Shop</span>
+              </NavLink>
+            )}
+            {isCustomer && (
+              <NavLink
+                to="/customer/select-shop"
+                className={({ isActive }) => cn(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all",
+                  "hover:translate-x-0.5 hover:shadow-sm",
+                  theme.hoverBg,
+                  isActive && cn(theme.activeBg, theme.activeText, "font-medium")
+                )}
+              >
+                <IoStorefrontOutline className="size-4" />
+                <span>Change Store</span>
+              </NavLink>
+            )}
+          </div>
+        )}
+      </SidebarHeader>
 
-                          <div className="flex-shrink-0 group-data-[state=collapsed]:hidden">
-                            <CollapsibleTrigger asChild>
-                              <button
-                                aria-expanded={ordersOpen}
-                                className={navToggleButton}
-                                title="Toggle Orders"
-                              >
-                                <IoIosArrowForward className={`size-4 transition-transform duration-200 ${ordersOpen ? 'rotate-90' : ''}`} />
-                              </button>
-                            </CollapsibleTrigger>
-                          </div>
-                        </div>
-
-                        <CollapsibleContent>
-                          <div className="ml-6 mt-1 space-y-1 group-data-[state=collapsed]:hidden">
-                            <button
-                              type="button"
-                              onClick={() => navigate('/dashboard/orders?status=pending')}
-                              className={getStatusButtonClass(
-                                location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'pending'
-                              )}
-                            >
-                              <span className="size-4">{statusIcon.notStarted}</span>
-                              <span className="truncate group-data-[state=collapsed]:hidden">Not yet Started</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => navigate('/dashboard/orders?status=processing')}
-                              className={getStatusButtonClass(
-                                location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'processing'
-                              )}
-                            >
-                              <span className="size-4">{statusIcon.inProgress}</span>
-                              <span className="truncate group-data-[state=collapsed]:hidden">In progress</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => navigate('/dashboard/orders?status=ready')}
-                              className={getStatusButtonClass(
-                                location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'ready'
-                              )}
-                            >
-                              <span className="size-4">{statusIcon.readyForPickup}</span>
-                              <span className="truncate group-data-[state=collapsed]:hidden">Ready for Pick-up</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => navigate('/dashboard/orders?status=completed')}
-                              className={getStatusButtonClass(
-                                location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'completed'
-                              )}
-                            >
-                              <span className="size-4">{statusIcon.completed}</span>
-                              <span className="truncate group-data-[state=collapsed]:hidden">Completed</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => navigate('/dashboard/orders?status=return_refund')}
-                              className={getStatusButtonClass(
-                                location.pathname === '/dashboard/orders' && new URLSearchParams(location.search).get('status') === 'return_refund'
-                              )}
-                            >
-                              <span className="size-4">{statusIcon.returnRefund}</span>
-                              <span className="truncate group-data-[state=collapsed]:hidden">Return / Refund</span>
-                            </button>
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  )
-                }
-
-                if (link.title === "Service Management") {
-                  return (
-                    <div key={link.title}>
-                      <Collapsible open={servicesOpen} onOpenChange={setServicesOpen}>
-                        <div className={primaryNavWrapper}>
-                          <NavLink
-                            to={link.to}
-                            className={({ isActive }) => `${getPrimaryNavLinkClass(isActive)} bg-transparent`}
-                          >
-                            <span className={navIconWrapper}>
-                              <Icon className="size-4" />
-                            </span>
-                            <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">{link.title}</span>
-                          </NavLink>
-
-                          <div className="flex-shrink-0 group-data-[state=collapsed]:hidden">
-                            <CollapsibleTrigger asChild>
-                              <button
-                                aria-expanded={servicesOpen}
-                                className={navToggleButton}
-                                title="Toggle Services"
-                              >
-                                <IoIosArrowForward className={`size-4 transition-transform duration-200 ${servicesOpen ? 'rotate-90' : ''}`} />
-                              </button>
-                            </CollapsibleTrigger>
-                          </div>
-                        </div>
-
-                        <CollapsibleContent>
-                          <div className="ml-6 mt-1 space-y-1 group-data-[state=collapsed]:hidden">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setServicesOpen(true)
-                                navigate('/dashboard/services/add')
-                              }}
-                              className={getStatusButtonClass(false)}
-                            >
-                              <span className="size-4"><IoMdAdd /></span>
-                              <span className="truncate group-data-[state=collapsed]:hidden">Add Service</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setServicesOpen(true)
-                                navigate('/dashboard/services/deleted')
-                              }}
-                              className={getStatusButtonClass(false)}
-                            >
-                              <span className="size-4"><GoTrash /></span>
-                              <span className="truncate group-data-[state=collapsed]:hidden">Deleted Services</span>
-                            </button>
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  )
-                }
-
+      <SidebarContent className="px-2.5 py-3 group-data-[state=collapsed]:px-1">
+        <nav className="space-y-1">
+          {!isCustomer ? (
+            visibleStoreLinks.map((link) => {
+              const Icon = link.icon
+              
+              // Inventory Section
+              if (link.title === "Inventory") {
                 return (
-                  <NavLink
-                    key={link.title}
-                    to={link.to}
-                    className={({ isActive }) => getFlatNavClass(isActive)}
+                  <Collapsible 
+                    key={link.title} 
+                    open={inventoryOpen} 
+                    onOpenChange={setInventoryOpen}
+                    className="group/collapsible"
                   >
-                    <span className={navIconWrapper}>
-                      <Icon className="size-4" />
-                    </span>
-                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">{link.title}</span>
-                  </NavLink>
-                )
-              })}
-              {isCustomer && (
-                <div className="space-y-1">
-                  <NavLink to="/dashboard/customer" className={({ isActive }) => getFlatNavClass(isActive)}>
-                    <span className={navIconWrapper}>
-                      <MdOutlineDashboard className="size-4" />
-                    </span>
-                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Order Page</span>
-                  </NavLink>
-
-                  <Collapsible open={customerOrdersOpen} onOpenChange={setCustomerOrdersOpen}>
-                    <div className={primaryNavWrapper}>
+                    <div className={getCollapsibleHeaderClass(inventoryOpen, location.pathname.startsWith(link.to))}>
                       <NavLink
-                        to="/dashboard/my-orders"
-                        className={({ isActive }) => `${getPrimaryNavLinkClass(isActive)} bg-transparent`}
+                        to={link.to}
+                        className="flex items-center gap-3 flex-1 min-w-0 group-data-[state=collapsed]:justify-center"
+                        onClick={(e) => {
+                          if (!location.pathname.startsWith(link.to)) {
+                            e.preventDefault()
+                            setInventoryOpen(true)
+                            navigate(link.to)
+                          }
+                        }}
                       >
-                        <span className={navIconWrapper}>
-                          <HiOutlineClock className="size-4" />
+                        <Icon className={cn(
+                          getIconClass(location.pathname.startsWith(link.to)),
+                          "group-data-[state=collapsed]:size-5" // Consistent icon size
+                        )} />
+                        <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">
+                          {link.title}
                         </span>
-                        <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Track Orders</span>
                       </NavLink>
-                      <div className="flex-shrink-0 group-data-[state=collapsed]:hidden">
-                        <CollapsibleTrigger asChild>
-                          <button
-                            aria-expanded={customerOrdersOpen}
-                            className={navToggleButton}
-                            title="Toggle Track Orders"
-                          >
-                            <IoIosArrowForward className={`size-4 transition-transform duration-200 ${customerOrdersOpen ? 'rotate-90' : ''}`} />
-                          </button>
-                        </CollapsibleTrigger>
-                      </div>
+                      <CollapsibleTrigger asChild>
+                        <button className="p-1 rounded-md hover:bg-white/10 dark:hover:bg-white/10 group-data-[state=collapsed]:hidden">
+                          <IoIosArrowForward className={cn(
+                            "size-3.5 transition-transform duration-200",
+                            inventoryOpen && "rotate-90"
+                          )} />
+                        </button>
+                      </CollapsibleTrigger>
                     </div>
-                    <CollapsibleContent>
-                      <div className="ml-6 mt-1 space-y-1 group-data-[state=collapsed]:hidden">
-                        <button
-                          type="button"
-                          onClick={() => navigate('/dashboard/my-orders?status=pending')}
-                          className={getStatusButtonClass(
-                            location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'pending'
-                          )}
+                    
+                    <CollapsibleContent className="overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+                      <div className="ml-2 mt-1.5 space-y-1 py-1 pl-5 border-l border-gray-300/50 dark:border-gray-700/50 group-data-[state=collapsed]:hidden">
+                        <NavLink 
+                          to="/dashboard/inventory/analytics" 
+                          className={({ isActive }) => getSubNavItemClass(isActive)}
                         >
-                          <span className="size-4">{statusIcon.notStarted}</span>
-                          <span className="truncate group-data-[state=collapsed]:hidden">Pending</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => navigate('/dashboard/my-orders?status=processing')}
-                          className={getStatusButtonClass(
-                            location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'processing'
-                          )}
+                          <GoGraph className="size-3.5" />
+                          <span>Analytics</span>
+                        </NavLink>
+                        <NavLink 
+                          to="/dashboard/inventory/products" 
+                          className={({ isActive }) => getSubNavItemClass(isActive)}
                         >
-                          <span className="size-4">{statusIcon.inProgress}</span>
-                          <span className="truncate group-data-[state=collapsed]:hidden">Processing</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => navigate('/dashboard/my-orders?status=ready')}
-                          className={getStatusButtonClass(
-                            location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'ready'
-                          )}
-                        >
-                          <span className="size-4">{statusIcon.readyForPickup}</span>
-                          <span className="truncate group-data-[state=collapsed]:hidden">Ready for Pick-up</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => navigate('/dashboard/my-orders?status=completed')}
-                          className={getStatusButtonClass(
-                            location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'completed'
-                          )}
-                        >
-                          <span className="size-4">{statusIcon.completed}</span>
-                          <span className="truncate group-data-[state=collapsed]:hidden">Completed</span>
-                        </button>
+                          <AiOutlineProduct className="size-3.5" />
+                          <span>Products</span>
+                        </NavLink>
+                        {!isInventoryAndSupplies && (
+                          <NavLink 
+                            to="/dashboard/inventory/employees" 
+                            className={({ isActive }) => getSubNavItemClass(isActive)}
+                          >
+                            <LuUsers className="size-3.5" />
+                            <span>Employees</span>
+                          </NavLink>
+                        )}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )
+              }
 
+              // Order Management Section
+              if (link.title === "Order Management") {
+                return (
+                  <Collapsible 
+                    key={link.title} 
+                    open={ordersOpen} 
+                    onOpenChange={setOrdersOpen}
+                    className="group/collapsible"
+                  >
+                    <div className={getCollapsibleHeaderClass(ordersOpen, location.pathname.startsWith(link.to))}>
+                      <NavLink
+                        to={link.to}
+                        className="flex items-center gap-3 flex-1 min-w-0 group-data-[state=collapsed]:justify-center"
+                        onClick={(e) => {
+                          if (!location.pathname.startsWith(link.to)) {
+                            e.preventDefault()
+                            setOrdersOpen(true)
+                            navigate(link.to)
+                          }
+                        }}
+                      >
+                        <Icon className={cn(
+                          getIconClass(location.pathname.startsWith(link.to)),
+                          "group-data-[state=collapsed]:size-5"
+                        )} />
+                        <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">
+                          {link.title}
+                        </span>
+                      </NavLink>
+                      <CollapsibleTrigger asChild>
+                        <button className="p-1 rounded-md hover:bg-white/10 dark:hover:bg-white/10 group-data-[state=collapsed]:hidden">
+                          <IoIosArrowForward className={cn(
+                            "size-3.5 transition-transform duration-200",
+                            ordersOpen && "rotate-90"
+                          )} />
+                        </button>
+                      </CollapsibleTrigger>
+                    </div>
+                    
+                    <CollapsibleContent className="overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+                      <div className="ml-2 mt-1.5 space-y-1 py-1 pl-5 border-l border-gray-300/50 dark:border-gray-700/50 group-data-[state=collapsed]:hidden">
                         <button
-                          type="button"
-                          onClick={() => navigate('/dashboard/my-orders?status=return_refund')}
+                          onClick={() => navigate('/dashboard/orders?status=pending')}
                           className={getStatusButtonClass(
-                            location.pathname === '/dashboard/my-orders' && new URLSearchParams(location.search).get('status') === 'return_refund'
+                            location.pathname === '/dashboard/orders' && 
+                            new URLSearchParams(location.search).get('status') === 'pending'
                           )}
                         >
-                          <span className="size-4">{statusIcon.returnRefund}</span>
-                          <span className="truncate group-data-[state=collapsed]:hidden">Return / Refund</span>
+                          {statusIcon.notStarted}
+                          <span>Not yet Started</span>
+                        </button>
+                        <button
+                          onClick={() => navigate('/dashboard/orders?status=processing')}
+                          className={getStatusButtonClass(
+                            location.pathname === '/dashboard/orders' && 
+                            new URLSearchParams(location.search).get('status') === 'processing'
+                          )}
+                        >
+                          {statusIcon.inProgress}
+                          <span>In progress</span>
+                        </button>
+                        <button
+                          onClick={() => navigate('/dashboard/orders?status=ready')}
+                          className={getStatusButtonClass(
+                            location.pathname === '/dashboard/orders' && 
+                            new URLSearchParams(location.search).get('status') === 'ready'
+                          )}
+                        >
+                          {statusIcon.readyForPickup}
+                          <span>Ready for Pick-up</span>
+                        </button>
+                        <button
+                          onClick={() => navigate('/dashboard/orders?status=completed')}
+                          className={getStatusButtonClass(
+                            location.pathname === '/dashboard/orders' && 
+                            new URLSearchParams(location.search).get('status') === 'completed'
+                          )}
+                        >
+                          {statusIcon.completed}
+                          <span>Completed</span>
+                        </button>
+                        <button
+                          onClick={() => navigate('/dashboard/orders?status=return_refund')}
+                          className={getStatusButtonClass(
+                            location.pathname === '/dashboard/orders' && 
+                            new URLSearchParams(location.search).get('status') === 'return_refund'
+                          )}
+                        >
+                          {statusIcon.returnRefund}
+                          <span>Return / Refund</span>
                         </button>
                       </div>
                     </CollapsibleContent>
                   </Collapsible>
+                )
+              }
 
-                  <NavLink to="/dashboard/customize" className={({ isActive }) => getFlatNavClass(isActive)}>
-                    <span className={navIconWrapper}>
-                      <MdOutlineEdit className="size-4" />
-                    </span>
-                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Customize</span>
-                  </NavLink>
+              // Service Management Section
+              if (link.title === "Service Management") {
+                return (
+                  <Collapsible 
+                    key={link.title} 
+                    open={servicesOpen} 
+                    onOpenChange={setServicesOpen}
+                    className="group/collapsible"
+                  >
+                    <div className={getCollapsibleHeaderClass(servicesOpen, location.pathname.startsWith(link.to))}>
+                      <NavLink
+                        to={link.to}
+                        className="flex items-center gap-3 flex-1 min-w-0 group-data-[state=collapsed]:justify-center"
+                        onClick={(e) => {
+                          if (!location.pathname.startsWith(link.to)) {
+                            e.preventDefault()
+                            setServicesOpen(true)
+                            navigate(link.to)
+                          }
+                        }}
+                      >
+                        <Icon className={cn(
+                          getIconClass(location.pathname.startsWith(link.to)),
+                          "group-data-[state=collapsed]:size-5"
+                        )} />
+                        <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">
+                          {link.title}
+                        </span>
+                      </NavLink>
+                      <CollapsibleTrigger asChild>
+                        <button className="p-1 rounded-md hover:bg-white/10 dark:hover:bg-white/10 group-data-[state=collapsed]:hidden">
+                          <IoIosArrowForward className={cn(
+                            "size-3.5 transition-transform duration-200",
+                            servicesOpen && "rotate-90"
+                          )} />
+                        </button>
+                      </CollapsibleTrigger>
+                    </div>
+                    
+                    <CollapsibleContent className="overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+                      <div className="ml-2 mt-1.5 space-y-1 py-1 pl-5 border-l border-gray-300/50 dark:border-gray-700/50 group-data-[state=collapsed]:hidden">
+                        <button
+                          onClick={() => {
+                            setServicesOpen(true)
+                            navigate('/dashboard/services/add')
+                          }}
+                          className={cn(
+                            "flex items-center gap-2.5 px-4 py-2 rounded-md text-sm transition-all",
+                            "hover:pl-5 hover:bg-green-50 dark:hover:bg-green-900/20",
+                            "text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                          )}
+                        >
+                          <IoMdAdd className="size-4" />
+                          <span>Add Service</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            setServicesOpen(true)
+                            navigate('/dashboard/services/deleted')
+                          }}
+                          className={cn(
+                            "flex items-center gap-2.5 px-4 py-2 rounded-md text-sm transition-all",
+                            "hover:pl-5 hover:bg-red-50 dark:hover:bg-red-900/20",
+                            "text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                          )}
+                        >
+                          <GoTrash className="size-4" />
+                          <span>Deleted Services</span>
+                        </button>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )
+              }
 
-                  {/* Saved Designs (placed after Customize) */}
-                  <NavLink to="/dashboard/saved-designs" className={({ isActive }) => getFlatNavClass(isActive)}>
-                    <span className={navIconWrapper}>
-                      <FiSave className="size-4" />
-                    </span>
-                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Saved Designs</span>
-                  </NavLink>
+              // Regular links (Dashboard, Chat)
+              return (
+                <NavLink
+                  key={link.title}
+                  to={link.to}
+                  className={({ isActive }) => getNavItemClass(isActive)}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon className={cn(
+                        getIconClass(isActive),
+                        "group-data-[state=collapsed]:size-5"
+                      )} />
+                      <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">
+                        {link.title}
+                      </span>
+                    </>
+                  )}
+                </NavLink>
+              )
+            })
+          ) : (
+            // Customer navigation
+            <div className="space-y-1">
+              <NavLink 
+                to="/dashboard/customer" 
+                className={({ isActive }) => getNavItemClass(isActive)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <MdOutlineDashboard className={cn(
+                      getIconClass(isActive),
+                      "group-data-[state=collapsed]:size-5"
+                    )} />
+                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Order Page</span>
+                  </>
+                )}
+              </NavLink>
 
-                  <NavLink to="/dashboard/chat-customer" className={({ isActive }) => getFlatNavClass(isActive)}>
-                    <span className={navIconWrapper}>
-                      <BsChatDots className="size-4" />
+              <Collapsible 
+                open={customerOrdersOpen} 
+                onOpenChange={setCustomerOrdersOpen}
+                className="group/collapsible"
+              >
+                <div className={getCollapsibleHeaderClass(customerOrdersOpen, location.pathname.startsWith('/dashboard/my-orders'))}>
+                  <NavLink
+                    to="/dashboard/my-orders"
+                    className="flex items-center gap-3 flex-1 min-w-0 group-data-[state=collapsed]:justify-center"
+                    onClick={(e) => {
+                      if (!location.pathname.startsWith('/dashboard/my-orders')) {
+                        e.preventDefault()
+                        setCustomerOrdersOpen(true)
+                        navigate('/dashboard/my-orders')
+                      }
+                    }}
+                  >
+                    <HiOutlineClock className={cn(
+                      getIconClass(location.pathname.startsWith('/dashboard/my-orders')),
+                      "group-data-[state=collapsed]:size-5"
+                    )} />
+                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">
+                      Track Orders
                     </span>
-                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Chat with Store</span>
                   </NavLink>
+                  <CollapsibleTrigger asChild>
+                    <button className="p-1 rounded-md hover:bg-white/10 dark:hover:bg-white/10 group-data-[state=collapsed]:hidden">
+                      <IoIosArrowForward className={cn(
+                        "size-3.5 transition-transform duration-200",
+                        customerOrdersOpen && "rotate-90"
+                      )} />
+                    </button>
+                  </CollapsibleTrigger>
                 </div>
-              )}
-            </nav>
-          </div>
-        </SidebarContent>
+                
+                <CollapsibleContent className="overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+                  <div className="ml-2 mt-1.5 space-y-1 py-1 pl-5 border-l border-gray-300/50 dark:border-gray-700/50 group-data-[state=collapsed]:hidden">
+                    {['pending', 'processing', 'ready', 'completed', 'return_refund'].map((status) => (
+                      <button
+                        key={status}
+                        onClick={() => navigate(`/dashboard/my-orders?status=${status}`)}
+                        className={getStatusButtonClass(
+                          location.pathname === '/dashboard/my-orders' && 
+                          new URLSearchParams(location.search).get('status') === status
+                        )}
+                      >
+                        {getStatusIcon(status)}
+                        <span>
+                          {status === 'pending' && 'Pending'}
+                          {status === 'processing' && 'Processing'}
+                          {status === 'ready' && 'Ready for Pick-up'}
+                          {status === 'completed' && 'Completed'}
+                          {status === 'return_refund' && 'Return / Refund'}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
-        <SidebarFooter className={sidebarFooterClasses}>
-          <NavUser user={navUser} isDarkMode={isDarkMode} onToggleTheme={onToggleTheme} />
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
+              <NavLink 
+                to="/dashboard/customize" 
+                className={({ isActive }) => getNavItemClass(isActive)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <MdOutlineEdit className={cn(
+                      getIconClass(isActive),
+                      "group-data-[state=collapsed]:size-5"
+                    )} />
+                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Customize</span>
+                  </>
+                )}
+              </NavLink>
+
+              <NavLink 
+                to="/dashboard/saved-designs" 
+                className={({ isActive }) => getNavItemClass(isActive)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <FiSave className={cn(
+                      getIconClass(isActive),
+                      "group-data-[state=collapsed]:size-5"
+                    )} />
+                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Saved Designs</span>
+                  </>
+                )}
+              </NavLink>
+
+              <NavLink 
+                to="/dashboard/chat-customer" 
+                className={({ isActive }) => getNavItemClass(isActive)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <BsChatDots className={cn(
+                      getIconClass(isActive),
+                      "group-data-[state=collapsed]:size-5"
+                    )} />
+                    <span className="whitespace-nowrap group-data-[state=collapsed]:hidden">Chat with Store</span>
+                  </>
+                )}
+              </NavLink>
+            </div>
+          )}
+        </nav>
+      </SidebarContent>
+
+      <SidebarFooter className="px-3 py-4 border-t border-gray-300/50 dark:border-gray-700/50 group-data-[state=collapsed]:px-2">
+        <div className={cn(
+          "rounded-xl p-3 transition-all",
+          theme.cardBg,
+          theme.cardBorder,
+          "border",
+          "hover:shadow-md",
+          "group-data-[state=collapsed]:p-2" // Less padding when collapsed
+        )}>
+          <NavUser 
+            user={navUser} 
+            isDarkMode={isDarkMode} 
+            onToggleTheme={onToggleTheme} 
+          />
+        </div>
+      </SidebarFooter>
+      
+      <SidebarRail />
+    </Sidebar>
   )
 }
 

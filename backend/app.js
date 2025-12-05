@@ -26,12 +26,14 @@ const notificationRoutes = require("./routes/notificationRoutes");
 const customerChatRoutes = require("./routes/customerChatRoutes");
 const staffChatRoutes = require("./routes/staffChatRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
-// ADD THIS: Import saved design routes
 const savedDesignRoutes = require("./routes/savedDesignRoutes");
+const auditLogRoutes = require('./routes/auditLogs');
+const faqRoutes = require("./routes/faqRoutes");
 
 const Service = require("./models/serviceModel");
 const PrintStore = require("./models/printStoreModel");
 const Employee = require("./models/employeeModel");
+const FAQ = require("./models/faqModel"); // ADD THIS LINE
 const { findOrMigrateCustomerChat } = require("./utils/customerChatHelper");
 const storeAuditRoutes = require('./routes/storeAuditRoutes');
 
@@ -74,6 +76,7 @@ app.use("/api/staff-chat", staffChatRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use('/api/audit-logs', storeAuditRoutes);
 app.use("/api/saved-designs", savedDesignRoutes);
+app.use("/api/faq", faqRoutes); // ADD THIS LINE
 
 // --- Server setup ---
 const server = http.createServer(app);
@@ -117,6 +120,98 @@ const emitToUserIds = (ioInstance, ids, event, payload, excludeId) => {
     const target = onlineUsers[id];
     if (target) ioInstance.to(target.socketId).emit(event, payload);
   });
+};
+
+// Helper function to match FAQ and send auto-reply
+const checkAndSendAutoReply = async (io, chat, message, senderId, storeMemberIds) => {
+  try {
+    if (!message.text || !chat.storeId) return null;
+    
+    // Check if message is from customer
+    const customerId = getCustomerIdFromChat(chat);
+    const isCustomerSender = customerId && senderId.toString() === customerId;
+    if (!isCustomerSender) return null;
+    
+    // Match FAQ against the message
+    const faqs = await FAQ.find({ 
+      storeId: chat.storeId, 
+      isActive: true 
+    });
+    
+    const normalizedMessage = message.text.toLowerCase().trim();
+    
+    // First check for exact triggers
+    const exactMatch = faqs.find(faq => 
+      faq.triggers && faq.triggers.some(trigger => 
+        normalizedMessage === trigger.toLowerCase()
+      )
+    );
+    
+    let matchedFAQ = exactMatch;
+    
+    // If no exact match, check keywords
+    if (!matchedFAQ) {
+      const keywordMatches = faqs.filter(faq => 
+        faq.keywords && faq.keywords.some(keyword => 
+          normalizedMessage.includes(keyword.toLowerCase())
+        )
+      );
+      
+      if (keywordMatches.length > 0) {
+        // Pick the FAQ with most matching keywords
+        matchedFAQ = keywordMatches.reduce((best, current) => {
+          const bestScore = best.keywords?.length || 0;
+          const currentScore = current.keywords?.length || 0;
+          return currentScore > bestScore ? current : best;
+        });
+      }
+    }
+    
+    if (matchedFAQ) {
+      // Increment FAQ usage count
+      matchedFAQ.usageCount = (matchedFAQ.usageCount || 0) + 1;
+      matchedFAQ.lastUsed = new Date();
+      await matchedFAQ.save();
+      
+      // Wait 1-2 seconds to simulate typing
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Send auto-reply
+      const autoReply = await chat.appendMessage({
+        senderId: chat.storeId,
+        text: matchedFAQ.answer,
+        isAutoReply: true,
+        faqId: matchedFAQ._id
+      });
+      
+      const autoReplyPayload = {
+        _id: autoReply._id.toString(),
+        chatId: chat._id.toString(),
+        senderId: chat.storeId,
+        text: autoReply.text,
+        createdAt: autoReply.createdAt,
+        storeId: chat.storeId.toString(),
+        isAutoReply: true,
+        faqId: matchedFAQ._id,
+        faqQuestion: matchedFAQ.question
+      };
+      
+      // Send to customer
+      if (customerId && onlineUsers[customerId]) {
+        io.to(onlineUsers[customerId].socketId).emit("receiveCustomerMessage", autoReplyPayload);
+      }
+      
+      // Send to store members
+      emitToUserIds(io, storeMemberIds, "receiveCustomerMessage", autoReplyPayload);
+      
+      console.log(`🤖 Sent auto-reply from FAQ: "${matchedFAQ.question}"`);
+      
+      return autoReply;
+    }
+  } catch (error) {
+    console.error("Error in auto-reply:", error);
+  }
+  return null;
 };
 
 io.on("connection", (socket) => {
@@ -199,7 +294,7 @@ io.on("connection", (socket) => {
     }
   });
 
-  // --- SEND CUSTOMER MESSAGE ---
+  // --- SEND CUSTOMER MESSAGE (WITH FAQ AUTO-REPLY) ---
   socket.on("sendCustomerMessage", async ({ chatId, senderId, receiverId, text, fileUrl, fileName, payloadType, payload }) => {
     console.log("📨 Customer message -> chat:", chatId);
     if (!mongoose.Types.ObjectId.isValid(chatId) || !mongoose.Types.ObjectId.isValid(senderId)) {
@@ -208,6 +303,7 @@ io.on("connection", (socket) => {
     try {
       const chat = await CustomerChat.findById(chatId);
       if (!chat) return socket.emit("error", { message: "Chat not found" });
+      
       const message = await chat.appendMessage({
         senderId,
         text: text || "",
@@ -216,6 +312,7 @@ io.on("connection", (socket) => {
         payloadType: payloadType || undefined,
         payload: payload || undefined,
       });
+      
       const msgPayload = {
         _id: message._id.toString(),
         chatId,
@@ -228,6 +325,7 @@ io.on("connection", (socket) => {
         createdAt: message.createdAt,
         storeId: chat.storeId ? chat.storeId.toString() : null,
       };
+      
       const customerId = getCustomerIdFromChat(chat);
       const senderIdStr = senderId.toString();
       const isCustomerSender = customerId && senderIdStr === customerId;
@@ -236,6 +334,7 @@ io.on("connection", (socket) => {
         const recipients = await getStoreRecipients(chat.storeId);
         storeMemberIds = recipients.memberIds;
       }
+      
       if (isCustomerSender) {
         emitToUserIds(io, storeMemberIds, "receiveCustomerMessage", msgPayload);
       } else {
@@ -245,7 +344,15 @@ io.on("connection", (socket) => {
         }
         emitToUserIds(io, storeMemberIds, "receiveCustomerMessage", msgPayload, senderIdStr);
       }
+      
       socket.emit("customerMessageSent", msgPayload);
+      
+      // 🔥 NEW: Check for FAQ auto-reply
+      if (isCustomerSender && text && text.trim() && chat.storeId) {
+        // Trigger auto-reply check (non-blocking)
+        checkAndSendAutoReply(io, chat, message, senderId, storeMemberIds);
+      }
+      
     } catch (err) {
       console.error("❌ sendCustomerMessage error", err);
       socket.emit("error", { message: "Failed to send customer message" });

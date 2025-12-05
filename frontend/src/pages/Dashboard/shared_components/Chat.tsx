@@ -2,9 +2,10 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import DashboardLayout from "./DashboardLayout";
-import { AiOutlineSend, AiOutlinePaperClip, AiOutlineUser, AiOutlineMessage, AiOutlineTeam, AiOutlineShop, AiOutlineDownload, AiOutlineClose, AiOutlineReload, AiOutlineArrowLeft } from "react-icons/ai";
+import { AiOutlineSend, AiOutlinePaperClip, AiOutlineUser, AiOutlineMessage, AiOutlineTeam, AiOutlineShop, AiOutlineDownload, AiOutlineClose, AiOutlineReload, AiOutlineArrowLeft, AiOutlinePlus, AiOutlineEdit, AiOutlineDelete, AiOutlineCheck, AiOutlineCloseCircle } from "react-icons/ai";
 import { FaMagnifyingGlass } from "react-icons/fa6";
 import { BsCheck2All, BsCheck2 } from "react-icons/bs";
+import { MessageSquare } from "lucide-react";
 import { useSocket } from "../../../context/SocketContext";
 import { useAuth } from "../../../context/AuthContext";
 import api from "../../../lib/api";
@@ -30,7 +31,7 @@ interface Participant {
   id: string;
   name: string;
   email?: string;
-  chatId?: string; // may be undefined for staff with no existing chat
+  chatId?: string;
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount: number;
@@ -86,6 +87,26 @@ interface FilePreviewState {
   type?: string;
 }
 
+// FAQ Types
+interface FAQ {
+  _id: string;
+  question: string;
+  answer: string;
+  keywords: string[];
+  triggers: string[];
+  isActive: boolean;
+  storeId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface FAQFormData {
+  question: string;
+  answer: string;
+  keywords: string;
+  triggers: string;
+}
+
 type ReturnRequestStatus = 'pending' | 'approved' | 'denied';
 type ReturnRequestTone = 'light' | 'dark';
 
@@ -121,10 +142,9 @@ interface ReturnRequestCardProps {
 }
 
 interface UnifiedChatProps {
-  role?: "owner" | "customer"; // optional override from wrapper
+  role?: "owner" | "customer";
 }
 
-// Utility helpers
 const formatTime = (dateString: string) => {
   const date = new Date(dateString);
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -331,7 +351,6 @@ const ReturnRequestCard: React.FC<ReturnRequestCardProps> = ({ payload, variant,
         try {
           URL.revokeObjectURL(url);
         } catch {
-          /* no-op */
         }
       });
     };
@@ -534,7 +553,6 @@ const ReturnRequestCard: React.FC<ReturnRequestCardProps> = ({ payload, variant,
   );
 };
 
-// Owner Chat sub-component
 const OwnerChat: React.FC = () => {
   const { socket, isConnected } = useSocket();
   const { user } = useAuth();
@@ -555,6 +573,19 @@ const OwnerChat: React.FC = () => {
   const [isMobileChatView, setIsMobileChatView] = React.useState(false);
   const [chatMode, setChatMode] = React.useState<'customers' | 'staff'>('customers');
   const [storeMemberDirectory, setStoreMemberDirectory] = React.useState<Record<string, string>>({});
+  const [storeFAQs, setStoreFAQs] = React.useState<FAQ[]>([]);
+  const [showFAQPanel, setShowFAQPanel] = React.useState(false);
+  const [showFAQForm, setShowFAQForm] = React.useState(false);
+  const [editingFAQ, setEditingFAQ] = React.useState<FAQ | null>(null);
+  const [faqFormData, setFaqFormData] = React.useState<FAQFormData>({
+    question: '',
+    answer: '',
+    keywords: '',
+    triggers: ''
+  });
+  const [faqLoading, setFaqLoading] = React.useState(false);
+  const [faqFormError, setFaqFormError] = React.useState<string | null>(null);
+  
   const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const pendingMessagesRef = React.useRef<Set<string>>(new Set());
@@ -570,6 +601,113 @@ const OwnerChat: React.FC = () => {
   const messageRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
   const highlightTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const [highlightedMessageKey, setHighlightedMessageKey] = React.useState<string | null>(null);
+
+  const loadFAQs = React.useCallback(async () => {
+    if (!storeId || user?.role !== 'owner') return;
+    try {
+      const res = await api.get(`/faq/store/${storeId}`);
+      setStoreFAQs(res.data.faqs || []);
+    } catch (error) {
+      console.error('Failed to load FAQs:', error);
+    }
+  }, [storeId, user?.role]);
+
+  React.useEffect(() => {
+    if (storeId && user?.role === 'owner') {
+      loadFAQs();
+    }
+  }, [storeId, user?.role, loadFAQs]);
+
+  const handleFAQFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFaqFormData(prev => ({ ...prev, [name]: value }));
+    if (faqFormError) setFaqFormError(null);
+  };
+
+  const handleCreateOrUpdateFAQ = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!storeId) return;
+
+    const keywords = faqFormData.keywords.split(',').map(k => k.trim()).filter(k => k);
+    const triggers = faqFormData.triggers.split(',').map(t => t.trim()).filter(t => t);
+
+    if (!faqFormData.question.trim() || !faqFormData.answer.trim()) {
+      setFaqFormError('Question and answer are required');
+      return;
+    }
+
+    setFaqLoading(true);
+    setFaqFormError(null);
+
+    try {
+      if (editingFAQ) {
+        await api.put(`/faq/${editingFAQ._id}`, {
+          question: faqFormData.question,
+          answer: faqFormData.answer,
+          keywords,
+          triggers
+        });
+      } else {
+        await api.post('/faq', {
+          question: faqFormData.question,
+          answer: faqFormData.answer,
+          keywords,
+          triggers,
+          storeId,
+          isActive: true
+        });
+      }
+
+      await loadFAQs();
+      setFaqFormData({ question: '', answer: '', keywords: '', triggers: '' });
+      setEditingFAQ(null);
+      setShowFAQForm(false);
+    } catch (error) {
+      console.error('Failed to save FAQ:', error);
+      setFaqFormError('Failed to save FAQ. Please try again.');
+    } finally {
+      setFaqLoading(false);
+    }
+  };
+
+  const handleEditFAQ = (faq: FAQ) => {
+    setEditingFAQ(faq);
+    setFaqFormData({
+      question: faq.question,
+      answer: faq.answer,
+      keywords: faq.keywords.join(', '),
+      triggers: faq.triggers.join(', ')
+    });
+    setShowFAQForm(true);
+  };
+
+  const handleToggleFAQActive = async (faqId: string, currentStatus: boolean) => {
+    try {
+      await api.patch(`/faq/${faqId}/toggle`, { isActive: !currentStatus });
+      await loadFAQs();
+    } catch (error) {
+      console.error('Failed to toggle FAQ status:', error);
+    }
+  };
+
+  const handleDeleteFAQ = async (faqId: string) => {
+    if (!window.confirm('Are you sure you want to delete this FAQ?')) return;
+    
+    try {
+      await api.delete(`/faq/${faqId}`);
+      await loadFAQs();
+    } catch (error) {
+      console.error('Failed to delete FAQ:', error);
+      alert('Failed to delete FAQ. Please try again.');
+    }
+  };
+
+  const resetFAQForm = () => {
+    setFaqFormData({ question: '', answer: '', keywords: '', triggers: '' });
+    setEditingFAQ(null);
+    setFaqFormError(null);
+    setShowFAQForm(false);
+  };
 
   const getMessageKey = React.useCallback((message: BaseMessage, fallbackIndex?: number) => {
     if (message._id) return message._id;
@@ -627,7 +765,7 @@ const OwnerChat: React.FC = () => {
     const prefetchMembers = async () => {
       if (hasPrefetchedMembers.current) return;
       if (!currentUserId || !user?.role) return;
-      if (user.role === 'employee' && !storeOwnerId) return; // wait until store context resolved
+      if (user.role === 'employee' && !storeOwnerId) return;
       try {
         const rosterRes = await api.get('/employees/mine');
         const roster = Array.isArray(rosterRes.data) ? rosterRes.data : [];
@@ -701,7 +839,6 @@ const OwnerChat: React.FC = () => {
     }
   }, [currentUserId, registerStoreMembers, storeMemberDirectory]);
 
-  // Resolve store context so both owners and employees can query chats by store
   React.useEffect(() => {
     const fetchStore = async () => {
       if (!user?._id) return;
@@ -775,7 +912,6 @@ const OwnerChat: React.FC = () => {
   React.useEffect(() => {
     if (!socket) return;
 
-    // New customer chat notification from owner perspective
     socket.on("newCustomerChat", (data: { customerId: string; customerName: string; chatId: string; lastMessage?: string; storeId?: string | null }) => {
       setParticipants(prev => {
         const existing = prev.find(p => p.chatId === data.chatId);
@@ -803,7 +939,6 @@ const OwnerChat: React.FC = () => {
         });
       }
     });
-    // Customer chat receive
     socket.on("receiveCustomerMessage", (msg: ChatMessage) => {
       const chatId = msg.chatId;
       if (!chatId) return;
@@ -858,7 +993,6 @@ const OwnerChat: React.FC = () => {
       setParticipants(prev => prev.map(p => p.chatId === chatId ? { ...p, lastMessage: msg.text || msg.fileName || "File", lastMessageTime: msg.createdAt } : p));
     });
 
-    // Staff chat events
     socket.on("staffReceiveMessage", (msg: ChatMessage) => {
       const messageKey = `${msg.chatId}-${msg.createdAt}-${msg.text}-${msg.fileName}`;
       const senderId = normalizeId(msg.senderId);
@@ -892,11 +1026,9 @@ const OwnerChat: React.FC = () => {
       setParticipants(prev => prev.map(p => p.chatId === msg.chatId ? { ...p, lastMessage: msg.text || msg.fileName || "File", lastMessageTime: msg.createdAt } : p));
     });
     socket.on("staffChatReady", ({ chatId }: { chatId: string; participants: string[] }) => {
-      // assign chatId for selected participant if missing
       if (selectedParticipant && !selectedParticipant.chatId) {
         setSelectedParticipant({ ...selectedParticipant, chatId });
         setParticipants(prev => prev.map(p => p.id === selectedParticipant.id ? { ...p, chatId } : p));
-        // Load staff messages
         loadMessagesForParticipant({ ...selectedParticipant, chatId }, 'staff');
       }
     });
@@ -957,7 +1089,6 @@ const OwnerChat: React.FC = () => {
         if (!currentUserId) return [];
         const staffRes = await fetch(`http://localhost:8000/api/staff-chat/list?userId=${currentUserId}`);
         const chats = staffRes.ok ? await staffRes.json() as StaffChatSummary[] : [];
-        // Map chats to participants excluding self
         const mapped: Participant[] = [];
         const staffEntries: { id: string; name?: string }[] = [];
         chats.forEach(c => {
@@ -991,7 +1122,6 @@ const OwnerChat: React.FC = () => {
       setSelectedParticipant(null);
       setIsMobileChatView(false);
       try {
-        // Guard: wait for identifiers before attempting customer loads
         if (chatMode === 'customers' && !storeId) { setLoadingParticipants(false); return; }
         let final: Participant[] = [];
         if (chatMode === 'customers') {
@@ -1000,7 +1130,6 @@ const OwnerChat: React.FC = () => {
           const chatParticipants = await loadStaffChats();
           const employees = await loadEmployees();
           const ownerParticipant = await maybeAddOwnerForEmployee();
-          // merge by id, prefer existing chat data
           const byId: Record<string, Participant> = {};
           [...chatParticipants, ...employees].forEach(p => { byId[p.id] = { ...byId[p.id], ...p }; });
           if (ownerParticipant && !byId[ownerParticipant.id]) {
@@ -1070,7 +1199,6 @@ const OwnerChat: React.FC = () => {
       return;
     }
     if (!selectedParticipant.chatId && socket && type === 'customer') {
-      // customer chats for owner already have chatId from list; nothing to do
       return;
     }
     loadMessagesForParticipant(selectedParticipant, type);
@@ -1082,7 +1210,6 @@ const OwnerChat: React.FC = () => {
 
   const handleSend = () => {
     if (!newMessage.trim() || !selectedParticipant || !socket || !currentUserId) return;
-    // If staff chat without existing chatId, trigger staffGetOrCreateChat first; defer sending until chatReady
     if (!selectedParticipant.chatId && selectedParticipant.kind !== 'customer') {
       socket.emit('staffGetOrCreateChat', { userAId: currentUserId, userBId: selectedParticipant.id });
       return;
@@ -1106,7 +1233,7 @@ const OwnerChat: React.FC = () => {
       socket.emit('staffGetOrCreateChat', { userAId: currentUserId, userBId: selectedParticipant.id });
       return;
     }
-    if (!selectedParticipant.chatId) return; // still not ready
+    if (!selectedParticipant.chatId) return;
     const file = e.target.files[0];
     if (file.size > 10 * 1024 * 1024) { alert("File too large (max 10MB)"); return; }
     const reader = new FileReader();
@@ -1280,16 +1407,28 @@ const OwnerChat: React.FC = () => {
           >
             {selectedParticipant ? (
               <>
-            <div className="p-4 border-b border-gray-300 dark:border-white/10 bg-gray-100 dark:bg-gray-700/20 flex items-center gap-3">
-                  <button
-                    type="button"
-                className="md:hidden mr-2 p-2 rounded-full hover:bg-gray-100 text-gray-700 dark:hover:bg-gray-600 dark:text-white"
-                    onClick={() => setIsMobileChatView(false)}
-                  >
-                    <AiOutlineArrowLeft className="w-5 h-5" />
-                  </button>
-                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center"><AiOutlineUser className="w-5 h-5 text-white" /></div>
-              <div><h2 className="font-semibold text-lg text-gray-900 dark:text-white">{selectedParticipant.name}</h2>{selectedParticipant.email && <p className={`text-sm ${MUTED_TEXT}`}>{selectedParticipant.email}</p>}</div>
+            <div className="p-4 border-b border-gray-300 dark:border-white/10 bg-gray-100 dark:bg-gray-700/20 flex items-center gap-3 justify-between">
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                  className="md:hidden mr-2 p-2 rounded-full hover:bg-gray-100 text-gray-700 dark:hover:bg-gray-600 dark:text-white"
+                      onClick={() => setIsMobileChatView(false)}
+                    >
+                      <AiOutlineArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-full flex items-center justify-center"><AiOutlineUser className="w-5 h-5 text-white" /></div>
+                <div><h2 className="font-semibold text-lg text-gray-900 dark:text-white">{selectedParticipant.name}</h2>{selectedParticipant.email && <p className={`text-sm ${MUTED_TEXT}`}>{selectedParticipant.email}</p>}</div>
+                  </div>
+                  
+                  {user?.role === 'owner' && (
+                    <button
+                      onClick={() => setShowFAQPanel(true)}
+                      className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300"
+                      title="Manage FAQs"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scroll">
                   {loadingMessages ? (
@@ -1378,6 +1517,194 @@ const OwnerChat: React.FC = () => {
             )}
           </div>
         </div>
+        
+        {showFAQPanel && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold">FAQ Management</h3>
+                  <p className="text-sm text-gray-500">Manage automated responses for customer queries</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowFAQPanel(false);
+                    resetFAQForm();
+                  }}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <AiOutlineClose className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="p-4 overflow-y-auto max-h-[60vh]">
+                {showFAQForm ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="font-semibold text-lg">
+                        {editingFAQ ? 'Edit FAQ' : 'Create New FAQ'}
+                      </h4>
+                      <button
+                        onClick={resetFAQForm}
+                        className="text-sm text-gray-500 hover:text-gray-700"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    
+                    <form onSubmit={handleCreateOrUpdateFAQ} className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Question *</label>
+                        <input
+                          type="text"
+                          name="question"
+                          value={faqFormData.question}
+                          onChange={handleFAQFormChange}
+                          className={`${INPUT_SURFACE} w-full p-3`}
+                          placeholder="How to cancel my order?"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Answer *</label>
+                        <textarea
+                          name="answer"
+                          value={faqFormData.answer}
+                          onChange={handleFAQFormChange}
+                          className={`${INPUT_SURFACE} w-full p-3 min-h-[100px]`}
+                          placeholder="You can cancel within 24 hours from your order page..."
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Keywords (comma separated)</label>
+                        <input
+                          type="text"
+                          name="keywords"
+                          value={faqFormData.keywords}
+                          onChange={handleFAQFormChange}
+                          className={`${INPUT_SURFACE} w-full p-3`}
+                          placeholder="cancel, cancellation, refund, return"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Words that trigger this FAQ</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Trigger Phrases (comma separated)</label>
+                        <input
+                          type="text"
+                          name="triggers"
+                          value={faqFormData.triggers}
+                          onChange={handleFAQFormChange}
+                          className={`${INPUT_SURFACE} w-full p-3`}
+                          placeholder="how to cancel, cancel order, want to return"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Full phrases that trigger this FAQ</p>
+                      </div>
+                      
+                      {faqFormError && (
+                        <div className="text-sm text-red-500 p-2 bg-red-50 rounded-lg">
+                          {faqFormError}
+                        </div>
+                      )}
+                      
+                      <button
+                        type="submit"
+                        disabled={faqLoading}
+                        className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-500 disabled:opacity-50"
+                      >
+                        {faqLoading ? 'Saving...' : editingFAQ ? 'Update FAQ' : 'Create FAQ'}
+                      </button>
+                    </form>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="font-semibold">Your FAQs ({storeFAQs.length})</h4>
+                      <button
+                        onClick={() => setShowFAQForm(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-500"
+                      >
+                        <AiOutlinePlus className="w-4 h-4" />
+                        Add FAQ
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {storeFAQs.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                          <p className="font-semibold">No FAQs yet</p>
+                          <p className="text-sm">Create your first FAQ to automate customer responses</p>
+                          <button
+                            onClick={() => setShowFAQForm(true)}
+                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500"
+                          >
+                            Create FAQ
+                          </button>
+                        </div>
+                      ) : (
+                        storeFAQs.map((faq) => (
+                          <div key={faq._id} className="p-4 border border-gray-200 rounded-lg dark:border-gray-700">
+                            <div className="flex justify-between items-start mb-3">
+                              <div>
+                                <h4 className="font-medium text-gray-900 dark:text-white">{faq.question}</h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{faq.answer}</p>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-1 text-xs rounded-full ${
+                                  faq.isActive ? 'bg-green-100 text-green-800 dark:bg-green-500/20 dark:text-green-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {faq.isActive ? 'Active' : 'Inactive'}
+                                </span>
+                                <div className="flex gap-1">
+                                  <button
+                                    onClick={() => handleEditFAQ(faq)}
+                                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    title="Edit"
+                                  >
+                                    <AiOutlineEdit className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleToggleFAQActive(faq._id, faq.isActive)}
+                                    className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                                    title={faq.isActive ? 'Deactivate' : 'Activate'}
+                                  >
+                                    {faq.isActive ? <AiOutlineCloseCircle className="w-4 h-4" /> : <AiOutlineCheck className="w-4 h-4" />}
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteFAQ(faq._id)}
+                                    className="p-1.5 rounded hover:bg-red-50 text-red-600 dark:hover:bg-red-500/20"
+                                    title="Delete"
+                                  >
+                                    <AiOutlineDelete className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              <div className="text-xs">
+                                <span className="font-semibold">Keywords: </span>
+                                <span className="text-gray-600 dark:text-gray-300">{faq.keywords.join(', ')}</span>
+                              </div>
+                              <div className="text-xs">
+                                <span className="font-semibold">Triggers: </span>
+                                <span className="text-gray-600 dark:text-gray-300">{faq.triggers.join(', ')}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
         {previewModal.isOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[120] p-4">
           <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden border border-gray-200 dark:border-white/10 shadow-2xl">
@@ -1417,7 +1744,6 @@ const OwnerChat: React.FC = () => {
   );
 };
 
-// Customer Chat sub-component (migrated to CustomerChat collection)
 const CustomerChat: React.FC = () => {
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
@@ -1517,7 +1843,6 @@ const CustomerChat: React.FC = () => {
   }, [messages]);
 
   React.useEffect(() => {
-    // Resolve storeId from routing/localStorage similar to OrderPage
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('selectedStoreId');
       if (stored) setStoreId(stored);
@@ -1960,14 +2285,6 @@ const CustomerChat: React.FC = () => {
                 </button>
               </div>
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              className="hidden"
-              onChange={handleFileSelect}
-              accept="image/*,.pdf,.doc,.docx,.txt"
-              disabled={!canInteract}
-            />
             <div className="text-xs text-gray-500 mt-3 text-center dark:text-slate-300">
               {connectionError
                 ? 'Fix connection issues to send messages'
@@ -2017,7 +2334,6 @@ const CustomerChat: React.FC = () => {
   );
 };
 
-// Unified parent selects sub-chat based on role
 const Chat: React.FC<UnifiedChatProps> = ({ role }) => {
   const { user } = useAuth();
   const effectiveRole = role || user?.role;

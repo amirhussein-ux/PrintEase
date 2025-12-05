@@ -17,6 +17,9 @@ import Customize from "./pages/Dashboard/Customer/Customize";
 // Shared Chat Views
 import Chat from "./pages/Dashboard/shared_components/Chat";
 
+// NEW: Import FAQ Management
+import FAQManagement from "./pages/Dashboard/Store/FAQManagement";
+
 // Debug component to catch errors
 const DebugErrorBoundary = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
@@ -149,6 +152,17 @@ function App() {
               </PrivateRoute>
             }
           />
+          
+          {/* NEW: FAQ Management Route */}
+          <Route
+            path="/dashboard/store/faq"
+            element={
+              <PrivateRoute>
+                <FAQManagement />
+              </PrivateRoute>
+            }
+          />
+          
           <Route
             path="/dashboard/chat-store"
             element={

@@ -108,7 +108,7 @@ const productSettings: Record<string, any> = {
     type: "2d",
     dimensions: { width: 80, height: 160 },
     backgroundColor: "#ffffff",
-    decalDefaults: { position: [0.5, 0.5], scale: 0.4, minScale: 0.05, maxScale: 0.8 },
+    decalDefaults: { position: [0.5, 0.5], scale: 0.4, minScale: 0.05, maxScale: 1 },
     variations: {
       White: { colorCode: "#ffffff" },
       Black: { colorCode: "#1a1a1a" },
