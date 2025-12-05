@@ -22,6 +22,9 @@ interface BackendInventoryItem {
   category?: string;
   amount: number; 
   minAmount: number; 
+  initialStock: number;    
+  maxStock: number;        
+  unit: string;           
   price: number; 
   currency: string; 
   createdAt: string; 
@@ -152,7 +155,7 @@ const YearSelector = ({ selected, set }: { selected: number; set: (y: number) =>
   </div>
 )
 
-// Enhanced Category Accordion with dark mode
+// Enhanced Category Accordion with dark mode - NOW WITH BLINKING
 const CategoryAccordion = ({
   category,
   items,
@@ -160,46 +163,76 @@ const CategoryAccordion = ({
   onToggle,
 }: {
   category: string;
-  items: { name: string; amount: number; minAmount: number; expectedStock: number }[];
+  items: { name: string; amount: number; minAmount: number; expectedStock: number; unit: string}[];
   open: boolean;
   onToggle: () => void;
-}) => (
-  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-xl dark:hover:shadow-gray-900/50">
-    <button
-      onClick={onToggle}
-      className="w-full flex justify-between items-center px-6 py-4 font-bold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-      aria-expanded={open}
-      aria-controls={`cat-${category}`}
-    >
-      <div className="flex items-center gap-3">
-        <CubeIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-        <span className="text-lg">{category}</span>
-        <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs px-2 py-1 rounded-full">
-          {items.length} items
-        </span>
-      </div>
-      <span className={`text-2xl transition-transform duration-300 ${open ? 'rotate-180' : ''} text-gray-600 dark:text-gray-400`}>▼</span>
-    </button>
-    
-    {open && (
-      <div id={`cat-${category}`} className="p-6 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
-          {items.map(it => (
-            <InventoryPie
-              key={it.name}
-              type={it.name}
-              unit="units"
-              items={[{ expectedStock: it.expectedStock, currentStock: it.amount, minAmount: it.minAmount }]}
-            />
-          ))}
+}) => {
+  // Check if ANY item in this category has low stock
+  const hasLowStockItem = items.some(item => {
+    const hasThresholdBreach = typeof item.minAmount === 'number' && item.amount <= (item.minAmount ?? 0);
+    const restock = hasThresholdBreach || (item.expectedStock > 0 && item.amount < item.expectedStock * 0.3);
+    return restock;
+  });
+
+  return (
+    <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-lg dark:shadow-gray-900/30 border-2 overflow-hidden hover:shadow-xl dark:hover:shadow-gray-900/50 ${
+      hasLowStockItem 
+        ? "border-red-500 dark:border-red-400 bg-red-50 dark:bg-red-900/20 animate-pulse" 
+        : "border-gray-100 dark:border-gray-700"
+    }`}>
+      <button
+        onClick={onToggle}
+        className="w-full flex justify-between items-center px-6 py-4 font-bold text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+        aria-expanded={open}
+        aria-controls={`cat-${category}`}
+      >
+        <div className="flex items-center gap-3">
+          <CubeIcon className={`w-5 h-5 ${hasLowStockItem ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`} />
+          <span className="text-lg">{category}</span>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-1 rounded-full ${
+              hasLowStockItem 
+                ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' 
+                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+            }`}>
+              {items.length} items
+            </span>
+            {hasLowStockItem && (
+              <span className="text-red-600 dark:text-red-400 animate-pulse">⚠️</span>
+            )}
+          </div>
         </div>
-      </div>
-    )}
-  </div>
-)
+        <span className={`text-2xl transition-transform duration-300 ${open ? 'rotate-180' : ''} ${hasLowStockItem ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
+          ▼
+        </span>
+      </button>
+      
+      {open && (
+        <div id={`cat-${category}`} className="p-6 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
+            {items.map(it => (
+              <InventoryPie
+                key={it.name}
+                type={it.name}
+                unit={it.unit || 'units'}
+                items={[{ 
+                  expectedStock: it.expectedStock, 
+                  currentStock: it.amount, 
+                  minAmount: it.minAmount,
+                  unit: it.unit 
+                }]}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Enhanced InventoryPie with dark mode
-const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; currentStock: number; minAmount?: number }[]; type: string; unit: string }) => {
+const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; currentStock: number; minAmount?: number; unit?: string }[]; type: string; unit: string }) => {
+  const displayUnit = items[0]?.unit || unit;
   const totalExpected = items.reduce((s, i) => s + Math.max(i.expectedStock, 0), 0)
   const totalCurrent = items.reduce((s, i) => s + Math.max(i.currentStock, 0), 0)
   const decreased = Math.max(totalExpected - totalCurrent, 0)
@@ -258,7 +291,7 @@ const InventoryPie = ({ items, type, unit }: { items: { expectedStock: number; c
       
       <div className="text-center space-y-2">
         <p className="text-sm text-gray-600 dark:text-gray-300">
-          <span className="font-semibold text-gray-900 dark:text-white">{totalCurrent}</span> / {totalExpected} {unit}
+          <span className="font-semibold text-gray-900 dark:text-white">{totalCurrent}</span> / {totalExpected} {displayUnit}
         </p>
         
         {restock && (
@@ -758,7 +791,7 @@ const OwnerDashboardContent: React.FC = () => {
   const [salesYear, setSalesYear] = useState(0)
   const [openIndex, setOpenIndex] = useState<number>(-1)
   const [loading, setLoading] = useState(true)
-  const [inventoryCategories, setInventoryCategories] = useState<Array<{ category: string; items: { name: string; amount: number; minAmount: number; expectedStock: number }[] }>>([])
+  const [inventoryCategories, setInventoryCategories] = useState<Array<{ category: string; items: { name: string; amount: number; minAmount: number; expectedStock: number; unit: string }[] }>>([])
   const [showSkeleton, setShowSkeleton] = useState(true)
   const [contentReady, setContentReady] = useState(false)
   const [orders, setOrders] = useState<Array<{
@@ -847,15 +880,24 @@ const OwnerDashboardContent: React.FC = () => {
         // fetch inventory items for owner store
         const invRes = await api.get('/inventory/mine')
         const invList: BackendInventoryItem[] = Array.isArray(invRes.data) ? invRes.data : []
+
         // group by category
-        const grouped: Record<string, { name: string; amount: number; minAmount: number; expectedStock: number }[]> = {}
+        const grouped: Record<string, { name: string; amount: number; minAmount: number; expectedStock: number; unit: string }[]> = {}
         for (const it of invList) {
           const amt = Math.max(Number(it.amount) || 0, 0)
-            const minAmt = Math.max(Number(it.minAmount) || 0, 0)
-            const expected = Math.max(amt, minAmt)
+          const minAmt = Math.max(Number(it.minAmount) || 0, 0)
           const cat = (it.category && it.category.trim()) ? it.category.trim() : 'Uncategorized'
           if (!grouped[cat]) grouped[cat] = []
-          grouped[cat].push({ name: it.name, amount: amt, minAmount: minAmt, expectedStock: expected })
+
+          // Use the largest of maxStock, initialStock, or calculated expected
+          const expected = Math.max(
+            it.maxStock || 0,
+            it.initialStock || 0,
+            (amt + minAmt * 3)
+          )
+          const unit = it.unit || 'units'
+
+          grouped[cat].push({ name: it.name, amount: amt, minAmount: minAmt, expectedStock: expected, unit: unit})
         }
         const normalizedCategories = Object.keys(grouped)
           .sort((a,b)=>a.localeCompare(b))

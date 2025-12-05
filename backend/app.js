@@ -76,7 +76,7 @@ app.use("/api/staff-chat", staffChatRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use('/api/audit-logs', storeAuditRoutes);
 app.use("/api/saved-designs", savedDesignRoutes);
-app.use("/api/faq", faqRoutes); // ADD THIS LINE
+app.use("/api/faq", faqRoutes); 
 
 // --- Server setup ---
 const server = http.createServer(app);

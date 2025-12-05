@@ -240,13 +240,31 @@ exports.listMyInventory = async (req, res) => {
 exports.createItem = async (req, res) => {
   try {
     const store = await getManagedStore(req, { allowEmployeeRoles: STORE_STAFF_ROLES });
-    const { name, amount = 0, minAmount = 0, entryPrice = 0, price = 0, currency = 'PHP', category } = req.body;
+    const { 
+      name, 
+      amount = 0, 
+      minAmount = 0, 
+      initialStock,  // NEW
+      maxStock,      // NEW
+      unit = 'units', // NEW
+      entryPrice = 0, 
+      price = 0, 
+      currency = 'PHP', 
+      category 
+    } = req.body;
+    
+    // Set initialStock and maxStock based on amount if not provided
+    const initialStockValue = initialStock !== undefined ? Number(initialStock) : Number(amount);
+    const maxStockValue = maxStock !== undefined ? Number(maxStock) : Math.max(Number(amount), Number(initialStockValue));
     
     const doc = await InventoryItem.create({
       store: store._id,
       name: (name || '').trim(),
       amount: Number(amount) || 0,
       minAmount: Number(minAmount) || 0,
+      initialStock: initialStockValue,  // NEW
+      maxStock: maxStockValue,          // NEW
+      unit: unit || 'units',            // NEW
       entryPrice: Number(entryPrice) || 0,
       price: Number(price) || 0,
       currency,
@@ -258,6 +276,9 @@ exports.createItem = async (req, res) => {
       itemId: doc._id,
       itemName: doc.name,
       amount: doc.amount,
+      initialStock: doc.initialStock,  // NEW
+      maxStock: doc.maxStock,          // NEW
+      unit: doc.unit,                  // NEW
       price: doc.price,
       category: doc.category,
       createdBy: req.user?.email || req.user?.username
@@ -279,13 +300,27 @@ exports.updateItem = async (req, res) => {
     const item = await InventoryItem.findOne({ _id: id, store: store._id });
     if (!item) return res.status(404).json({ message: 'Item not found' });
 
-    const { name, amount, minAmount, entryPrice, price, currency, category } = req.body;
+    const { 
+      name, 
+      amount, 
+      minAmount, 
+      initialStock,  // NEW
+      maxStock,      // NEW
+      unit,          // NEW
+      entryPrice, 
+      price, 
+      currency, 
+      category 
+    } = req.body;
 
     // Save old values for audit log
     const oldValues = {
       name: item.name,
       amount: item.amount,
       minAmount: item.minAmount,
+      initialStock: item.initialStock,  // NEW
+      maxStock: item.maxStock,          // NEW
+      unit: item.unit,                  // NEW
       entryPrice: item.entryPrice,
       price: item.price,
       currency: item.currency,
@@ -293,8 +328,19 @@ exports.updateItem = async (req, res) => {
     };
     
     if (name !== undefined) item.name = String(name).trim();
-    if (amount !== undefined) item.amount = Number(amount) || 0;
+    if (amount !== undefined) {
+      const newAmount = Number(amount) || 0;
+      item.amount = newAmount;
+      
+      // Update maxStock if new amount is higher than current max
+      if (newAmount > item.maxStock) {
+        item.maxStock = newAmount;
+      }
+    }
     if (minAmount !== undefined) item.minAmount = Number(minAmount) || 0;
+    if (initialStock !== undefined) item.initialStock = Number(initialStock) || 0;
+    if (maxStock !== undefined) item.maxStock = Number(maxStock) || 0;
+    if (unit !== undefined) item.unit = String(unit).trim() || 'units';
     if (entryPrice !== undefined) item.entryPrice = Number(entryPrice) || 0;
     if (price !== undefined) item.price = Number(price) || 0;
     if (currency !== undefined) item.currency = currency;
@@ -311,6 +357,9 @@ exports.updateItem = async (req, res) => {
         name: item.name,
         amount: item.amount,
         minAmount: item.minAmount,
+        initialStock: item.initialStock,  // NEW
+        maxStock: item.maxStock,          // NEW
+        unit: item.unit,                  // NEW
         entryPrice: item.entryPrice,
         price: item.price,
         currency: item.currency,
