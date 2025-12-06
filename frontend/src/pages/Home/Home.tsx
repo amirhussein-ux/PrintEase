@@ -6,6 +6,7 @@ import Testimonials from './components/Testimonials'
 import HowItWorks from './components/HowItWorks'
 import Feedback from './components/Feedback'
 import Contact from './components/Contact'
+import Footer from './components/Footer'
 
 const Home = () => {
   return (
@@ -18,6 +19,7 @@ const Home = () => {
       <Testimonials/>
       <Feedback/>
       <Contact/>
+      <Footer/>
     </>
   )
 }

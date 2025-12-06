@@ -20,6 +20,9 @@ import Chat from "./pages/Dashboard/shared_components/Chat";
 // NEW: Import FAQ Management
 import FAQManagement from "./pages/Dashboard/Store/FAQManagement";
 
+// ADD THESE NEW IMPORTS FOR PUBLIC PAGES
+import TermsConditions from "./pages/Home/components/TermsConditions";
+
 // Debug component to catch errors
 const DebugErrorBoundary = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
@@ -68,6 +71,9 @@ function App() {
           <Route path="/login" element={<Authentication />} />
           <Route path="/signup" element={<Authentication />} />
           <Route path="/forgot-password" element={<Authentication />} />
+          
+          {/* ADD THESE NEW PUBLIC ROUTES */}
+          <Route path="/terms" element={<TermsConditions />} />
 
           {/* Profile */}
           <Route
