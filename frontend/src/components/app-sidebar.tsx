@@ -271,13 +271,14 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
 
   // Theme configuration
   const theme = {
+    // SOLID BACKGROUNDS ONLY (no transparency)
     sidebarBg: isDarkMode ? "bg-gray-900" : "bg-white",
     sidebarBorder: isDarkMode ? "border-gray-800" : "border-gray-200",
     sidebarText: isDarkMode ? "text-gray-100" : "text-gray-900",
     sidebarMuted: isDarkMode ? "text-gray-400" : "text-gray-500",
     
-    // Cards and surfaces
-    cardBg: isDarkMode ? "bg-gray-800/50" : "bg-gray-50",
+    // Cards and surfaces - SOLID
+    cardBg: isDarkMode ? "bg-gray-800" : "bg-gray-50",
     cardBorder: isDarkMode ? "border-gray-700" : "border-gray-200",
     
     // Interactive states
@@ -288,7 +289,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     // Navigation specific
     navIcon: isDarkMode ? "text-gray-300" : "text-gray-600",
     navActiveIcon: isDarkMode ? "text-white" : "text-gray-900",
-    navSubBg: isDarkMode ? "bg-gray-800/30" : "bg-gray-50/80",
+    navSubBg: isDarkMode ? "bg-gray-800" : "bg-gray-50", // No transparency
     
     // Accent colors
     accentBorder: isDarkMode ? "border-blue-500/30" : "border-blue-200",
@@ -388,6 +389,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
     <Sidebar
       collapsible="icon"
       className={cn(
+        "!bg-white !dark:bg-gray-900",
         "select-none transition-all duration-300",
         theme.sidebarBg,
         "border-r",
