@@ -7,10 +7,12 @@ const auditLogger = require('../middleware/auditLogger');
 
 const router = express.Router();
 
+const storeUploads = upload.fields([{ name: 'logo', maxCount: 1 }, { name: 'businessPermit', maxCount: 1 }]);
+
 // owner routes (accept optional logo upload)
-router.post('/', protect, auditLogger('create', 'Store'), upload.single('logo'), createPrintStore);
+router.post('/', protect, auditLogger('create', 'Store'), storeUploads, createPrintStore);
 router.get('/mine', protect, getMyPrintStore);
-router.put('/mine', protect, auditLogger('update', 'Store'), upload.single('logo'), updateMyPrintStore);
+router.put('/mine', protect, auditLogger('update', 'Store'), storeUploads, updateMyPrintStore);
 
 // public list
 const { getAllPrintStores } = require('../controllers/printStoreController');

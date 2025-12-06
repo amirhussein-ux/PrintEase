@@ -76,7 +76,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   return (
     <Transition.Root show={showDialog} as={Fragment}>
-      <Dialog as="div" className="relative z-50" onClose={onClose}>
+      <Dialog as="div" className="relative z-[9999]" onClose={onClose}>
         <Transition.Child
           as={Fragment}
           enter="ease-out duration-300"

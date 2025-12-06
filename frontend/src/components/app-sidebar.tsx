@@ -110,7 +110,7 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
   })
 
   // Role checks
-  const isCustomer = user?.role === 'customer'
+  const isCustomer = user?.role === 'customer' || user?.role === 'guest'
   const isOwner = user?.role === 'owner';
   const isOperationsManager = user?.employeeRole === 'Operations Manager';
   const isPrinterOperator = user?.employeeRole === 'Printer Operator';
@@ -924,5 +924,17 @@ function AppSidebarContent({ isDarkMode = false, onToggleTheme, ...props }: AppS
 }
 
 export function AppSidebar({ isDarkMode = false, onToggleTheme, ...props }: AppSidebarProps) {
-  return <AppSidebarContent isDarkMode={isDarkMode} onToggleTheme={onToggleTheme} {...props} />
+  return (
+    <>
+      <style>{`
+        [data-sidebar="sidebar"][data-mobile="true"] {
+          background: white !important;
+        }
+        .dark [data-sidebar="sidebar"][data-mobile="true"] {
+          background: #0f172a !important;
+        }
+      `}</style>
+      <AppSidebarContent isDarkMode={isDarkMode} onToggleTheme={onToggleTheme} {...props} />
+    </>
+  );
 }

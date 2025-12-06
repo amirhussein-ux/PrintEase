@@ -57,7 +57,6 @@ L.Icon.Default.mergeOptions({
 type PrintStore = {
   _id: string;
   name: string;
-  tin?: string;
   mobile?: string;
   logoFileId?: unknown;
   address?: {

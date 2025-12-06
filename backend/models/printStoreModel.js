@@ -2,8 +2,9 @@ const mongoose = require('mongoose');
 
 const printStoreSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  tin: { type: String, required: true },
-  birCertUrl: { type: String },
+  businessPermitFileId: { type: mongoose.Schema.Types.ObjectId },
+  businessPermitMime: { type: String },
+  businessPermitFilename: { type: String },
   // address
   address: {
     addressLine: { type: String },

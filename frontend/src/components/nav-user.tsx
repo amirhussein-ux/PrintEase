@@ -58,7 +58,7 @@ export function NavUser({
     document.addEventListener("click", onDocClick)
     return () => document.removeEventListener("click", onDocClick)
   }, [])
-  const { isMobile, state: sidebarState, setOpen: setSidebarOpen } = useSidebar()
+  const { isMobile, state: sidebarState, setOpen: setSidebarOpen, setOpenMobile } = useSidebar()
   const navigate = useNavigate()
   const capitalizeFirst = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s)
 
@@ -71,6 +71,9 @@ export function NavUser({
   }
 
   const handleLogout = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
     setShowLogoutConfirm(false);
     logout();
     navigate("/login");
@@ -162,36 +165,44 @@ export function NavUser({
                 </div>
                 <div className={dropdownDividerClasses}>
                   <button
-                    onClick={() => setShowLogoutConfirm(true)}
+                    onClick={() => {
+                      setCollapsibleOpen(false);
+                      if (isMobile) {
+                        setOpenMobile(false); // Close the mobile sidebar
+                        setShowLogoutConfirm(true);
+                      } else {
+                        setShowLogoutConfirm(true);
+                      }
+                    }}
                     className={dropdownButtonClasses}
                     type="button"
                   >
                     <MdOutlineLogout />
                     <span>Log out</span>
                   </button>
-                  
                 </div>
               </div>
             </CollapsibleContent>
           </Collapsible>
         </SidebarMenuItem>
+        <SidebarMenuItem className="z-[9999]">
+          <ConfirmDialog
+            open={showLogoutConfirm}
+            title="Log Out?"
+            message={
+              <span>
+                You're about to log out{authUser?.role === 'guest' ? ' of your guest session' : ''}. Any unsaved changes may be lost.
+                <br />
+                Continue?
+              </span>
+            }
+            confirmText="Log Out"
+            cancelText="Stay"
+            onConfirm={handleLogout}
+            onClose={() => setShowLogoutConfirm(false)}
+          />
+        </SidebarMenuItem>
       </SidebarMenu>
-      <ConfirmDialog
-        open={showLogoutConfirm}
-        title="Log Out?"
-        message={
-          <span>
-            You're about to log out{authUser?.role === 'guest' ? ' of your guest session' : ''}. Any unsaved changes may be lost.
-            <br />
-            Continue?
-          </span>
-        }
-        confirmText="Log Out"
-        cancelText="Stay"
-        onConfirm={handleLogout}
-        onClose={() => setShowLogoutConfirm(false)}
-        isDarkMode={isDarkMode}
-      />
     </>
   )
 }

@@ -36,7 +36,6 @@ export default function CreateShop() {
   const { user } = useAuth();
   // verification input removed
   const [storeName, setStoreName] = useState("");
-  const [tin, setTin] = useState("");
   const [mobile, setMobile] = useState("");
   const [addressLine, setAddressLine] = useState("");
   const [city, setCity] = useState("");
@@ -46,6 +45,8 @@ export default function CreateShop() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [businessPermitFile, setBusinessPermitFile] = useState<File | null>(null);
+  const [businessPermitFilename, setBusinessPermitFilename] = useState<string | null>(null);
   const [originalLogoFile, setOriginalLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
@@ -127,11 +128,10 @@ export default function CreateShop() {
         const res = await api.get('/print-store/mine');
         if (!active) return;
         const s = res.data as {
-          name: string; tin?: string; mobile: string; address?: { addressLine?: string; city?: string; country?: string; state?: string; postal?: string; location?: { lat?: number; lng?: number } }; logoFileId?: unknown;
+          name: string; mobile: string; address?: { addressLine?: string; city?: string; country?: string; state?: string; postal?: string; location?: { lat?: number; lng?: number } }; logoFileId?: unknown; businessPermitFileId?: unknown; businessPermitFilename?: string;
         };
         setEditing(true);
         setStoreName(s.name || '');
-        setTin(s.tin || '');
         setMobile(s.mobile || '');
         setAddressLine(s.address?.addressLine || '');
         setCity(s.address?.city || '');
@@ -140,6 +140,9 @@ export default function CreateShop() {
         setPostal(s.address?.postal || '');
         if (s.address?.location && typeof s.address.location.lat === 'number' && typeof s.address.location.lng === 'number') {
           setPosition({ lat: s.address.location.lat, lng: s.address.location.lng });
+        }
+        if (s.businessPermitFilename) {
+          setBusinessPermitFilename(s.businessPermitFilename);
         }
         // extract logo id robustly
         let logoId: string | undefined;
@@ -198,7 +201,6 @@ export default function CreateShop() {
               try {
                 const form = new FormData();
                 form.append('name', storeName);
-                form.append('tin', tin);
                 form.append('mobile', mobile);
                 const addressObj = {
                   addressLine,
@@ -210,6 +212,7 @@ export default function CreateShop() {
                 };
                 form.append('address', JSON.stringify(addressObj));
                 if (logoFile) form.append('logo', logoFile);
+                if (businessPermitFile) form.append('businessPermit', businessPermitFile);
                 if (editing && removeLogo && !logoFile) form.append('removeLogo', 'true');
 
                 if (editing) {
@@ -260,24 +263,6 @@ export default function CreateShop() {
                 />
               </div>
 
-              {/* TIN */}
-              <div>
-                <label
-                  htmlFor="tin"
-                  className="block text-sm font-semibold text-black"
-                >
-                  TAX PAYER IDENTIFICATION NUMBER
-                </label>
-                <input
-                  id="tin"
-                  type="text"
-                  value={tin}
-                  onChange={(e) => setTin(e.target.value)}
-                  className="mt-2 block w-full rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
-                  placeholder="123-456-789"
-                />
-              </div>
-
               {/* Mobile Number */}
               <div>
                 <label
@@ -295,14 +280,6 @@ export default function CreateShop() {
                     className="flex-1 rounded-xl bg-neutral-300 px-3 py-2 text-gray-900 outline-none placeholder:text-gray-600 focus:ring-2 focus:ring-blue-500 sm:text-sm"
                     placeholder="09XXXXXXXXX"
                   />
-                  <button
-                    type="button"
-                    // send code placeholder
-                    onClick={() => { /* send code action can be implemented here */ }}
-                    className="rounded-xl bg-neutral-300 px-4 py-2 text-sm font-semibold text-black hover:bg-gray-200 focus:outline-none"
-                  >
-                    Send Code
-                  </button>
                 </div>
               </div>
 
@@ -502,39 +479,73 @@ export default function CreateShop() {
                 />
               )}
 
-              {/* BIR certificate */}
+              {/* BUSINESS PERMIT */}
               <div>
                 <label
-                  htmlFor="birCert"
+                  htmlFor="businessPermit"
                   className="block text-sm font-semibold text-black"
                 >
-                  BIR CERTIFICATE OF REGISTRATION (Form 2303)
+                  BUSINESS PERMIT
                 </label>
-                <label
-                  htmlFor="birCert"
-                  className="mt-2 flex flex-col items-center justify-center w-full h-50 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100"
-                >
-                  <svg
-                    className="w-8 h-8 mb-4 text-gray-500"
-                    aria-hidden="true"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 20 16"
+                {!businessPermitFile && !businessPermitFilename ? (
+                  <label
+                    htmlFor="businessPermit"
+                    className="mt-2 flex flex-col items-center justify-center w-full h-50 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100"
                   >
-                    <path
-                      stroke="currentColor"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+                    <svg
+                      className="w-8 h-8 mb-4 text-gray-500"
+                      aria-hidden="true"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 20 16"
+                    >
+                      <path
+                        stroke="currentColor"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+                      />
+                    </svg>
+                    <p className="mb-2 text-sm text-gray-500">
+                      <span className="font-semibold">Click to upload</span> or drag & drop
+                    </p>
+                    <p className="text-xs text-gray-500">PNG, PDF, JPG or DOCX</p>
+                    <input
+                      id="businessPermit"
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => setBusinessPermitFile(e.target.files?.[0] || null)}
                     />
-                  </svg>
-                  <p className="mb-2 text-sm text-gray-500">
-                    <span className="font-semibold">Click to upload</span> or drag & drop
-                  </p>
-                  <p className="text-xs text-gray-500">PNG, PDF, JPG or DOCX</p>
-                  <input id="birCert" type="file" className="hidden" />
-                </label>
+                  </label>
+                ) : (
+                  <div className="mt-2 flex items-center justify-between w-full h-50 border-2 border-gray-300 rounded-lg bg-white p-4">
+                    <div className="flex items-center gap-3">
+                      <svg
+                        className="w-8 h-8 text-gray-500"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      <p className="text-sm text-gray-700 font-medium truncate">
+                        {businessPermitFile ? businessPermitFile.name : businessPermitFilename}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBusinessPermitFile(null);
+                        setBusinessPermitFilename(null);
+                      }}
+                      className="rounded-md bg-red-100 px-3 py-1 text-sm text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
